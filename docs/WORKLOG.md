@@ -180,6 +180,13 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: wykres z prawdziwym backendem tylko przez CI instalatora (API), nie w przeglądarce; liczniki pokazują stan, nie energię za okres (P4.3).
 - Następne małe zadanie: P4.3 — energia za okres i KPI (D27) z obsługą resetów liczników.
 
+- Etap: P4.3a — energia za okres i KPI (API).
+- Zmiany: czysty moduł `energy.py` (przyrosty liczników z agregatów godzinowych z resetem i progiem 100 kW, zużycie z mocy 5 min, sumy w przedziały, KPI D27 ze statusami); `GET /api/sites/{id}/devices/{did}/energy` (godziny/doby/miesiące w strefie instalacji, `origins`, definicje wskaźników).
+- Testy uruchomione i wyniki: lokalnie pytest server 133 passed (z bazą w CI), ruff, mypy --strict; przykład z makiety (94,4% / 81,5%), reset, luka, skok, mianownik 0, wynik poza zakresem, zmiana czasu.
+- Decyzje zatwierdzone: D48.
+- Ryzyka / rzeczy nieweryfikowane: profil symulatora nie ma liczników sieci i baterii (symulator je liczy) — KPI na symulatorze „niedostępne”; energia przez przerwę nie jest doliczana.
+- Następne małe zadanie: P4.3b — panel „Energia i wskaźniki” na stronie historii.
+
 ## Szablon kolejnego wpisu
 
 - Data:

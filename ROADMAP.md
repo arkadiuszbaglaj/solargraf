@@ -58,8 +58,8 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 - [ ] Normalizacja jednostek oraz walidacja zakresów.
 - [x] Agregaty 5 min / godzina / dzień z liczbą próbek i pokryciem; usługa `worker`, API historii (P4.1, D46).
 - [x] Wykresy dzień/tydzień/miesiąc/rok — historia urządzenia w UI (P4.2, D47).
-- [ ] Zatwierdzone wzory KPI (O3) i bilansu energii.
-- [ ] Obsługa luk, zmian czasu, strefy czasowej i resetów liczników.
+- [ ] Zatwierdzone wzory KPI (O3) i bilansu energii — KPI D27 i energia za okres w API (P4.3a, D48); panel w UI (P4.3b) i bilans instalacji do zrobienia.
+- [x] Obsługa luk, zmian czasu, strefy czasowej i resetów liczników (D46, D48).
 - [ ] Retencja przez partycje (O8).
 
 **Akceptacja:** obliczenia mają testy przypadków brzegowych (w tym niespójności z makiet); wykres odróżnia brak danych od wartości 0.
