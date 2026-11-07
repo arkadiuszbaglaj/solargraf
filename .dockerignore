@@ -5,6 +5,7 @@
 !server/
 !agent/
 !profiles-schema/
+!simulator/pyproject.toml
 !web/
 !deploy/proxy/
 server/tests/

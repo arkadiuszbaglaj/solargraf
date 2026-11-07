@@ -1,0 +1,17 @@
+[project]
+name = "solargraf-simulator"
+version = "0.0.0"
+description = "SolarGraf (nazwa robocza) — symulator urządzeń do testów (dane SIMULATED)"
+requires-python = ">=3.12,<3.13"
+license = "LicenseRef-Proprietary"
+dependencies = ["solargraf-profiles"]
+
+[tool.uv.sources]
+solargraf-profiles = { workspace = true }
+
+[project.scripts]
+solargraf-sim = "solargraf_simulator.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.13.5,<0.14"]
+build-backend = "uv_build"
