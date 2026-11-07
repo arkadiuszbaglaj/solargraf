@@ -145,6 +145,13 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: kody błędów cyklu są zdefiniowane osobno w agencie i serwerze (kontrakt pilnowany walidacją API); partycje kończą się w 2028-10 — przed tym P4 musi dodać tworzenie kolejnych.
 - Następne małe zadanie: P3.5 — pętla agenta (konfiguracja, harmonogram, bufor SQLite, wysyłka, heartbeat) i usługa `agent` w Compose.
 
+- Etap: P3.5 — pętla agenta i wdrożenie.
+- Zmiany: `solargraf-agent run`: konfiguracja z serwera (ETag), jedno zadanie i jeden klient Modbus na połączenie, restart tylko zmienionych połączeń, bufor SQLite (7 dni, trwały `batch_id`), wysyłka od najstarszych, heartbeat; obraz `solargraf-agent` i usługa `agent` w Compose; instalator tworzy agenta `lokalny` i zapisuje token w `.env`; `solargraf-admin agent rotate`; httpx2 (BSD-3-Clause) w agencie.
+- Testy uruchomione i wyniki: lokalnie pytest 225 passed (testy z bazą, w tym e2e symulator → agent → API → PostgreSQL, w CI), ruff, mypy --strict, licencje (33 zależności, 0 niezgodnych). Obraz agenta i heartbeat z kontenera sprawdza job instalatora w CI.
+- Decyzje zatwierdzone: D43.
+- Ryzyka / rzeczy nieweryfikowane: jedynym profilem jest profil symulatora — bez połączeń i urządzeń w bazie agent tylko wysyła heartbeat; agent w kontenerze sięga do LAN przez NAT sieci Dockera (do potwierdzenia na sprzęcie).
+- Następne małe zadanie: P3.6 — dodawanie połączeń i urządzeń przez API i UI.
+
 ## Szablon kolejnego wpisu
 
 - Data:

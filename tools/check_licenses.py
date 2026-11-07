@@ -220,7 +220,9 @@ def check_python(policy: Policy) -> list[Finding]:
         try:
             meta = metadata.metadata(name)
         except metadata.PackageNotFoundError:
-            findings.append(Finding(name, version, None, ok=False))
+            # Pakiet niezainstalowany lokalnie (np. tylko dla innej platformy) — wolno go
+            # zaakceptować wyłącznie przez ręcznie zweryfikowany wyjątek w polityce.
+            findings.append(evaluate(name, version, None, policy))
             continue
         findings.append(evaluate(name, version, python_license(meta), policy))
     return findings

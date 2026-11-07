@@ -48,6 +48,13 @@ def utc_now() -> datetime:
     return datetime.now(UTC)
 
 
+def new_client(target: Target, timeout_seconds: float) -> AsyncModbusTcpClient:
+    # Ponawianie robimy sami (z odstępami); wbudowane w pymodbus wyłączone.
+    return AsyncModbusTcpClient(
+        target.host, port=target.port, timeout=timeout_seconds, retries=0, reconnect_delay=0
+    )
+
+
 class _BlockFailed(Exception):
     def __init__(self, error: PollError) -> None:
         super().__init__(error.detail)
@@ -62,7 +69,10 @@ class ModbusPoller:
         *,
         clock: Callable[[], datetime] = utc_now,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        client: AsyncModbusTcpClient | None = None,
+        timeout_seconds: int | None = None,
     ) -> None:
+        """``client`` — wspólny klient połączenia (D43: jedno połączenie na urządzenie fizyczne)."""
         self.profile = profile
         self.target = target
         self.blocks = plan_blocks(profile)
@@ -71,17 +81,14 @@ class ModbusPoller:
         self.origin = (
             Origin.SIMULATED if profile.origin is ProfileOrigin.SIMULATED else Origin.DEVICE
         )
-        # Ponawianie robimy sami (z odstępami); wbudowane w pymodbus wyłączone.
-        self.client = AsyncModbusTcpClient(
-            target.host,
-            port=target.port,
-            timeout=profile.polling.timeout_seconds,
-            retries=0,
-            reconnect_delay=0,
+        self._owns_client = client is None
+        self.client = client or new_client(
+            target, timeout_seconds or profile.polling.timeout_seconds
         )
 
     def close(self) -> None:
-        self.client.close()
+        if self._owns_client:
+            self.client.close()
 
     async def poll(self) -> PollingRun:
         run = PollingRun(started_at=self.clock())

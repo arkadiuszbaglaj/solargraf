@@ -104,3 +104,5 @@ def test_repository_policy_matches_compliance_doc() -> None:
     policy = load_policy()
     assert {"MIT", "BSD-3-Clause", "Apache-2.0", "ISC", "PostgreSQL", "Zlib"} <= policy.allowed
     assert not any(x.startswith(("GPL", "AGPL", "LGPL", "SSPL", "BUSL")) for x in policy.allowed)
+    # Wyjątek może tylko potwierdzić licencję z listy dozwolonych, nie dopuścić innej.
+    assert all(expression_allowed(lic, policy.allowed) for lic in policy.exceptions.values())

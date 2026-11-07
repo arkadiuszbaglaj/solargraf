@@ -1,6 +1,7 @@
-# Produkcja (D34): db + migrate + api + proxy. Uruchamia instalator deploy/install.sh,
-# który tworzy plik .env (sekrety, uprawnienia 600) w katalogu instalacji.
-# Na hosta wystawione tylko proxy (80 → przekierowanie, 443). Baza i API tylko w sieci Compose.
+# Produkcja (D34, D43): db + migrate + api + proxy + agent. Uruchamia instalator
+# deploy/install.sh, który tworzy plik .env (sekrety, uprawnienia 600) w katalogu instalacji.
+# Na hosta wystawione tylko proxy (80 → przekierowanie, 443). Baza, API i agent tylko w sieci
+# Compose; agent łączy się z urządzeniami w LAN przez sieć mostkową Dockera.
 name: solargraf
 
 x-db-env: &db-env
@@ -82,10 +83,30 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  agent:
+    build:
+      context: ..
+      dockerfile: agent/Dockerfile
+    image: solargraf-agent:local
+    labels: *labels
+    environment:
+      SOLARGRAF_API_URL: http://api:8000
+      # Pusty do czasu, aż instalator utworzy agenta i zapisze token w .env.
+      SOLARGRAF_AGENT_TOKEN: ${SOLARGRAF_AGENT_TOKEN:-}
+    <<: *hardening
+    volumes:
+      - agent-buffer:/var/lib/solargraf-agent
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   db-data:
     labels: *labels
   caddy-data:
     labels: *labels
   caddy-config:
+    labels: *labels
+  agent-buffer:
     labels: *labels
