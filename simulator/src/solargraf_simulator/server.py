@@ -12,15 +12,25 @@ import struct
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from decimal import Decimal
+from typing import Protocol
 
 from solargraf_profiles.model import RegisterTable
 from solargraf_simulator.plant import Plant
-from solargraf_simulator.registers import ModbusException, RegisterMap
+from solargraf_simulator.registers import ModbusException
 
 MBAP = struct.Struct(">HHHB")  # transakcja, protokół, długość, unit id
 FUNCTIONS = {0x03: RegisterTable.HOLDING, 0x04: RegisterTable.INPUT}
 GATEWAY_TARGET_FAILED = 0x0B
 MAX_PDU = 253
+
+
+class Registers(Protocol):
+    """Źródło rejestrów: mapa z profilu (``RegisterMap``) albo mapa SunSpec."""
+
+    def read(
+        self, metrics: dict[str, Decimal], table: RegisterTable, address: int, count: int
+    ) -> list[int]: ...
 
 
 @dataclass
@@ -39,7 +49,7 @@ class SimulatorServer:
     def __init__(
         self,
         plant: Plant,
-        registers: RegisterMap,
+        registers: Registers,
         *,
         unit_id: int = 1,
         faults: Faults | None = None,

@@ -145,6 +145,18 @@ class SunSpecModel:
         group_size = self.group(group).size
         return model_start + self.fixed.size + index * group_size + point.offset
 
+    def scale_factor_address(
+        self, model_start: int, name: str, group: str | None = None, index: int | None = None
+    ) -> int | None:
+        """Adres rejestru skali punktu; None — punkt bez skali albo ze skalą stałą."""
+        sf = self.scale_factor_point(self.point(name, group), group)
+        if sf is None:
+            return None
+        in_group = group is not None and sf.name in self.group(group).points
+        if in_group:
+            return self.address(model_start, sf.name, group, index)
+        return self.address(model_start, sf.name)
+
 
 def _group(raw: dict[str, Any]) -> SunSpecGroup:
     points: dict[str, SunSpecPoint] = {}

@@ -26,7 +26,7 @@ class Block:
 
 def plan_blocks(profile: Profile) -> list[Block]:
     if profile.addressing is not Addressing.REGISTERS:
-        # Adresy SunSpec ustala dopiero odczyt mapy urządzenia (P6.2b); bez tego odczyt byłby pusty.
+        # Adresy SunSpec zna dopiero mapa urządzenia — odczyt planuje ``sunspec_map``.
         raise ValueError(f"profil {profile.id}: adresowanie {profile.addressing} nieobsługiwane")
     limit = profile.polling.max_block_registers
     points = sorted(

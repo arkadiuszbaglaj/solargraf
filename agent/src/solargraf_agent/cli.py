@@ -21,7 +21,7 @@ from solargraf_agent.modbus import ModbusPoller, Target
 from solargraf_agent.readings import PollingRun
 from solargraf_agent.runner import AgentRunner, ProfileKey
 from solargraf_profiles.loader import ProfileError, load_directory, load_profile
-from solargraf_profiles.model import Addressing, Profile
+from solargraf_profiles.model import Profile
 
 DEFAULT_API_URL = "http://api:8000"
 DEFAULT_BUFFER = "/var/lib/solargraf-agent/buffer.sqlite3"
@@ -61,15 +61,7 @@ def load_profiles(directory: Path) -> dict[ProfileKey, Profile]:
     result = load_directory(directory)
     for error in result.errors:
         log.warning("Profil pominięty: %s", error)
-    usable = {}
-    for p in result.profiles:
-        if p.addressing is not Addressing.REGISTERS:
-            log.warning(
-                "Profil pominięty: %s — adresowanie %s jeszcze nieobsługiwane", p.id, p.addressing
-            )
-            continue
-        usable[(p.id, p.version)] = p
-    return usable
+    return {(p.id, p.version): p for p in result.profiles}
 
 
 async def _run(env: dict[str, str]) -> int:

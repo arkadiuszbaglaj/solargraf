@@ -276,6 +276,12 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: brak urządzenia SunSpec — wszystko na danych testowych; znak mocy licznika 201/203 do potwierdzenia.
 - Następne małe zadanie: P6.2b — wykrywanie modeli i odczyt SunSpec w agencie, symulator SunSpec.
 
+- Etap: P6.2b — odczyt SunSpec w agencie i symulator (D59).
+- Zmiany: `agent/sunspec_map.py` (wykrywanie mapy, bloki modeli, adresy punktów i skal); `ModbusPoller` czyta profile SunSpec z zapamiętaną mapą i ponownym wykryciem po zmianie; `simulator/sunspec_map.py` (mapa z profili, kilka profili naraz, `--sunspec-base` w CLI).
+- Testy uruchomione i wyniki: ruff, mypy --strict (115 plików), pytest profili/agenta/symulatora 173 passed — w tym agent na symulatorze: falownik i licznik z jednej mapy, adres bazowy 50000, brak modelu/modułu/punktu, „nie zaimplementowano”, urządzenie bez SunSpec, timeout przy wykrywaniu, zmiana mapy, małe bloki.
+- Ryzyka / rzeczy nieweryfikowane: brak urządzenia SunSpec; licznik energii 0 jest w SunSpec brakiem wartości; tylko pierwsza instancja modelu.
+- Następne małe zadanie: P6.2c — profile falownika i licznika SunSpec, test end-to-end na symulatorze.
+
 ## Szablon kolejnego wpisu
 
 - Data:

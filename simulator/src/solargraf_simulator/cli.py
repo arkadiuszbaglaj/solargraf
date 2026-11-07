@@ -1,6 +1,8 @@
 """Uruchomienie symulatora z linii poleceń (D40).
 
 Przykład: ``uv run solargraf-sim profiles/simulated.hybrid-inverter.yaml --port 5020``
+
+Profile SunSpec (D59) można podać razem (np. falownik i licznik) — trafiają do jednej mapy.
 """
 
 from __future__ import annotations
@@ -11,17 +13,29 @@ import ipaddress
 import sys
 from pathlib import Path
 
+from solargraf_profiles import sunspec
 from solargraf_profiles.loader import ProfileError, load_profile
+from solargraf_profiles.model import Addressing, Profile
 from solargraf_simulator.plant import Plant, PlantConfig
 from solargraf_simulator.registers import RegisterMap
-from solargraf_simulator.server import Faults, SimulatorServer, utc_now
+from solargraf_simulator.server import Faults, Registers, SimulatorServer, utc_now
+from solargraf_simulator.sunspec_map import SunSpecRegisterMap
 
 
 def _parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="solargraf-sim", description="Symulator urządzenia (SIMULATED)"
     )
-    p.add_argument("profile", type=Path, help="plik profilu YAML")
+    p.add_argument(
+        "profile", type=Path, nargs="+", help="plik profilu YAML (kilka — tylko profile SunSpec)"
+    )
+    p.add_argument(
+        "--sunspec-base",
+        type=int,
+        choices=sunspec.BASE_ADDRESSES,
+        default=sunspec.BASE_ADDRESSES[0],
+        help="adres bazowy mapy SunSpec",
+    )
     p.add_argument("--host", default="127.0.0.1", help="adres nasłuchu (domyślnie tylko lokalnie)")
     p.add_argument("--port", type=int, default=5020)
     p.add_argument("--unit-id", type=int, default=1)
@@ -37,8 +51,17 @@ def _parser() -> argparse.ArgumentParser:
     return p
 
 
+def registers_for(profiles: list[Profile], args: argparse.Namespace) -> Registers:
+    if all(p.addressing is Addressing.SUNSPEC for p in profiles):
+        return SunSpecRegisterMap(profiles, base=args.sunspec_base, unit_id=args.unit_id)
+    if len(profiles) != 1:
+        raise ProfileError("kilka profili naraz tylko dla adresowania SunSpec")
+    return RegisterMap(profiles[0])
+
+
 async def _run(args: argparse.Namespace) -> None:
-    profile = load_profile(args.profile)
+    profiles = [load_profile(path) for path in args.profile]
+    registers = registers_for(profiles, args)
     plant = Plant(PlantConfig(pv_peak_w=args.pv_peak_w), now=utc_now())
     faults = Faults(
         no_response=args.no_response,
@@ -46,12 +69,10 @@ async def _run(args: argparse.Namespace) -> None:
         drop_connection=args.drop_connection,
         single_client=args.single_client,
     )
-    server = SimulatorServer(plant, RegisterMap(profile), unit_id=args.unit_id, faults=faults)
+    server = SimulatorServer(plant, registers, unit_id=args.unit_id, faults=faults)
     port = await server.start(args.host, args.port)
-    print(
-        f"SIMULATED: {profile.id} {profile.version} na {args.host}:{port}, unit {args.unit_id}",
-        flush=True,
-    )
+    names = ", ".join(f"{p.id} {p.version}" for p in profiles)
+    print(f"SIMULATED: {names} na {args.host}:{port}, unit {args.unit_id}", flush=True)
     try:
         while True:
             await asyncio.sleep(args.reset_counters_every or 3600)

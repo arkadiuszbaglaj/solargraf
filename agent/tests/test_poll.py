@@ -118,8 +118,8 @@ class TestPlan:
         # Wartość 32-bitowa nigdy nie jest dzielona między bloki.
         assert [(b.address, b.count) for b in blocks][:2] == [(0, 4), (4, 4)]
 
-    def test_sunspec_profile_is_refused_until_discovery(self) -> None:
-        # D59: adresy SunSpec zna dopiero mapa urządzenia — bez niej agent nie udaje odczytu.
+    def test_sunspec_profile_is_not_planned_as_fixed_registers(self) -> None:
+        # D59: adresy SunSpec zna dopiero mapa urządzenia (``sunspec_map``), nie stały plan.
         data = copy.deepcopy(RAW)
         data["addressing"] = "sunspec"
         data["points"] = [
