@@ -125,7 +125,7 @@ npm --prefix web run dev                # http://localhost:5173 — wymaga logow
 VITE_SKIP_AUTH=1 npm --prefix web run dev   # bez backendu: dashboard DEMO bez logowania (tylko dev)
 ```
 
-Serwer deweloperski przekazuje `/api` do `http://127.0.0.1:8000` (backend z `deploy/compose.dev.yaml`). Ścieżki: `/login`, `/setup?token=…`, pozostałe za logowaniem (D36).
+Serwer deweloperski przekazuje `/api` do `http://127.0.0.1:8000` (backend z `deploy/compose.dev.yaml`). Ścieżki: `/login`, `/setup?token=…`, `/instalacje` (D37), pozostałe za logowaniem (D36). W Claude Code konfiguracja podglądu `web-dev-demo` uruchamia tryb bez backendu.
 
 Do czasu API (P2/P5) jedynym źródłem danych jest `web/src/data/demo/DemoDataSource.ts`, oznaczone w UI badge'em `DEMO`. Instalacja demonstracyjna B symuluje utratę agenta (stan „nieaktualne” i `UNKNOWN`).
 

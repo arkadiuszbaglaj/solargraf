@@ -73,7 +73,11 @@ describe('Dashboard (DEMO)', () => {
     await userEvent.tab()
     expect(document.activeElement?.textContent).toBe('Przejdź do treści')
     await userEvent.tab()
-    expect(document.activeElement?.getAttribute('href')).toBe('#main')
+    expect(document.activeElement?.getAttribute('href')).toBe('/')
+    expect(document.activeElement?.getAttribute('aria-current')).toBe('page')
+    await userEvent.tab()
+    expect(document.activeElement?.getAttribute('href')).toBe('/instalacje')
+    expect(document.activeElement?.getAttribute('aria-current')).toBeNull()
     await userEvent.tab()
     // Przycisk menu (widoczny na małych ekranach) i select instalacji są osiągalne z klawiatury.
     expect(document.activeElement?.getAttribute('aria-controls')).toBeTruthy()
@@ -84,7 +88,7 @@ describe('Dashboard (DEMO)', () => {
   it('nieaktywne pozycje menu są oznaczone i nie są linkami', () => {
     renderApp()
     const nav = screen.getByRole('navigation', { name: 'Główna nawigacja' })
-    expect(within(nav).getAllByRole('link')).toHaveLength(1)
+    expect(within(nav).getAllByRole('link').map((l) => l.textContent)).toEqual(['Dashboard', 'Instalacje'])
     expect(within(nav).getByText('Alarmy').closest('[aria-disabled="true"]')).toBeTruthy()
   })
 })

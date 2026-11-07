@@ -6,11 +6,12 @@ import { DemoDataSource } from './data/demo/DemoDataSource'
 import { LoginPage } from './pages/LoginPage'
 import { SetupPage, takeTokenFromLocation } from './pages/SetupPage'
 
-export type Route = 'setup' | 'login' | 'app'
+export type Route = 'setup' | 'login' | 'sites' | 'app'
 
 export function routeFor(pathname: string): Route {
   if (pathname === '/setup') return 'setup'
   if (pathname === '/login') return 'login'
+  if (pathname === '/instalacje') return 'sites'
   return 'app'
 }
 
@@ -36,7 +37,7 @@ export function Root() {
   // Jedyne źródło danych do czasu API (P2/P5) to jawnie oznaczone DEMO.
   const dashboard = (
     <DataSourceProvider source={new DemoDataSource()}>
-      <App />
+      <App page={route === 'sites' ? 'sites' : 'dashboard'} />
     </DataSourceProvider>
   )
   return skipAuth ? dashboard : <AuthGate>{dashboard}</AuthGate>
