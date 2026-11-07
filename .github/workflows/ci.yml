@@ -151,9 +151,9 @@ jobs:
           test -x /tmp/bundle/solargraf/deploy/install.sh
           test -s /tmp/bundle/solargraf/VERSION
           if grep -rl $'\r' /tmp/bundle/solargraf/deploy; then echo 'Niespełniony warunek'; exit 1; fi
-      - name: --dry-run na czystych systemach (Debian 12/13, Ubuntu 24.04)
+      - name: --dry-run na czystych systemach (Debian 12/13, Ubuntu 24.04/26.04)
         run: |
-          for img in debian:12 debian:13 ubuntu:24.04; do
+          for img in debian:12 debian:13 ubuntu:24.04 ubuntu:26.04; do
             echo "::group::$img"
             docker run --rm -v /tmp/bundle/solargraf:/src:ro "$img" bash /src/deploy/install.sh install --dry-run
             echo "::endgroup::"

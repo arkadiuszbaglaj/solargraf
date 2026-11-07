@@ -146,7 +146,7 @@ Usługi: `db` (PostgreSQL 18, bez portu na hoście), `migrate` (jednorazowo `ale
 
 ### Instalacja na serwerze (wersja dev, D34, D35)
 
-Jedną komendą z GitHuba (Debian 12/13, Ubuntu 24.04, Raspberry Pi OS 64-bit; amd64/arm64):
+Jedną komendą z GitHuba (Debian 12/13, Ubuntu 24.04/26.04, Raspberry Pi OS 64-bit; amd64/arm64):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/arkadiuszbaglaj/solargraf/main/deploy/install.sh | sudo bash -s install
@@ -154,13 +154,19 @@ curl -fsSL https://raw.githubusercontent.com/arkadiuszbaglaj/solargraf/main/depl
 
 Najpierw sam plan i kontrola: `… | sudo bash -s install --dry-run`; inna gałąź lub tag: `--ref <nazwa>`.
 
+Jeśli `sudo` nie daje skryptowi dostępu do terminala (np. sudo-rs w Ubuntu 26.04), pytania (instalacja Dockera) nie zadziałają w potoku — wtedy pobierz skrypt i uruchom z pliku albo dodaj `--yes`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/arkadiuszbaglaj/solargraf/main/deploy/install.sh -o install.sh && sudo bash install.sh install
+```
+
 Bez dostępu serwera do GitHuba — paczka offline. Na komputerze deweloperskim (Git Bash/Linux) — paczka z zatwierdzonego `HEAD`:
 
 ```bash
 ./tools/make-bundle.sh                 # dist/solargraf-<wersja>.tar.gz + .sha256
 ```
 
-Na serwerze (Debian 12/13, Ubuntu 24.04, Raspberry Pi OS 64-bit; amd64/arm64), po skopiowaniu paczki:
+Na serwerze (Debian 12/13, Ubuntu 24.04/26.04, Raspberry Pi OS 64-bit; amd64/arm64), po skopiowaniu paczki:
 
 ```bash
 tar -xzf solargraf-<wersja>.tar.gz

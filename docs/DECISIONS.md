@@ -60,7 +60,7 @@ O1 (topologia sieci) rozstrzygnięte 2026-11-04 → D14. O3 (KPI) rozstrzygnięt
 | O11 | Progi oceny stabilności serwera i retencja metryk. | Ostrzeżenie: CPU > 85% przez 15 min, RAM > 90%, dysk > 85%, temperatura > 75 °C; krytyczne: dysk > 95%, komponent niedostępny, niedobór napięcia na RPi. Próbki co 60 s, historia 30 dni. Do potwierdzenia testami na RPi. | P7 |
 | O12 | Ile poprzednich wersji zachować do rollbacku po aktualizacji? | Jedną poprzednią wersję. | P7 |
 | O13 | Skąd instalator pobiera skrypt i obrazy (domena, rejestr obrazów) i czy dostęp do obrazów wymaga licencji? | Własna domena producenta dla skryptu i manifestu; prywatny rejestr obrazów z tokenem z licencji albo publiczne obrazy, w których działanie ogranicza plik licencji. Decyzja razem z O5. | P1 (wersja dev), P7 |
-| O14 | Wspierane systemy. | Debian 12/13, Ubuntu 24.04 LTS, Raspberry Pi OS 64-bit (Bookworm i nowszy); amd64 i arm64. Proxmox: VM albo LXC z włączonym nesting. | P1 |
+| O14 | Wspierane systemy. | Debian 12/13, Ubuntu 24.04 LTS i 26.04 LTS (dodane przez właściciela 2026-11-07), Raspberry Pi OS 64-bit (Bookworm i nowszy); amd64 i arm64. Proxmox: VM albo LXC z włączonym nesting. | P1 |
 
 ## Można odłożyć
 
