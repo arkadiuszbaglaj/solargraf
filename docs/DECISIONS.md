@@ -34,15 +34,16 @@ Data zatwierdzenia: 2026-11-04 (właściciel projektu).
 | D24 | Wersja PostgreSQL | PostgreSQL 18 (oficjalny obraz `postgres:18`). Sterownik asyncpg (Apache-2.0); psycopg wykluczony (LGPL). | Zmiana wersji głównej wymaga migracji danych (`pg_upgrade`/dump) — osobna decyzja. Zatwierdzone 2026-11-07. |
 | D25 | Endpointy health | `GET /api/health` (proces żyje) i `GET /api/health/ready` (także baza; 200/503) dostępne bez uwierzytelnienia. Odpowiedź zawiera tylko status — bez wersji, hostów i treści błędów. | Jedyny wyjątek od reguły „wszystkie endpointy wymagają uwierzytelnienia”; potrzebny dla health checków Dockera i instalatora. Zatwierdzone 2026-11-07. |
 | D26 | Migracje bazy | Osobna jednorazowa usługa `migrate` w Compose (`alembic upgrade head`) przed startem `api`. API nie zmienia schematu. | Umożliwia backup przed migracją w instalatorze/aktualizacji (P7). Zatwierdzone 2026-11-07. |
+| D27 | Definicje KPI (z O3) | Autokonsumpcja = (produkcja PV − eksport) / produkcja PV. Samowystarczalność = (zużycie domu − import) / zużycie domu. Dwa osobne wskaźniki, liczone z energii w danym okresie. | Implementacja i testy w P4; UI podpisuje wskaźnik definicją i okresem. Zatwierdzone 2026-11-07. |
+| D28 | Frontend — biblioteki UI | ECharts (Apache-2.0) przez własny cienki komponent z importem modułowym; ikony lucide-react (ISC); style: CSS Modules + tokeny w zmiennych CSS; bez routera do czasu drugiego widoku. Testy: Testing Library + jsdom. | Bez echarts-for-react i Tailwind. Zatwierdzone 2026-11-07. |
 
 ## Otwarte — blokujące określone etapy
 
-O1 (topologia sieci) rozstrzygnięte 2026-11-04 → D14.
+O1 (topologia sieci) rozstrzygnięte 2026-11-04 → D14. O3 (KPI) rozstrzygnięte 2026-11-07 → D27.
 
 | # | Pytanie | Rekomendacja | Blokuje |
 |---|---|---|---|
 | O2 | Pierwszy sprzęt docelowy. | Deye SUN-12K-SG05LP3 + BOS-G16 przez logger Solarman V5, licznik Eastron SDM630; równolegle ogólny SunSpec. | Pierwszy adapter (P3) |
-| O3 | Definicje KPI. | Autokonsumpcja = (produkcja PV − eksport) / produkcja PV. Samowystarczalność = (zużycie − import) / zużycie. Dwa osobne wskaźniki, liczone z energii w danym okresie. | P4 |
 | O4 | Nazwa handlowa. | Wybrać nową nazwę i sprawdzić w EUIPO/UPRP przed jakimkolwiek materiałem sprzedażowym. | Sprzedaż, branding UI |
 | O5 | Model licencjonowania (np. per instalacja, per serwer, subskrypcja aktualizacji). | Podpisany plik licencji weryfikowany offline; limit liczby instalacji; okres aktualizacji. | P7 |
 | O6 | Role użytkowników. | Właściciel organizacji, administrator/instalator, podgląd; uprawnienia przypisane do instalacji. | P2 |

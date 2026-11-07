@@ -117,6 +117,14 @@ uv run python tools/check_licenses.py npm      # licencje zależności produkcyj
 uv run pre-commit run --all-files
 ```
 
+### Frontend (dev)
+
+```bash
+npm --prefix web run dev                # http://localhost:5173 — dashboard na danych DEMO
+```
+
+Do czasu API (P2/P5) jedynym źródłem danych jest `web/src/data/demo/DemoDataSource.ts`, oznaczone w UI badge'em `DEMO`. Instalacja demonstracyjna B symuluje utratę agenta (stan „nieaktualne” i `UNKNOWN`).
+
 ### Backend w Docker Compose (dev)
 
 Wymaga Dockera z Compose (D23: Docker Engine w WSL2 lub na Linuksie).

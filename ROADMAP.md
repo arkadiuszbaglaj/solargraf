@@ -20,12 +20,12 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 
 - [x] FastAPI z endpointem health, PostgreSQL i Alembic w Docker Compose (weryfikacja w CI; lokalnie po instalacji Dockera).
 - [ ] **Instalator jedną komendą, wersja 1** (D18): sprawdzenie wymagań, instalacja Dockera, generowanie sekretów, uruchomienie Compose, health checks, adres i jednorazowy link do pierwszego konta; polecenia `install`, `status`, `uninstall`. Testowany na Debianie, Ubuntu i Raspberry Pi OS 64-bit.
-- [ ] React + Vite: layout (sidebar, topbar, siatka), responsywność, przełącznik instalacji.
-- [ ] Tokeny designu, komponenty KPI, status badge, panel, wykres ECharts, tabela, alarm.
-- [ ] Stany loading, empty, error, stale/offline.
-- [ ] Dane demo tylko w odseparowanym providerze i z widocznym oznaczeniem `DEMO`.
-- [ ] Branding w jednym miejscu (nazwa robocza).
-- [ ] Testy dostępności klawiaturą i podstawowe testy komponentów.
+- [x] React + Vite: layout (sidebar, topbar, siatka), responsywność, przełącznik instalacji.
+- [x] Tokeny designu, komponenty KPI, status badge, panel, wykres ECharts, alarm (tabela — gdy pojawi się widok, który jej potrzebuje).
+- [x] Stany loading, empty, error, stale/offline.
+- [x] Dane demo tylko w odseparowanym providerze i z widocznym oznaczeniem `DEMO`.
+- [x] Branding w jednym miejscu (nazwa robocza).
+- [x] Testy dostępności klawiaturą i podstawowe testy komponentów.
 
 **Akceptacja:** na czystym Debianie/RPi OS aplikacja uruchamia się jedną komendą i jest dostępna w przeglądarce w LAN; dashboard odpowiada strukturze makiet na desktopie; układ działa na tablecie i telefonie; demo jest jednoznacznie oznaczone.
 

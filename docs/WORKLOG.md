@@ -47,6 +47,15 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: obrazy przypięte tagami, nie digestami (P7); stałe hasło `ci-only-password` dla efemerycznej bazy w CI; brak Dockera lokalnie (WSL niezainstalowany).
 - Następne małe zadanie: P1 wycinek 2 — layout UI z danymi DEMO.
 
+## 2026-11-07 (P1, wycinek 2)
+
+- Etap: P1 — dashboard na danych DEMO.
+- Zmiany: layout (sidebar z nieaktywnymi pozycjami „wkrótce”, topbar z przełącznikiem instalacji i czasem w strefie instalacji, link „Przejdź do treści”, menu na małych ekranach); tokeny CSS (jasny/ciemny); komponenty Panel, WidgetState, KpiCard, StatusBadge, DemoBadge, wykres ECharts (SVG, ładowany leniwie, luki jako null); widżety KPI, wykres dnia, status urządzeń, alarmy; kontrakt `DashboardDataSource` i `DemoDataSource` (model PV/zużycia/baterii, luka 13:00–13:45, licznik bez odpowiedzi, instalacja B z utraconym agentem); branding w `src/branding.ts`.
+- Testy uruchomione i wyniki: Vitest 44/44 (jednostki i konwersje, strefa i zmiana czasu, świeżość i status urządzeń, źródło DEMO z bilansem mocy i D27, opcje wykresu, stany widżetu, klawiatura); oxlint, tsc, build; licencje npm 9/9. Ręcznie w przeglądarce: desktop i wąski ekran, instalacja A i B, brak błędów w konsoli.
+- Decyzje zatwierdzone: D27 (definicje KPI z O3), D28 (biblioteki UI).
+- Ryzyka / rzeczy nieweryfikowane: brak porównania pikselowego z makietą (układ wzorowany, nie kopiowany); paczka ECharts ~180 kB gzip (ładowana leniwie); nie sprawdzono czytnikiem ekranu; widok dzienny w demo zależy od pory dnia.
+- Następne małe zadanie: P1 wycinek 3 — instalator v1 (wymaga Linuksa/WSL2 do testów).
+
 ## Szablon kolejnego wpisu
 
 - Data:
