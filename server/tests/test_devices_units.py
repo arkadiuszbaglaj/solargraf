@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from solargraf_server.devices import (
     ConnectionCreate,
     ConnectionSettings,
+    device_metrics,
     freshness_threshold,
     validate_host,
 )
@@ -86,3 +87,18 @@ def test_freshness_threshold() -> None:
 
 def test_catalog_missing_directory_is_empty(tmp_path: Path) -> None:
     assert ProfileCatalog.load(tmp_path / "brak").all() == []
+
+
+def test_device_metrics_come_from_profile_without_unsupported() -> None:
+    catalog = ProfileCatalog.load(PROFILES_DIR)
+    profile = catalog.get("simulated.hybrid-inverter", "0.1.0")
+    assert profile is not None
+    metrics = device_metrics(profile)
+    keys = [(m.key, m.channel) for m in metrics]
+    assert keys[0] == ("pv_power", None)
+    assert ("pv_string_voltage", 1) in keys
+    assert ("battery_temperature", None) not in keys  # UNSUPPORTED w profilu
+    assert len(keys) == len(set(keys))
+    energy = next(m for m in metrics if m.key == "pv_energy_total")
+    assert (energy.unit, energy.cumulative) == ("Wh", True)
+    assert device_metrics(None) == []

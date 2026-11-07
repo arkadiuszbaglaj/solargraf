@@ -173,6 +173,13 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: strefy z przesunięciem niecałkowitym; brak przeliczenia danych sprzed 0006; worker przetwarza do 200 godzin na transakcję.
 - Następne małe zadanie: P4.2 — wykres historii w UI (ECharts, luki jako `null`, oznaczenie SIMULATED).
 
+- Etap: P4.2 — wykres historii w UI.
+- Zmiany: `metrics` w `GET /api/sites/{id}/devices` dla każdej roli (z profilu, bez UNSUPPORTED); strona historii urządzenia (wybór pomiaru, okres dzień/tydzień/miesiąc/rok, poprzedni/dziś/następny, granice w strefie instalacji), ECharts ładowany osobno, luki jako przerwy w linii, podpowiedź z min/max/pokryciem, znak SIMULATED/DEMO z `origins`; link z listy urządzeń.
+- Testy uruchomione i wyniki: Vitest 146/146, oxlint, tsc, build; pytest server 119 passed (z bazą w CI); ręcznie w przeglądarce z podstawionymi odpowiedziami API (dzień z luką, miesiąc, wąski ekran) — poprawione etykiety osi dla miesiąca i separator dziesiętny.
+- Decyzje zatwierdzone: D47.
+- Ryzyka / rzeczy nieweryfikowane: wykres z prawdziwym backendem tylko przez CI instalatora (API), nie w przeglądarce; liczniki pokazują stan, nie energię za okres (P4.3).
+- Następne małe zadanie: P4.3 — energia za okres i KPI (D27) z obsługą resetów liczników.
+
 ## Szablon kolejnego wpisu
 
 - Data:

@@ -7,6 +7,7 @@ import { Sidebar } from './layout/Sidebar'
 import { Topbar } from './layout/Topbar'
 import type { Page } from './layout/Sidebar'
 import { DashboardPage } from './pages/DashboardPage'
+import { DeviceHistoryPage } from './pages/DeviceHistoryPage'
 import { DevicesPage } from './pages/DevicesPage'
 import { SitesPage } from './pages/SitesPage'
 import styles from './App.module.css'
@@ -15,7 +16,8 @@ export function App({
   now: fixedNow,
   page = 'dashboard',
   siteId: routeSiteId = '',
-}: { now?: Date; page?: Page | 'devices'; siteId?: string } = {}) {
+  deviceId: routeDeviceId = '',
+}: { now?: Date; page?: Page | 'devices' | 'history'; siteId?: string; deviceId?: string } = {}) {
   const source = useDataSource()
   const tickingNow = useNow()
   const now = fixedNow ?? tickingNow
@@ -32,14 +34,16 @@ export function App({
       <a className={styles.skip} href="#main">
         Przejdź do treści
       </a>
-      <Sidebar open={menuOpen} id={menuId} current={page === 'devices' ? 'sites' : page} />
+      <Sidebar open={menuOpen} id={menuId} current={page === 'devices' || page === 'history' ? 'sites' : page} />
       <div className={styles.content}>
         <Topbar
           {...(page === 'sites'
             ? { title: 'Instalacje', subtitle: 'Instalacje dostępne dla Twojego konta', showSiteSwitcher: false }
             : page === 'devices'
               ? { title: 'Urządzenia', subtitle: 'Urządzenia i połączenia instalacji', showSiteSwitcher: false }
-              : {})}
+              : page === 'history'
+                ? { title: 'Historia', subtitle: 'Historia pomiarów urządzenia', showSiteSwitcher: false }
+                : {})}
           sites={sites}
           siteId={site?.id ?? ''}
           onSiteChange={setSelected}
@@ -54,6 +58,8 @@ export function App({
             <SitesPage />
           ) : page === 'devices' ? (
             <DevicesPage siteId={routeSiteId} />
+          ) : page === 'history' ? (
+            <DeviceHistoryPage siteId={routeSiteId} deviceId={routeDeviceId} now={now} />
           ) : state.status !== 'ready' ? (
             <WidgetState
               status={state.status === 'loading' ? { kind: 'loading' } : { kind: 'error', onRetry: reload }}

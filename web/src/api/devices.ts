@@ -14,6 +14,15 @@ export interface ApiConnection {
   pollIntervalSeconds: number | null
 }
 
+/** Metryka z profilu urządzenia (D47), widoczna dla każdej roli. */
+export interface ApiDeviceMetric {
+  key: string
+  channel: number | null
+  name: string
+  unit: string
+  cumulative: boolean
+}
+
 export interface ApiDevice {
   id: string
   name: string
@@ -24,6 +33,7 @@ export interface ApiDevice {
   status: DeviceStatus
   lastSuccessAt: string | null
   details: { profileId: string | null; profileVersion: string | null; connection: ApiConnection } | null
+  metrics: ApiDeviceMetric[]
 }
 
 export interface ApiProfile {
@@ -62,6 +72,21 @@ function parseConnection(v: unknown): ApiConnection | null {
   return { id: v.id, name: v.name, host, port, unitId, pollIntervalSeconds: interval }
 }
 
+function parseMetric(v: unknown): ApiDeviceMetric | null {
+  if (!isRecord(v)) return null
+  const { key, channel, name, unit, cumulative } = v
+  if (
+    typeof key !== 'string' ||
+    !(channel === null || Number.isInteger(channel)) ||
+    typeof name !== 'string' ||
+    typeof unit !== 'string' ||
+    typeof cumulative !== 'boolean'
+  ) {
+    return null
+  }
+  return { key, channel: channel as number | null, name, unit, cumulative }
+}
+
 export function parseDevice(v: unknown): ApiDevice | null {
   if (!isRecord(v)) return null
   const { id, name, kind, enabled, status } = v
@@ -90,6 +115,9 @@ export function parseDevice(v: unknown): ApiDevice | null {
     if (profileId === undefined || profileVersion === undefined || !connection) return null
     details = { profileId, profileVersion, connection }
   }
+  // Starsze odpowiedzi bez pola `metrics` traktujemy jak brak metryk.
+  const metrics = v.metrics === undefined ? [] : parseList(v.metrics, parseMetric)
+  if (metrics === null) return null
   return {
     id,
     name,
@@ -100,6 +128,7 @@ export function parseDevice(v: unknown): ApiDevice | null {
     status: status as DeviceStatus,
     lastSuccessAt,
     details,
+    metrics,
   }
 }
 
