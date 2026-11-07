@@ -12,6 +12,7 @@ import { EnergyFlowPanel } from '../widgets/EnergyFlowPanel'
 import { KpiRow } from '../widgets/KpiRow'
 import { LiveKpiRow } from '../widgets/LiveKpiRow'
 import { SiteAlarmsPanel } from '../widgets/SiteAlarmsPanel'
+import { SiteDetailsPanels } from '../widgets/SiteDetailsPanels'
 import { SiteDevicesPanel } from '../widgets/SiteDevicesPanel'
 import { TodayPowerChart } from '../widgets/TodayPowerChart'
 import styles from './DashboardPage.module.css'
@@ -25,7 +26,8 @@ async function loadToday(site: Site, now: Date, signal: AbortSignal): Promise<Si
 
 /**
  * Dashboard z API: wartości na żywo (D50), energia dziś (D51), urządzenia i agenci (D52),
- * przepływ energii (D54), alarmy (D55). Jeden strumień SSE dla kart i diagramu.
+ * przepływ energii (D54), alarmy (D55), szczegóły PV/baterii/sieci (D56). Jeden strumień SSE
+ * dla kart, diagramu i szczegółów.
  */
 function LiveDashboard({ site }: { site: Site }) {
   const live = useLiveSite(site.id)
@@ -47,6 +49,7 @@ function LiveDashboard({ site }: { site: Site }) {
           <SiteAlarmsPanel siteId={site.id} timeZone={site.timezone} />
         </div>
       </div>
+      <SiteDetailsPanels live={live} />
     </div>
   )
 }
