@@ -272,7 +272,8 @@ jobs:
           echo "pomiary SIMULATED: $simulated, inne: $other"
           test "$simulated" -gt 0
           test "$other" = "0"
-          sudo solargraf status | grep -q 'Symulator (SIMULATED): włączony'
+          sudo solargraf status > sim-status.txt
+          grep -q 'Symulator (SIMULATED): włączony' sim-status.txt
           sudo solargraf simulator off
           test -z "$(docker ps -aq --filter label=com.docker.compose.project=solargraf --filter label=com.docker.compose.service=simulator)"
           if sudo grep -q '^SOLARGRAF_SIMULATOR=' "$DIR/.env"; then echo 'Niespełniony warunek'; exit 1; fi
