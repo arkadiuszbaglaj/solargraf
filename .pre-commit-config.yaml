@@ -1,5 +1,7 @@
 # Wszystkie hooki są lokalne: używają wersji narzędzi przypiętych w uv.lock i package-lock.json.
-# Instalacja: uv run pre-commit install
+# Instalacja (oba etapy naraz): uv run pre-commit install
+default_install_hook_types: [pre-commit, pre-push]
+default_stages: [pre-commit]
 repos:
   - repo: local
     hooks:
@@ -37,3 +39,40 @@ repos:
         language: fail
         files: (^|/)(\.env(\..+)?|.*\.pem|.*\.key)$
         exclude: (^|/)\.env\.example$
+
+      # --- pre-push: lokalna ochrona main (GitHub bez Pro nie chroni gałęzi prywatnych) ---
+      - id: no-push-to-main
+        name: blokada pushu na main
+        entry: uv run --frozen python -m tools.hooks.no_push_to_main
+        language: system
+        stages: [pre-push]
+        always_run: true
+        pass_filenames: false
+      - id: pytest
+        name: pytest
+        entry: uv run --frozen pytest -q
+        language: system
+        stages: [pre-push]
+        always_run: true
+        pass_filenames: false
+      - id: web-test
+        name: vitest (web)
+        entry: npm --prefix web test
+        language: system
+        stages: [pre-push]
+        always_run: true
+        pass_filenames: false
+      - id: licenses-python
+        name: licencje zależności (Python)
+        entry: uv run --frozen python tools/check_licenses.py python
+        language: system
+        stages: [pre-push]
+        files: ^(uv\.lock|pyproject\.toml|server/pyproject\.toml|agent/pyproject\.toml|tools/license-policy\.json)$
+        pass_filenames: false
+      - id: licenses-npm
+        name: licencje zależności (npm)
+        entry: uv run --frozen python tools/check_licenses.py npm
+        language: system
+        stages: [pre-push]
+        files: ^(web/package(-lock)?\.json|tools/license-policy\.json)$
+        pass_filenames: false

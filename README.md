@@ -88,8 +88,19 @@ Struktura: `server/` (API, pakiet `solargraf_server`), `agent/` (kolektor, `sola
 ```bash
 uv sync --locked                       # środowisko Python (workspace server + agent + narzędzia dev)
 npm --prefix web ci                    # zależności frontendu
-uv run pre-commit install              # hooki przed commitem
+uv run pre-commit install              # hooki pre-commit i pre-push
 ```
+
+Hooki wywołują `uv` i `npm`, więc oba muszą być w `PATH` (także w terminalu, z którego robisz `git push`).
+
+**Ochrona `main` (lokalna).** Prywatne repozytorium na GitHubie bez planu Pro nie ma reguł ochrony gałęzi, dlatego hook pre-push blokuje bezpośredni push na `main` i przed każdym pushem uruchamia pytest, Vitest oraz (przy zmianie zależności) kontrolę licencji. Zmiany trafiają na `main` przez gałąź i PR:
+
+```bash
+git switch -c feat/nazwa-zmiany
+git push -u origin feat/nazwa-zmiany   # potem PR na GitHubie, merge po zielonym CI
+```
+
+Świadome obejście blokady: `SOLARGRAF_ALLOW_PUSH_MAIN=1 git push`. Hook działa tylko tam, gdzie go zainstalowano, i można go pominąć przez `--no-verify` — CI na GitHubie sprawdza każdy push niezależnie.
 
 Kontrole (te same co w CI, `.github/workflows/ci.yml`):
 
