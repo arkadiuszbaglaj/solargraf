@@ -26,6 +26,23 @@ export function mergeReadings(current: ReadingMap, readings: readonly LiveReadin
   return next
 }
 
+/** Urządzenie z metrykami z profilu — wspólny kształt dla strumienia i listy urządzeń. */
+export interface MetricSourceDevice {
+  id: string
+  enabled: boolean
+  metrics: ReadonlyArray<{ key: string; channel: number | null }>
+}
+
+export type Source<T> = { kind: 'one'; device: T } | { kind: 'none' } | { kind: 'many'; count: number }
+
+/** Jedno włączone urządzenie podające metrykę (bez kanału); kilka albo żadne — brak źródła. */
+export function singleSource<T extends MetricSourceDevice>(devices: readonly T[], metric: string): Source<T> {
+  const sources = devices.filter((d) => d.enabled && d.metrics.some((m) => m.key === metric && m.channel === null))
+  const [device] = sources
+  if (!device) return { kind: 'none' }
+  return sources.length > 1 ? { kind: 'many', count: sources.length } : { kind: 'one', device }
+}
+
 export type SiteValue =
   | {
       kind: 'value'
@@ -45,12 +62,10 @@ export function siteValue(
   metric: string,
   now: Date,
 ): SiteValue {
-  const sources = devices.filter(
-    (d) => d.enabled && d.metrics.some((m) => m.key === metric && m.channel === null),
-  )
-  const [device] = sources
-  if (!device) return { kind: 'not-provided' }
-  if (sources.length > 1) return { kind: 'ambiguous', sources: sources.length }
+  const source = singleSource(devices, metric)
+  if (source.kind === 'none') return { kind: 'not-provided' }
+  if (source.kind === 'many') return { kind: 'ambiguous', sources: source.count }
+  const { device } = source
   const reading = readings.get(readingKey(device.id, metric, null))
   if (!reading) return { kind: 'no-data', ageSeconds: null }
   // Zegar przeglądarki może się różnić od serwera — wiek nie bywa ujemny.

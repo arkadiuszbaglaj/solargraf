@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { CLOSED, parseReadings, parseSnapshot, type LiveEventSource } from '../api/live'
 import { RECONNECT_MS } from '../hooks/useLiveSite'
+import { parseSiteEnergy } from '../api/energy'
+import { ENERGY_BODY, KPI } from '../test/energyFixture'
 import { LiveKpiRow } from './LiveKpiRow'
 
 const NOW = new Date('2026-11-07T12:00:00Z')
@@ -150,6 +152,25 @@ describe('LiveKpiRow', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Spróbuj ponownie' }))
     expect(sources).toHaveLength(2)
     expect(sources[0]?.closed).toBe(true)
+  })
+})
+
+describe('LiveKpiRow — energia dziś (D51)', () => {
+  it('pokazuje „Dziś” w kartach i autokonsumpcję z niepełnymi danymi', () => {
+    const data = parseSiteEnergy({
+      ...ENERGY_BODY,
+      series: [{ ...ENERGY_BODY.series[0], device_id: DEV, total_wh: 12_400, coverage: 1, reset_detected: false }],
+      kpis: { ...ENERGY_BODY.kpis, self_consumption: { ...KPI, value: 0.5, status: 'INCOMPLETE', coverage: 0.6 } },
+      unavailable: [{ key: 'grid_import', metric: 'grid_import_energy_total', reason: 'NOT_PROVIDED', sources: 0 }],
+    })
+    if (!data) throw new Error('fixture')
+    const source = new FakeSource('')
+    render(<LiveKpiRow siteId={SITE} now={NOW} sourceFactory={() => source} today={{ status: 'ready', data }} />)
+    source.emit('snapshot', SNAPSHOT)
+    expect(card('Produkcja PV')).toContain('Dziś: 12,4 kWh')
+    expect(card('Sieć')).toContain('Dziś: pobór niedostępne')
+    expect(card('Autokonsumpcja')).toContain('50%')
+    expect(card('Autokonsumpcja')).toContain('Dane niepełne (pokrycie 60%)')
   })
 })
 

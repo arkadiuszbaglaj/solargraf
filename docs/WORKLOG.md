@@ -208,6 +208,13 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: przejście SSE przez Caddy (`encode zstd gzip`) niesprawdzone na prawdziwym serwerze; widok z prawdziwym API i agentem niesprawdzony lokalnie (brak bazy).
 - Następne małe zadanie: P5.2 — energia „dziś” i trendy w kartach.
 
+- Etap: P5.2 — energia „dziś”, autokonsumpcja i wykres mocy dziś.
+- Zmiany: `GET /api/sites/{id}/energy` (`compute_energy` wspólne z endpointem urządzenia, `device_id` w seriach, `unavailable`); bez ostrzeżenia `Result.tuples()`; UI: `usePeriodic` (odświeżanie co 5 min i po powrocie do karty), `lib/today.ts`, wiersze „Dziś” i karta Autokonsumpcja w `LiveKpiRow`, `TodayPowerChart` (historia 5 min z urządzeń-źródeł), wspólny `singleSource`.
+- Testy uruchomione i wyniki: lokalnie pytest server 143 passed (testy z bazą w CI), ruff, mypy --strict; web: tsc, oxlint, vitest 174 passed. Przeglądarka: Vite + atrapa API — karty „Dziś”, autokonsumpcja niedostępna z powodem, wykres od północy z luką.
+- Decyzje zatwierdzone: D51.
+- Ryzyka / rzeczy nieweryfikowane: na serwerze z symulatorem pobór/oddanie, bateria i autokonsumpcja będą „niedostępne” (profil bez liczników) — zgodnie z D48/D51.
+- Następne małe zadanie: P5.3 — status urządzeń i agentów na dashboardzie.
+
 ## Szablon kolejnego wpisu
 
 - Data:

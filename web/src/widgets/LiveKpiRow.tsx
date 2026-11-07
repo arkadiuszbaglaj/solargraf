@@ -1,4 +1,4 @@
-import { BatteryCharging, Home, Sun, UtilityPole, type LucideIcon } from 'lucide-react'
+import { BatteryCharging, Home, Leaf, Sun, UtilityPole, type LucideIcon } from 'lucide-react'
 import type { LiveSourceFactory } from '../api/live'
 import { DemoBadge } from '../components/DemoBadge'
 import { KpiCard } from '../components/KpiCard'
@@ -7,6 +7,7 @@ import { useLiveSite } from '../hooks/useLiveSite'
 import { useNow } from '../hooks/useNow'
 import { formatAge, formatDirectedPower, formatQuantity, MISSING } from '../lib/format'
 import { siteValue, type SiteValue } from '../lib/liveValues'
+import { kpiView, todayEnergy, type TodayState } from '../lib/today'
 import styles from './KpiRow.module.css'
 
 function reason(v: SiteValue): string | null {
@@ -32,15 +33,44 @@ function age(v: SiteValue): string | null {
 const num = (v: SiteValue): number | null => (v.kind === 'value' ? v.value : null)
 const stale = (v: SiteValue): boolean => v.kind === 'value' && v.stale
 
-function PowerCard({ label, icon, v }: { label: string; icon: LucideIcon; v: SiteValue }) {
+function PowerCard({
+  label,
+  icon,
+  v,
+  today,
+}: {
+  label: string
+  icon: LucideIcon
+  v: SiteValue
+  today: string
+}) {
   return (
     <KpiCard
       label={label}
       icon={icon}
       value={formatQuantity(num(v), 'W')}
       unavailableReason={reason(v)}
-      secondary={age(v)}
+      secondary={today}
+      age={age(v)}
       stale={stale(v)}
+    />
+  )
+}
+
+function SelfConsumptionCard({ today }: { today: TodayState | undefined }) {
+  const view =
+    today?.status === 'ready'
+      ? kpiView(today.data.kpis.selfConsumption)
+      : { value: MISSING, unavailableReason: today?.status === 'error' ? 'Brak danych' : null, notice: null }
+  return (
+    <KpiCard
+      label="Autokonsumpcja"
+      icon={Leaf}
+      value={view.value}
+      unavailableReason={view.unavailableReason}
+      notice={view.notice}
+      secondary="Dziś: (produkcja PV − oddanie) / produkcja PV"
+      stale={false}
     />
   )
 }
@@ -50,10 +80,13 @@ export function LiveKpiRow({
   siteId,
   now: fixedNow,
   sourceFactory,
+  today,
 }: {
   siteId: string
   now?: Date
   sourceFactory?: LiveSourceFactory
+  /** Energia instalacji od północy (D51); brak — karty bez wierszy „Dziś”. */
+  today?: TodayState
 }) {
   const { state, retry } = useLiveSite(siteId, sourceFactory)
   const tickingNow = useNow(1000)
@@ -76,7 +109,9 @@ export function LiveKpiRow({
   const soc = value('battery_soc')
   const batteryPower = value('battery_power')
   const all = [pv, home, grid, soc, batteryPower]
-  const simulated = all.some((v) => v.kind === 'value' && v.origin === 'SIMULATED')
+  const simulated =
+    all.some((v) => v.kind === 'value' && v.origin === 'SIMULATED') ||
+    (today?.status === 'ready' && today.data.origins.includes('SIMULATED'))
   // Konwencja znaku D39: sieć + pobór / − oddawanie; bateria + rozładowanie / − ładowanie.
   const gridFlow = formatDirectedPower(num(grid), 'pobór z sieci', 'oddawanie do sieci')
   const batteryFlow = formatDirectedPower(num(batteryPower), 'rozładowanie', 'ładowanie')
@@ -94,15 +129,21 @@ export function LiveKpiRow({
       ) : null}
       <WidgetState status={{ kind: 'ready' }} staleNotice={notice}>
         <div className={styles.row}>
-          <PowerCard label="Produkcja PV" icon={Sun} v={pv} />
-          <PowerCard label="Zużycie domu" icon={Home} v={home} />
+          <PowerCard label="Produkcja PV" icon={Sun} v={pv} today={`Dziś: ${todayEnergy(today, 'pv')}`} />
+          <PowerCard
+            label="Zużycie domu"
+            icon={Home}
+            v={home}
+            today={`Dziś: ${todayEnergy(today, 'load')} (z mocy)`}
+          />
           <KpiCard
             label="Sieć"
             icon={UtilityPole}
             value={gridFlow.text}
             detail={gridFlow.direction}
             unavailableReason={reason(grid)}
-            secondary={age(grid)}
+            secondary={`Dziś: pobór ${todayEnergy(today, 'grid_import')}, oddanie ${todayEnergy(today, 'grid_export')}`}
+            age={age(grid)}
             stale={stale(grid)}
           />
           <KpiCard
@@ -111,13 +152,11 @@ export function LiveKpiRow({
             value={formatQuantity(num(soc), '%')}
             detail={batteryFlow.direction}
             unavailableReason={reason(soc)}
-            secondary={
-              [batteryFlow.text === MISSING ? null : `Moc: ${batteryFlow.text}`, age(soc)]
-                .filter(Boolean)
-                .join(' · ') || null
-            }
+            secondary={`Dziś: ładowanie ${todayEnergy(today, 'battery_charge')}, rozładowanie ${todayEnergy(today, 'battery_discharge')}`}
+            age={[batteryFlow.text === MISSING ? null : `Moc: ${batteryFlow.text}`, age(soc)].filter(Boolean).join(' · ') || null}
             stale={stale(soc) || stale(batteryPower)}
           />
+          <SelfConsumptionCard today={today} />
         </div>
       </WidgetState>
     </section>

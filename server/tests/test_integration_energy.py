@@ -21,7 +21,8 @@ from sqlalchemy import text
 from solargraf_server.aggregation import H1
 from solargraf_server.auth.passwords import hash_password
 from solargraf_server.config import Settings
-from solargraf_server.db import create_engine
+from solargraf_server.db import create_engine, create_sessionmaker
+from solargraf_server.energy_api import compute_energy
 from solargraf_server.main import create_app
 
 pytestmark = pytest.mark.skipif(
@@ -249,3 +250,85 @@ class TestEnergyApi:
             params={"from": DAY.isoformat(), "to": (DAY + H1).isoformat()},
         )
         assert foreign.status_code == 404
+
+
+def site_get(client: TestClient, site: uuid.UUID, start: datetime, end: datetime) -> Any:  # noqa: ANN401
+    return client.get(
+        f"/api/sites/{site}/energy", params={"from": start.isoformat(), "to": end.isoformat()}
+    )
+
+
+class TestSiteEnergy:
+    def test_single_source_series_and_unavailable_reasons(
+        self, world: World, client: TestClient
+    ) -> None:
+        for i, last in enumerate([1000.0, 1500.0]):
+            aggregate(world, "pv_energy_total", "1h", DAY + (i - 1) * H1, last=last)
+        login(client, "viewer@example.pl")
+        body = site_get(client, world.site_a, DAY, DAY + H1).json()
+        series = {s["key"]: s for s in body["series"]}
+        assert set(series) == {"pv", "load"}
+        assert series["pv"]["device_id"] == str(world.device_a)
+        assert series["pv"]["total_wh"] == 500.0
+        assert series["load"]["total_wh"] is None  # brak agregatów mocy — brak danych, nie 0
+        reasons = {u["key"]: (u["reason"], u["sources"]) for u in body["unavailable"]}
+        assert reasons["grid_import"] == ("NOT_PROVIDED", 0)
+        assert body["kpis"]["self_consumption"]["status"] == "UNAVAILABLE"
+        assert body["origins"] == []
+
+    def test_two_devices_with_same_metric_are_ambiguous_until_one_is_disabled(
+        self, world: World, client: TestClient
+    ) -> None:
+        [(agent,)] = _sql("SELECT id FROM agents WHERE name = 'agent-a'")
+        second = _device(world.site_a, agent)
+        login(client)
+        body = site_get(client, world.site_a, DAY, DAY + H1).json()
+        assert body["series"] == []
+        reasons = {u["key"]: (u["reason"], u["sources"]) for u in body["unavailable"]}
+        assert reasons["pv"] == ("AMBIGUOUS", 2)
+        assert reasons["load"] == ("AMBIGUOUS", 2)
+        _sql("UPDATE devices SET enabled = false WHERE id = :d", d=second)
+        body = site_get(client, world.site_a, DAY, DAY + H1).json()
+        assert {s["key"] for s in body["series"]} == {"pv", "load"}
+
+    def test_kpi_from_series_of_different_devices(self, world: World) -> None:
+        # PV z falownika, eksport z drugiego urządzenia (np. licznika) — D51.
+        [(agent,)] = _sql("SELECT id FROM agents WHERE name = 'agent-a'")
+        meter = _device(world.site_a, agent)
+        for i, last in enumerate([1000.0, 2000.0]):
+            aggregate(world, "pv_energy_total", "1h", DAY + (i - 1) * H1, last=last)
+        for i, last in enumerate([50.0, 450.0]):
+            _sql(
+                "INSERT INTO aggregates (site_id, device_id, metric, channel, resolution, "
+                "bucket_start, avg, min, max, last, samples, good_samples, coverage) "
+                "VALUES (:s, :d, 'grid_export_energy_total', 0, '1h', :t, :v, :v, :v, :v, 1, 1, 1)",
+                s=world.site_a,
+                d=meter,
+                t=DAY + (i - 1) * H1,
+                v=last,
+            )
+
+        async def go() -> Any:  # noqa: ANN401
+            engine = create_engine(Settings())  # type: ignore[call-arg]
+            try:
+                async with create_sessionmaker(engine)() as db:
+                    return await compute_energy(
+                        db,
+                        {"pv": world.device_a, "grid_export": meter},
+                        DAY,
+                        DAY + H1,
+                        "Europe/Warsaw",
+                    )
+            finally:
+                await engine.dispose()
+
+        energy = asyncio.run(go())
+        kpi = energy.kpis.self_consumption
+        # (1000 - 400) / 1000 = 0,6
+        assert (kpi.value, kpi.status) == (pytest.approx(0.6), "OK")
+
+    def test_access_and_validation(self, world: World, client: TestClient) -> None:
+        assert site_get(client, world.site_a, DAY, DAY + H1).status_code == 401
+        login(client)
+        assert site_get(client, world.site_a, DAY + H1, DAY).status_code == 422
+        assert site_get(client, world.site_b, DAY, DAY + H1).status_code == 404

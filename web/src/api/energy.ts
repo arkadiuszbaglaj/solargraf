@@ -15,6 +15,8 @@ export interface EnergyBucket {
 export interface EnergySeries {
   key: EnergyKey
   metric: string
+  /** Urządzenie, z którego pochodzi seria (D51); null w starszych odpowiedziach. */
+  deviceId: string | null
   /** COUNTER — przyrost licznika; POWER — moc zintegrowana w czasie (wartość pochodna). */
   source: 'COUNTER' | 'POWER'
   totalWh: number | null
@@ -80,7 +82,8 @@ function parseSeries(v: unknown): EnergySeries | null {
     if (!bucket) return null
     parsed.push(bucket)
   }
-  return { key: key as EnergyKey, metric, source, totalWh: total, coverage, resetDetected: reset, buckets: parsed }
+  const deviceId = typeof v.device_id === 'string' ? v.device_id : null
+  return { key: key as EnergyKey, metric, deviceId, source, totalWh: total, coverage, resetDetected: reset, buckets: parsed }
 }
 
 function parseKpi(v: unknown): Kpi | null {
@@ -131,15 +134,12 @@ export function parseEnergy(v: unknown): Energy | null {
   }
 }
 
-export async function getEnergy(
-  siteId: string,
-  deviceId: string,
-  range: { from: Date; to: Date },
-  fetchFn: typeof fetch = fetch,
+async function fetchParsed<T>(
+  url: string,
+  parse: (v: unknown) => T | null,
+  fetchFn: typeof fetch,
   signal?: AbortSignal,
-): Promise<EnergyResult> {
-  const params = new URLSearchParams({ from: range.from.toISOString(), to: range.to.toISOString() })
-  const url = `/api/sites/${encodeURIComponent(siteId)}/devices/${encodeURIComponent(deviceId)}/energy?${params}`
+): Promise<{ kind: 'ok'; data: T } | { kind: 'anonymous' } | { kind: 'not-found' } | { kind: 'error' }> {
   let response: Response
   try {
     response = await fetchFn(url, { credentials: 'same-origin', ...(signal ? { signal } : {}) })
@@ -155,6 +155,74 @@ export async function getEnergy(
   } catch {
     return { kind: 'error' }
   }
-  const data = parseEnergy(body)
+  const data = parse(body)
   return data ? { kind: 'ok', data } : { kind: 'error' }
+}
+
+const rangeParams = (range: { from: Date; to: Date }): URLSearchParams =>
+  new URLSearchParams({ from: range.from.toISOString(), to: range.to.toISOString() })
+
+export function getEnergy(
+  siteId: string,
+  deviceId: string,
+  range: { from: Date; to: Date },
+  fetchFn: typeof fetch = fetch,
+  signal?: AbortSignal,
+): Promise<EnergyResult> {
+  const url = `/api/sites/${encodeURIComponent(siteId)}/devices/${encodeURIComponent(deviceId)}/energy?${rangeParams(range)}`
+  return fetchParsed(url, parseEnergy, fetchFn, signal)
+}
+
+/** Seria instalacji niedostępna: brak źródła albo kilka źródeł (bez sumowania, D51). */
+export interface UnavailableSeries {
+  key: EnergyKey
+  metric: string
+  reason: 'NOT_PROVIDED' | 'AMBIGUOUS'
+  sources: number
+}
+
+export interface SiteEnergy extends Energy {
+  unavailable: UnavailableSeries[]
+}
+
+export type SiteEnergyResult =
+  | { kind: 'ok'; data: SiteEnergy }
+  | { kind: 'anonymous' }
+  | { kind: 'not-found' }
+  | { kind: 'error' }
+
+function parseUnavailable(v: unknown): UnavailableSeries | null {
+  if (!isRecord(v)) return null
+  const { key, metric, reason, sources } = v
+  if (
+    typeof key !== 'string' ||
+    !KEYS.has(key) ||
+    typeof metric !== 'string' ||
+    (reason !== 'NOT_PROVIDED' && reason !== 'AMBIGUOUS') ||
+    !Number.isInteger(sources)
+  ) {
+    return null
+  }
+  return { key: key as EnergyKey, metric, reason, sources: sources as number }
+}
+
+export function parseSiteEnergy(v: unknown): SiteEnergy | null {
+  const energy = parseEnergy(v)
+  if (!energy || !isRecord(v) || !Array.isArray(v.unavailable)) return null
+  const unavailable: UnavailableSeries[] = []
+  for (const item of v.unavailable) {
+    const parsed = parseUnavailable(item)
+    if (!parsed) return null
+    unavailable.push(parsed)
+  }
+  return { ...energy, unavailable }
+}
+
+export function getSiteEnergy(
+  siteId: string,
+  range: { from: Date; to: Date },
+  fetchFn: typeof fetch = fetch,
+  signal?: AbortSignal,
+): Promise<SiteEnergyResult> {
+  return fetchParsed(`/api/sites/${encodeURIComponent(siteId)}/energy?${rangeParams(range)}`, parseSiteEnergy, fetchFn, signal)
 }

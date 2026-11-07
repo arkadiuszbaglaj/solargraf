@@ -87,6 +87,8 @@ export interface HistoryQuery {
   channel: number | null
   from: Date
   to: Date
+  /** Domyślnie `auto`; wykres „dziś” wymusza `5m`, żeby luki były punktami `null`. */
+  resolution?: HistoryResolution | 'auto'
 }
 
 export async function getHistory(
@@ -100,7 +102,7 @@ export async function getHistory(
     metric: query.metric,
     from: query.from.toISOString(),
     to: query.to.toISOString(),
-    resolution: 'auto',
+    resolution: query.resolution ?? 'auto',
   })
   if (query.channel !== null) params.set('channel', String(query.channel))
   const url = `/api/sites/${encodeURIComponent(siteId)}/devices/${encodeURIComponent(deviceId)}/history?${params}`

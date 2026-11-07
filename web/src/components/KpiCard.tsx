@@ -10,6 +10,7 @@ export function KpiCard({
   value,
   detail,
   secondary,
+  age,
   stale,
   unavailableReason,
   notice,
@@ -19,6 +20,8 @@ export function KpiCard({
   value: string
   detail?: string | null
   secondary?: string | null
+  /** Wiek wartości chwilowej, np. „Odczyt 12 s temu”. */
+  age?: string | null
   stale: boolean
   unavailableReason?: string | null
   /** Ostrzeżenie o jakości wyniku (niedostępny, niepełne dane) — kolor ostrzeżenia. */
@@ -34,6 +37,7 @@ export function KpiCard({
         {notice ? <p className={styles.notice}>{notice}</p> : null}
         {detail ? <p className={styles.detail}>{detail}</p> : null}
         {secondary ? <p className={styles.secondary}>{secondary}</p> : null}
+        {age ? <p className={styles.secondary}>{age}</p> : null}
         {stale ? <p className={styles.staleText}>Wartość nieaktualna</p> : null}
       </div>
     </article>
