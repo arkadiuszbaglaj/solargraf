@@ -158,12 +158,28 @@ jobs:
             docker run --rm -v /tmp/bundle/solargraf:/src:ro "$img" bash /src/deploy/install.sh install --dry-run
             echo "::endgroup::"
           done
-      - name: --dry-run niczego nie zmienia
+      - name: Lokalny serwer archiwum w formacie codeload GitHuba (zamiast pobierania z sieci)
+        run: |
+          mkdir -p /tmp/srv
+          git -c core.autocrlf=false archive --format=tar.gz --prefix=solargraf-main/ -o /tmp/srv/src.tar.gz HEAD
+          (python3 -m http.server 8765 --bind 127.0.0.1 -d /tmp/srv >/tmp/srv.log 2>&1 &)
+          for i in $(seq 1 20); do curl -fsS -o /dev/null http://127.0.0.1:8765/src.tar.gz && exit 0; sleep 1; done
+          exit 1
+      - name: --dry-run niczego nie zmienia (z paczki i przez potok)
         run: |
           sudo /tmp/bundle/solargraf/deploy/install.sh install --dry-run
+          sudo bash -s install --dry-run < deploy/install.sh | tee dry-pipe.txt
+          grep -q 'codeload.github.com/arkadiuszbaglaj/solargraf/tar.gz/main' dry-pipe.txt
           test ! -e "$DIR"
-      - name: Instalacja z paczki
-        run: sudo /tmp/bundle/solargraf/deploy/install.sh install --yes | tee install-out.txt
+      - name: Źródło kodu tylko przez HTTPS
+        run: |
+          if sudo SOLARGRAF_SOURCE_URL=http://example.com/x.tar.gz bash -s install --yes < deploy/install.sh; then exit 1; fi
+          sudo rm -rf "$DIR"
+      - name: Instalacja przez potok (jak curl | sudo bash)
+        run: |
+          sudo SOLARGRAF_SOURCE_URL=http://127.0.0.1:8765/src.tar.gz bash -s install --yes < deploy/install.sh | tee install-out.txt
+          grep -q 'Pobieram kod' install-out.txt
+          test "$(cat "$DIR/src/VERSION")" = "github:main"
       - name: Sekrety i log
         run: |
           test "$(sudo stat -c %a "$DIR/.env")" = "600"

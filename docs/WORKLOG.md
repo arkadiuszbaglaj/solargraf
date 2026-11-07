@@ -83,6 +83,15 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: nie testowano na arm64/RPi ani w LXC; ostrzeżenie przeglądarki o certyfikacie do czasu importu CA; brak UI logowania (po utworzeniu konta panel nadal na DEMO); obrazy budowane na serwerze (wolno na RPi), przypięte tagami, nie digestami (P7).
 - Następne małe zadanie: UI logowania albo P2.3 (agenci i urządzenia).
 
+## 2026-11-07 (P1, wycinek 4)
+
+- Etap: P1 — instalacja z GitHuba (`curl | sudo bash`).
+- Zmiany: instalator wykrywa uruchomienie przez potok i pobiera kod z `codeload.github.com` (`--ref`, tylko HTTPS; `SOLARGRAF_SOURCE_URL` do testów/lustra); potwierdzenia przez `/dev/tty`; skan historii Git przed upublicznieniem (brak sekretów i plików `.env`/kluczy; hasła tylko testowe).
+- Testy uruchomione i wyniki: `bash -n`; w CI pełna instalacja przez potok z lokalnie serwowanego archiwum, `--dry-run` przez potok, odrzucenie źródła bez HTTPS.
+- Decyzje zatwierdzone: D35 (repozytorium publiczne, instalacja z GitHuba).
+- Ryzyka / rzeczy nieweryfikowane: prawdziwe pobranie z GitHuba możliwe dopiero po upublicznieniu repozytorium i merge do `main`; brak pliku licencji zastrzeżonej w repozytorium; brak sumy kontrolnej i podpisu skryptu (P7).
+- Następne małe zadanie: test na serwerze użytkownika; potem UI logowania albo P2.3.
+
 ## Szablon kolejnego wpisu
 
 - Data:

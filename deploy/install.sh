@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # SolarGraf (nazwa robocza) — instalator v1, wersja dev (D18, D34).
 #
-#   sudo ./deploy/install.sh install [--yes] [--dry-run] [--dir DIR] [--address ADRES]
+#   curl -fsSL https://raw.githubusercontent.com/arkadiuszbaglaj/solargraf/main/deploy/install.sh | sudo bash -s install
+#   sudo ./deploy/install.sh install [--yes] [--dry-run] [--dir DIR] [--address ADRES] [--ref REF]
 #   sudo solargraf status
 #   sudo solargraf uninstall [--purge] [--yes]
 #
@@ -19,12 +20,18 @@ readonly MIN_RAM_MB=1024
 readonly RECOMMENDED_RAM_MB=2048
 readonly MIN_DISK_MB=5120
 readonly HEALTH_TIMEOUT_S=300
+# Źródło kodu w trybie `curl | bash` (D35). Docelowo domena producenta (O13, P7).
+readonly GITHUB_REPO="arkadiuszbaglaj/solargraf"
 
 DRY_RUN=0
 ASSUME_YES=0
 PURGE=0
 INSTALL_DIR="$DEFAULT_DIR"
 ADDRESS=""
+SOURCE_REF="main"
+SRC_DIR=""
+SRC_LABEL=""
+TMP_DIR=""
 LOG_FILE=""
 WARNINGS=0
 
@@ -69,10 +76,12 @@ confirm() {
 	if [ "$ASSUME_YES" -eq 1 ]; then
 		return 0
 	fi
-	if [ ! -t 0 ]; then
+	# Przy `curl | bash` standardowe wejście to skrypt — pytamy przez terminal.
+	if ! { exec 3</dev/tty; } 2>/dev/null; then
 		die "$question — wymagane potwierdzenie. Uruchom w terminalu albo dodaj --yes."
 	fi
-	read -r -p "$question [t/N] " answer
+	read -r -u 3 -p "$question [t/N] " answer
+	exec 3<&-
 	case "$answer" in
 	t | T | tak | TAK | y | Y | yes) return 0 ;;
 	*) return 1 ;;
@@ -91,6 +100,7 @@ Użycie:
   --yes       nie pytaj o potwierdzenie (np. instalacja Dockera)
   --dir       katalog instalacji (domyślnie /opt/solargraf)
   --address   adres IPv4 lub nazwa hosta w LAN (domyślnie wykrywany)
+  --ref       gałąź lub tag z GitHuba przy instalacji przez curl (domyślnie main)
   --purge     przy uninstall: usuń także dane (baza, certyfikaty, katalog)
 EOF
 }
@@ -99,9 +109,57 @@ EOF
 
 have() { command -v "$1" >/dev/null 2>&1; }
 
-script_path() { readlink -f "${BASH_SOURCE[0]}"; }
+# Katalog źródeł obok skryptu albo pusty, gdy skrypt przyszedł przez potok (`curl | bash`).
+local_source() {
+	local self="${BASH_SOURCE[0]:-}" root
+	[ -n "$self" ] && [ -f "$self" ] || return 0
+	root="$(dirname "$(dirname "$(readlink -f "$self")")")"
+	if [ -f "$root/deploy/compose.yaml" ]; then
+		printf '%s' "$root"
+	fi
+}
 
-source_root() { dirname "$(dirname "$(script_path)")"; }
+cleanup() {
+	if [ -n "$TMP_DIR" ]; then
+		rm -rf "$TMP_DIR"
+	fi
+}
+
+source_url() {
+	printf '%s' "${SOLARGRAF_SOURCE_URL:-https://codeload.github.com/$GITHUB_REPO/tar.gz/$SOURCE_REF}"
+}
+
+# Pobiera kod (tar.gz) z GitHuba — tylko HTTPS (http wyłącznie do testów na localhost).
+download_sources() {
+	local url
+	url="$(source_url)"
+	case "$url" in
+	https://* | http://127.0.0.1:* | http://localhost:*) ;;
+	*) die "Źródło kodu musi używać HTTPS: $url" ;;
+	esac
+	have curl || die "Brak curl."
+	TMP_DIR="$(mktemp -d)"
+	trap cleanup EXIT
+	say "Pobieram kod: $url"
+	curl -fsSL --retry 3 --connect-timeout 15 --max-time 600 -o "$TMP_DIR/src.tar.gz" "$url" ||
+		die "Nie udało się pobrać kodu z $url."
+	mkdir "$TMP_DIR/src"
+	tar -xzf "$TMP_DIR/src.tar.gz" -C "$TMP_DIR/src" --strip-components=1 --no-same-owner
+	[ -f "$TMP_DIR/src/deploy/compose.yaml" ] || die "Pobrane archiwum nie zawiera deploy/compose.yaml."
+	if [ ! -f "$TMP_DIR/src/VERSION" ]; then
+		printf 'github:%s\n' "$SOURCE_REF" >"$TMP_DIR/src/VERSION"
+	fi
+	SRC_DIR="$TMP_DIR/src"
+}
+
+resolve_sources() {
+	SRC_DIR="$(local_source)"
+	if [ -n "$SRC_DIR" ]; then
+		SRC_LABEL="$SRC_DIR"
+	else
+		SRC_LABEL="$(source_url)"
+	fi
+}
 
 require_root() {
 	if [ "$(id -u)" -ne 0 ]; then
@@ -296,9 +354,10 @@ ensure_docker() {
 # --- instalacja ------------------------------------------------------------------------------
 
 copy_sources() {
-	local src
-	src="$(source_root)"
-	[ -f "$src/deploy/compose.yaml" ] || die "Nie znaleziono deploy/compose.yaml obok skryptu ($src)."
+	if [ -z "$SRC_DIR" ]; then
+		download_sources
+	fi
+	local src="$SRC_DIR"
 	if [ "$src" = "$INSTALL_DIR/src" ]; then
 		say "Źródła: używam zainstalowanej kopii."
 		return 0
@@ -392,7 +451,7 @@ show_plan() {
 	else
 		say "- nowa instalacja w $INSTALL_DIR"
 	fi
-	say "- źródła z $(source_root) → $INSTALL_DIR/src"
+	say "- źródła z $SRC_LABEL → $INSTALL_DIR/src"
 	say "- sekrety w $INSTALL_DIR/.env (600), adresy: $(site_addresses)"
 	say "- budowa obrazów i start: db, migrate, api, proxy (porty 80 i 443)"
 	say "- polecenie $CLI_LINK"
@@ -420,6 +479,7 @@ cmd_install() {
 
 	local existing=0
 	[ -f "$INSTALL_DIR/.env" ] && existing=1
+	resolve_sources
 	check_system
 	ensure_docker
 	show_plan "$existing"
@@ -516,6 +576,12 @@ main() {
 		--address)
 			[ $# -ge 2 ] || die "--address wymaga wartości."
 			ADDRESS="$2"
+			shift
+			;;
+		--ref)
+			[ $# -ge 2 ] || die "--ref wymaga nazwy gałęzi lub tagu."
+			[[ "$2" =~ ^[A-Za-z0-9._/-]+$ ]] || die "Nieprawidłowa nazwa --ref."
+			SOURCE_REF="$2"
 			shift
 			;;
 		-h | --help)

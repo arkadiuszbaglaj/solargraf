@@ -144,9 +144,17 @@ docker compose -f deploy/compose.dev.yaml exec api solargraf-admin setup-token
 
 Usługi: `db` (PostgreSQL 18, bez portu na hoście), `migrate` (jednorazowo `alembic upgrade head`), `api` (FastAPI na `127.0.0.1:8000`). W dev działa Swagger UI pod `/api/docs`. Testy integracyjne z bazą: `SOLARGRAF_TEST_DB=1` oraz zmienne `SOLARGRAF_DB_*` wskazujące na działającego PostgreSQL.
 
-### Instalacja na serwerze (wersja dev, D34)
+### Instalacja na serwerze (wersja dev, D34, D35)
 
-Na komputerze deweloperskim (Git Bash/Linux) — paczka z zatwierdzonego `HEAD`:
+Jedną komendą z GitHuba (Debian 12/13, Ubuntu 24.04, Raspberry Pi OS 64-bit; amd64/arm64):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/arkadiuszbaglaj/solargraf/main/deploy/install.sh | sudo bash -s install
+```
+
+Najpierw sam plan i kontrola: `… | sudo bash -s install --dry-run`; inna gałąź lub tag: `--ref <nazwa>`.
+
+Bez dostępu serwera do GitHuba — paczka offline. Na komputerze deweloperskim (Git Bash/Linux) — paczka z zatwierdzonego `HEAD`:
 
 ```bash
 ./tools/make-bundle.sh                 # dist/solargraf-<wersja>.tar.gz + .sha256
