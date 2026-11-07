@@ -417,6 +417,8 @@ class TestDeviceWrites:
             "unit": "W",
             "cumulative": False,
         } in seen["metrics"]
+        # Poziom wsparcia profilu (D58) — także dla VIEWER; symulator jest EXPERIMENTAL.
+        assert seen["support_level"] == "EXPERIMENTAL"
 
     def test_viewer_forbidden_foreign_and_missing_404(self, world: World, as_user: AsUser) -> None:
         _local_agent()
