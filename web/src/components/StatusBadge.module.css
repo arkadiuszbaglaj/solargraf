@@ -1,0 +1,26 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: currentcolor;
+}
+
+.ONLINE {
+  color: var(--color-ok);
+}
+
+.NO_RESPONSE {
+  color: var(--color-warning);
+}
+
+.UNKNOWN {
+  color: var(--color-unknown);
+}
