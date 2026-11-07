@@ -1,7 +1,7 @@
 import type { FormEvent } from 'react'
 import { useId, useState } from 'react'
 import { assignLocation, loginUrl } from '../api/auth'
-import type { ApiDevice, ApiProfile, ConnectionFieldErrors, ConnectionForm, DeviceStatus } from '../api/devices'
+import type { ApiDevice, ApiProfile, ConnectionFieldErrors, ConnectionForm } from '../api/devices'
 import { createConnection, listDevices, listProfiles, setDeviceEnabled, validateConnection } from '../api/devices'
 import type { ApiSite } from '../api/sites'
 import { getSite } from '../api/sites'
@@ -9,26 +9,9 @@ import { useOptionalSession } from '../auth/SessionContext'
 import { Panel } from '../components/Panel'
 import { WidgetState } from '../components/WidgetState'
 import { useAsync } from '../hooks/useAsync'
+import { KIND_LABEL, STATUS_LABEL } from '../lib/deviceLabels'
 import { MISSING, formatDateTime } from '../lib/format'
 import styles from './DevicesPage.module.css'
-
-const STATUS_LABEL: Record<DeviceStatus, string> = {
-  OK: 'Działa',
-  STALE: 'Dane nieaktualne',
-  ERROR: 'Błąd odczytu',
-  UNKNOWN: 'Stan nieznany',
-  DISABLED: 'Wyłączone',
-}
-
-const KIND_LABEL: Record<string, string> = {
-  INVERTER: 'Falownik',
-  METER: 'Licznik',
-  BATTERY: 'Magazyn energii',
-  BMS: 'BMS',
-  MPPT: 'MPPT',
-  SENSOR: 'Czujnik',
-  GATEWAY: 'Bramka',
-}
 
 class SessionExpired extends Error {}
 

@@ -61,3 +61,18 @@ def device_status(device: DeviceState, agent: AgentState | None, now: datetime) 
     if now - success > device.freshness_threshold:
         return DeviceStatus.STALE
     return DeviceStatus.OK
+
+
+class AgentStatus(enum.StrEnum):
+    DISABLED = "DISABLED"
+    UNREACHABLE = "UNREACHABLE"
+    ONLINE = "ONLINE"
+
+
+def agent_status(agent: AgentState, now: datetime) -> AgentStatus:
+    """Próg jak dla statusu urządzeń (D52): bez świeżego heartbeatu agent jest nieosiągalny."""
+    if not agent.enabled:
+        return AgentStatus.DISABLED
+    if agent.last_heartbeat_at is None or now - agent.last_heartbeat_at > AGENT_HEARTBEAT_TIMEOUT:
+        return AgentStatus.UNREACHABLE
+    return AgentStatus.ONLINE

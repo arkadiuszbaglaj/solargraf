@@ -215,6 +215,13 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: na serwerze z symulatorem pobór/oddanie, bateria i autokonsumpcja będą „niedostępne” (profil bez liczników) — zgodnie z D48/D51.
 - Następne małe zadanie: P5.3 — status urządzeń i agentów na dashboardzie.
 
+- Etap: P5.3 — status urządzeń i agentów na dashboardzie.
+- Zmiany: `agent_status` w `device_status.py`, `GET /api/sites/{id}/agents` i `agent_id` w `DeviceOut` (`devices.py`); UI: `lib/deviceLabels.ts` (etykiety wspólne z listą urządzeń), `listSiteAgents` w `api/devices.ts`, `widgets/SiteDevicesPanel.tsx` zamiast „dostępne wkrótce” na dashboardzie.
+- Testy uruchomione i wyniki: lokalnie pytest server 144 passed (testy z bazą w CI), ruff, mypy --strict; web: tsc, oxlint, vitest 178 passed. Przeglądarka: Vite + atrapa API — panel z podsumowaniem, agentem i statusem urządzenia.
+- Decyzje zatwierdzone: D52.
+- Ryzyka / rzeczy nieweryfikowane: widok z prawdziwym agentem niesprawdzony lokalnie (brak bazy); do sprawdzenia na serwerze.
+- Następne małe zadanie: P5 — alarmy albo diagram przepływu energii (do wyboru).
+
 ## Szablon kolejnego wpisu
 
 - Data:

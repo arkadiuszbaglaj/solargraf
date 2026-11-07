@@ -11,6 +11,7 @@ import { DeviceStatusWidget } from '../widgets/DeviceStatusWidget'
 import { EnergyChartWidget } from '../widgets/EnergyChartWidget'
 import { KpiRow } from '../widgets/KpiRow'
 import { LiveKpiRow } from '../widgets/LiveKpiRow'
+import { SiteDevicesPanel } from '../widgets/SiteDevicesPanel'
 import { TodayPowerChart } from '../widgets/TodayPowerChart'
 import styles from './DashboardPage.module.css'
 
@@ -23,7 +24,7 @@ async function loadToday(site: Site, now: Date, signal: AbortSignal): Promise<Si
   return result.data
 }
 
-/** Dashboard instalacji z API: wartości na żywo (D50), energia i moc dziś (D51), reszta później. */
+/** Dashboard z API: wartości na żywo (D50), energia dziś (D51), urządzenia i agenci (D52). */
 function LiveDashboard({ site }: { site: Site }) {
   // Energia od północy w strefie instalacji; odświeżana co 5 min i po powrocie do karty.
   const { state } = usePeriodic(`${site.id}|${site.timezone}`, (now, signal) => loadToday(site, now, signal))
@@ -36,12 +37,7 @@ function LiveDashboard({ site }: { site: Site }) {
           <TodayPowerChart siteId={site.id} timeZone={site.timezone} />
         </div>
         <div className={styles.side}>
-          <Panel
-            title="Urządzenia"
-            actions={<a href={`/instalacje/${encodeURIComponent(site.id)}/urzadzenia`}>Lista urządzeń</a>}
-          >
-            <WidgetState status={SOON} />
-          </Panel>
+          <SiteDevicesPanel siteId={site.id} />
           <Panel title="Alarmy">
             <WidgetState status={SOON} />
           </Panel>
