@@ -22,6 +22,7 @@ readonly MIN_DISK_MB=5120
 readonly HEALTH_TIMEOUT_S=300
 # Źródło kodu w trybie `curl | bash` (D35). Docelowo domena producenta (O13, P7).
 readonly GITHUB_REPO="arkadiuszbaglaj/solargraf"
+readonly SCRIPT_URL="https://raw.githubusercontent.com/$GITHUB_REPO/main/deploy/install.sh"
 
 DRY_RUN=0
 ASSUME_YES=0
@@ -77,8 +78,14 @@ confirm() {
 		return 0
 	fi
 	# Przy `curl | bash` standardowe wejście to skrypt — pytamy przez terminal.
+	# Część wersji sudo (np. sudo-rs w Ubuntu 26.04) nie daje wtedy dostępu do terminala.
 	if ! { exec 3</dev/tty; } 2>/dev/null; then
-		die "$question — wymagane potwierdzenie. Uruchom w terminalu albo dodaj --yes."
+		printf 'BŁĄD: %s — wymagane potwierdzenie, a skrypt nie ma dostępu do terminala.\n' "$question" >&2
+		printf 'Pobierz skrypt i uruchom go z pliku (pytania zadziałają):\n' >&2
+		printf '  curl -fsSL %s -o install.sh && sudo bash install.sh install\n' "$SCRIPT_URL" >&2
+		printf 'albo zgódź się z góry: dodaj --yes na końcu polecenia.\n' >&2
+		log_line "BŁĄD: brak terminala do potwierdzenia: $question"
+		exit 1
 	fi
 	read -r -u 3 -p "$question [t/N] " answer
 	exec 3<&-
@@ -224,12 +231,12 @@ check_system() {
 	OS_VERSION="${VERSION_ID:-}"
 	OS_CODENAME="${UBUNTU_CODENAME:-${VERSION_CODENAME:-}}"
 	case "$OS_ID:$OS_VERSION" in
-	debian:12 | debian:13 | ubuntu:24.04 | raspbian:12 | raspbian:13)
+	debian:12 | debian:13 | ubuntu:24.04 | ubuntu:26.04 | raspbian:12 | raspbian:13)
 		say "System: ${PRETTY_NAME:-$OS_ID $OS_VERSION} — wspierany." ;;
 	debian:* | ubuntu:* | raspbian:*)
-		warn "System ${PRETTY_NAME:-$OS_ID $OS_VERSION} nie jest na liście wspieranych (Debian 12/13, Ubuntu 24.04, Raspberry Pi OS 64-bit)." ;;
+		warn "System ${PRETTY_NAME:-$OS_ID $OS_VERSION} nie jest na liście wspieranych (Debian 12/13, Ubuntu 24.04/26.04, Raspberry Pi OS 64-bit)." ;;
 	*)
-		die "Nieobsługiwany system: ${PRETTY_NAME:-$OS_ID}. Wspierane: Debian 12/13, Ubuntu 24.04, Raspberry Pi OS 64-bit." ;;
+		die "Nieobsługiwany system: ${PRETTY_NAME:-$OS_ID}. Wspierane: Debian 12/13, Ubuntu 24.04/26.04, Raspberry Pi OS 64-bit." ;;
 	esac
 
 	local arch dpkg_arch
