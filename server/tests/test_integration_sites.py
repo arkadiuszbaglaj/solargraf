@@ -567,10 +567,16 @@ class TestDeviceWrites:
         v, _ = as_user("scoped_viewer_a")
         resp = v.get("/api/profiles")
         assert resp.status_code == 200
-        [profile] = resp.json()
-        assert profile["id"] == "simulated.hybrid-inverter"
-        assert profile["origin"] == "SIMULATED"
-        assert "points" not in profile
+        profiles = {p["id"]: p for p in resp.json()}
+        assert set(profiles) == {
+            "simulated.hybrid-inverter",
+            "sunspec.pv-inverter-3ph",
+            "sunspec.grid-meter-3ph",
+        }
+        assert profiles["simulated.hybrid-inverter"]["origin"] == "SIMULATED"
+        assert profiles["sunspec.grid-meter-3ph"]["origin"] == "DEVICE"
+        assert profiles["sunspec.grid-meter-3ph"]["support_level"] == "COMMUNITY"
+        assert all("points" not in p for p in profiles.values())
 
 
 # --- alarmy (D55) ---

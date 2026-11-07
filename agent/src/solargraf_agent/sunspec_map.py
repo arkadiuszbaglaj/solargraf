@@ -8,10 +8,15 @@ czyta nagłówki modeli (``ID``, ``L``) aż do znacznika końca. Rejestry: holdi
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from solargraf_profiles import sunspec
 from solargraf_profiles.model import DataPoint
+
+# Producent (``Mn`` w modelu 1), którym przedstawia się symulator SolarGraf — odczyty z takiego
+# urządzenia są zawsze SIMULATED, niezależnie od profilu (D59).
+SIMULATED_MANUFACTURER = "SIMULATED"
+COMMON_MODEL = 1
 
 # Ochrona przed zapętloną albo uszkodzoną mapą.
 MAX_MODELS = 64
@@ -40,6 +45,11 @@ class ModelInstance:
 class DeviceMap:
     base: int
     models: tuple[ModelInstance, ...]
+    manufacturer: str | None = None
+
+    @property
+    def simulated(self) -> bool:
+        return self.manufacturer == SIMULATED_MANUFACTURER
 
     def find(self, model_id: int) -> ModelInstance | None:
         """Pierwsze wystąpienie modelu (kolejne instancje, np. drugi licznik — poza zakresem)."""
@@ -52,8 +62,26 @@ async def discover(read: ReadFn) -> DeviceMap | None:
         marker = await read(base, 2)
         if marker is None or tuple(marker) != sunspec.SUNS_MARKER:
             continue
-        return DeviceMap(base, await _walk(read, base + 2))
+        found = DeviceMap(base, await _walk(read, base + 2))
+        return replace(found, manufacturer=await _manufacturer(read, found))
     return None
+
+
+async def _manufacturer(read: ReadFn, device_map: DeviceMap) -> str | None:
+    """Tekst ``Mn`` z modelu 1 (Common); None — brak modelu albo odczytu."""
+    common = device_map.find(COMMON_MODEL)
+    if common is None:
+        return None
+    model = sunspec.load_model(COMMON_MODEL)
+    point = model.point("Mn")
+    address = model.address(common.start, "Mn")
+    if address + point.size > common.end:
+        return None
+    words = await read(address, point.size)
+    if words is None:
+        return None
+    data = b"".join(w.to_bytes(2, "big") for w in words).split(b"\0")[0]
+    return data.decode("ascii", errors="replace").strip() or None
 
 
 async def _walk(read: ReadFn, address: int) -> tuple[ModelInstance, ...]:

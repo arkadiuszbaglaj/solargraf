@@ -337,3 +337,20 @@ def test_chunks_cover_model_without_overlap() -> None:
     model = ModelInstance(203, 40002, 105)
     assert chunks(model, 50) == [(40002, 50), (40052, 50), (40102, 7)]
     assert chunks(model, 125) == [(40002, 107)]
+
+
+def common_map(manufacturer: str) -> dict[int, int]:
+    """Znacznik, model 1 z podanym ``Mn`` (dane testowe), koniec mapy."""
+    words = {0: 0x5375, 1: 0x6E53, 2: 1, 3: 66} | dict.fromkeys(range(4, 70), 0)
+    text = manufacturer.encode("ascii").ljust(32, b"\0")
+    words |= {4 + i // 2: int.from_bytes(text[i : i + 2], "big") for i in range(0, 32, 2)}
+    return words | {70: 0xFFFF, 71: 0}
+
+
+def test_simulator_is_recognised_by_common_model_only() -> None:
+    simulated = asyncio.run(discover(fake_device(common_map("SIMULATED"))))
+    assert simulated is not None
+    assert (simulated.manufacturer, simulated.simulated) == ("SIMULATED", True)
+    device = asyncio.run(discover(fake_device(common_map("Producent testowy"))))
+    assert device is not None
+    assert (device.manufacturer, device.simulated) == ("Producent testowy", False)

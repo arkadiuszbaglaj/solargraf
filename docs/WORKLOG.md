@@ -282,6 +282,12 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: brak urządzenia SunSpec; licznik energii 0 jest w SunSpec brakiem wartości; tylko pierwsza instancja modelu.
 - Następne małe zadanie: P6.2c — profile falownika i licznika SunSpec, test end-to-end na symulatorze.
 
+- Etap: P6.2c — profile SunSpec (D59 zakończone).
+- Zmiany: `profiles/sunspec.pv-inverter-3ph.yaml`, `profiles/sunspec.grid-meter-3ph.yaml` (COMMUNITY, UNVERIFIED); agent rozpoznaje symulator po `Mn` w modelu 1 i oznacza dane SIMULATED; test end-to-end runnera (falownik + licznik na jednym połączeniu → partia do API); test katalogu profili na serwerze obejmuje nowe profile.
+- Testy uruchomione i wyniki: ruff, mypy --strict (116 plików), pytest 369 passed / 99 skipped (bez bazy; testy z bazą w CI).
+- Ryzyka / rzeczy nieweryfikowane: brak testu na urządzeniu SunSpec; znak mocy licznika; urządzenia z jednym MPPT dają brak danych dla kanału 2, a niezaimplementowane punkty (np. TmpCab) — cykle PARTIAL.
+- Następne małe zadanie: O2 (sprzęt i dokumentacja producenta) — odblokowuje P6.3/P6.4; ewentualnie test profili SunSpec na serwerze z symulatorem.
+
 ## Szablon kolejnego wpisu
 
 - Data:

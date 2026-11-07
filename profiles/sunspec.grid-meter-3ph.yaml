@@ -1,0 +1,37 @@
+# Ogólny profil SunSpec (D59): licznik trójfazowy (wye) w punkcie przyłączenia do sieci.
+# Punkty wskazują model i punkt SunSpec; adresy, typy, skale i jednostki pochodzą z definicji
+# modeli SunSpec Alliance dołączonych do pakietu profili (sunspec_models/, Apache-2.0).
+# Poziom COMMUNITY: zgodny ze standardem i przetestowany na symulatorze, bez testu na sprzęcie.
+# Znak mocy NIEPOTWIERDZONY: katalog SolarGraf ma „+ pobór, - eksport”; kierunek liczenia W
+# zależy od montażu licznika i producenta — do sprawdzenia na sprzęcie (wtedy ewentualnie
+# sign: invert w profilu konkretnego urządzenia).
+schema_version: 1
+id: sunspec.grid-meter-3ph
+version: "1.0.0"
+name: Licznik SunSpec w punkcie przyłączenia (trójfazowy)
+manufacturer: Dowolny producent zgodny z SunSpec
+device_kind: METER
+origin: DEVICE
+support_level: COMMUNITY
+# Ogólny profil nie potwierdza konkretnych modeli sprzętu — tylko wymagane modele SunSpec.
+models: ["Urządzenia udostępniające modele SunSpec 1 i 203"]
+transports: [MODBUS_TCP]
+addressing: sunspec
+sources:
+  - id: sunspec-models
+    title: SunSpec Information Model — definicje modeli (JSON)
+    version: v2026-04-20
+    reference: https://github.com/sunspec/models
+polling:
+  interval_seconds: 10
+  timeout_seconds: 3
+  retries: 2
+  max_block_registers: 60
+points:
+  # Model 203 (Wye-Connect Three Phase Meter).
+  - {metric: grid_power, status: UNVERIFIED, source: sunspec-models,
+     source_ref: "model 203, W (znak niepotwierdzony)", sunspec: {model: 203, point: W}, unit: W}
+  - {metric: grid_import_energy_total, status: UNVERIFIED, source: sunspec-models,
+     source_ref: "model 203, TotWhImp", sunspec: {model: 203, point: TotWhImp}, unit: Wh}
+  - {metric: grid_export_energy_total, status: UNVERIFIED, source: sunspec-models,
+     source_ref: "model 203, TotWhExp", sunspec: {model: 203, point: TotWhExp}, unit: Wh}
