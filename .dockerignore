@@ -4,10 +4,12 @@
 !.python-version
 !server/
 !agent/
+!profiles-schema/
 !web/
 !deploy/proxy/
 server/tests/
 agent/tests/
+profiles-schema/tests/
 **/__pycache__/
 **/.venv/
 web/node_modules/

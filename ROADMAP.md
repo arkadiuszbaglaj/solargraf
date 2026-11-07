@@ -42,7 +42,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 
 ## P3 — Agent, sterowniki, profile i symulatory
 
-- [ ] Format profilu urządzenia i jego walidator (źródło dowodu, status, poziom wsparcia).
+- [x] Format profilu urządzenia i jego walidator (źródło dowodu, status, poziom wsparcia) — P3.1, D39.
 - [ ] Agent w trybie lokalnym: harmonogram, jedno połączenie na urządzenie, timeouty, retry z backoff, bufor offline.
 - [ ] Protokół agent ↔ serwer: partie z identyfikatorem, heartbeat, poświadczenie agenta.
 - [ ] Sterowniki: Modbus TCP, SunSpec, Solarman V5.

@@ -1,0 +1,44 @@
+# SIMULATED — profil symulatora SolarGraf, NIE opisuje żadnego rzeczywistego urządzenia.
+# Mapa rejestrów jest zdefiniowana przez nas dla symulatora (P3) i testów agenta.
+# Nie używaj go jako wzoru adresów dla prawdziwego sprzętu.
+schema_version: 1
+id: simulated.hybrid-inverter
+version: "0.1.0"
+name: Symulowany falownik hybrydowy
+manufacturer: SolarGraf (symulator)
+device_kind: INVERTER
+origin: SIMULATED
+support_level: EXPERIMENTAL
+transports: [MODBUS_TCP]
+sources:
+  - id: simulator-map
+    title: Mapa rejestrów symulatora SolarGraf (ten plik)
+    version: "0.1.0"
+polling:
+  interval_seconds: 10
+  timeout_seconds: 3
+  retries: 2
+  max_block_registers: 60
+points:
+  - {metric: pv_power, status: UNVERIFIED, source: simulator-map,
+     register: {table: input, address: 0, type: u32, word_order: high_first}, unit: W}
+  - {metric: pv_string_voltage, channel: 1, status: UNVERIFIED, source: simulator-map,
+     register: {table: input, address: 2, type: u16}, scale: 0.1, unit: V}
+  - {metric: pv_string_current, channel: 1, status: UNVERIFIED, source: simulator-map,
+     register: {table: input, address: 3, type: u16}, scale: 0.01, unit: A}
+  - {metric: pv_energy_total, status: UNVERIFIED, source: simulator-map,
+     register: {table: input, address: 4, type: u32, word_order: high_first}, scale: 0.1, unit: kWh}
+  - {metric: grid_power, status: UNVERIFIED, source: simulator-map,
+     register: {table: input, address: 6, type: s32, word_order: high_first}, unit: W}
+  - {metric: grid_frequency, status: UNVERIFIED, source: simulator-map,
+     register: {table: input, address: 8, type: u16}, scale: 0.01, unit: Hz}
+  - {metric: load_power, status: UNVERIFIED, source: simulator-map,
+     register: {table: input, address: 9, type: u16}, unit: W}
+  # Symulator celowo używa odwrotnego znaku baterii (+ ładowanie), żeby testować sign: invert.
+  - {metric: battery_power, status: UNVERIFIED, source: simulator-map,
+     register: {table: input, address: 10, type: s16}, unit: W, sign: invert}
+  - {metric: battery_soc, status: UNVERIFIED, source: simulator-map,
+     register: {table: input, address: 11, type: u16}, unit: "%"}
+  - {metric: inverter_temperature, status: UNVERIFIED, source: simulator-map,
+     register: {table: input, address: 12, type: s16}, scale: 0.1, unit: degC}
+  - {metric: battery_temperature, status: UNSUPPORTED, source: simulator-map}

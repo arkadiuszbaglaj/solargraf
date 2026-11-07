@@ -16,30 +16,23 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
+from solargraf_profiles.catalog import DeviceKind, Transport
 from solargraf_server.models.base import Base, created_at, uuid_pk
+
+__all__ = [
+    "DEFAULT_FRESHNESS_THRESHOLD_S",
+    "Agent",
+    "AgentMode",
+    "Connection",
+    "Device",
+    "DeviceKind",
+    "Transport",
+]
 
 
 class AgentMode(enum.StrEnum):
     LOCAL = "LOCAL"
     REMOTE = "REMOTE"
-
-
-class Transport(enum.StrEnum):
-    MODBUS_TCP = "MODBUS_TCP"
-    MODBUS_RTU = "MODBUS_RTU"
-    SOLARMAN_V5 = "SOLARMAN_V5"
-    HTTP = "HTTP"
-    MQTT = "MQTT"
-
-
-class DeviceKind(enum.StrEnum):
-    INVERTER = "INVERTER"
-    BATTERY = "BATTERY"
-    BMS = "BMS"
-    METER = "METER"
-    MPPT = "MPPT"
-    SENSOR = "SENSOR"
-    GATEWAY = "GATEWAY"
 
 
 def _in(values: type[enum.StrEnum], column: str) -> str:

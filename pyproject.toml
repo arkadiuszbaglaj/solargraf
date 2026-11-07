@@ -3,17 +3,18 @@
 name = "solargraf-workspace"
 version = "0.0.0"
 requires-python = ">=3.12,<3.13"
-dependencies = ["solargraf-server", "solargraf-agent"]
+dependencies = ["solargraf-server", "solargraf-agent", "solargraf-profiles"]
 
 [tool.uv]
 package = false
 
 [tool.uv.workspace]
-members = ["server", "agent"]
+members = ["server", "agent", "profiles-schema"]
 
 [tool.uv.sources]
 solargraf-server = { workspace = true }
 solargraf-agent = { workspace = true }
+solargraf-profiles = { workspace = true }
 
 # Narzędzia deweloperskie — nie trafiają do obrazów produktu.
 [dependency-groups]
@@ -24,12 +25,13 @@ dev = [
     "pre-commit>=4.7.0",
     "pytest>=9.2.0",
     "ruff>=0.17.4",
+    "types-pyyaml>=6.0.12.20261103",
 ]
 
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-src = ["server/src", "agent/src", "tools"]
+src = ["server/src", "agent/src", "profiles-schema/src", "tools"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "B", "UP", "S", "C4", "SIM", "RUF", "ANN", "ASYNC", "PT"]
@@ -40,10 +42,11 @@ select = ["E", "W", "F", "I", "B", "UP", "S", "C4", "SIM", "RUF", "ANN", "ASYNC"
 [tool.mypy]
 strict = true
 python_version = "3.12"
-files = ["server/src", "server/tests", "server/alembic", "agent/src", "agent/tests", "tools"]
+files = ["server/src", "server/tests", "server/alembic", "agent/src", "agent/tests", "profiles-schema/src",
+         "profiles-schema/tests", "tools"]
 explicit_package_bases = true
-mypy_path = ["server/src", "agent/src", "."]
+mypy_path = ["server/src", "agent/src", "profiles-schema/src", "."]
 
 [tool.pytest.ini_options]
-testpaths = ["server/tests", "agent/tests", "tools/tests"]
+testpaths = ["server/tests", "agent/tests", "profiles-schema/tests", "tools/tests"]
 addopts = "--import-mode=importlib -ra --strict-markers"

@@ -1,0 +1,17 @@
+[project]
+name = "solargraf-profiles"
+version = "0.0.0"
+description = "SolarGraf (nazwa robocza) — format i walidacja profili urządzeń"
+requires-python = ">=3.12,<3.13"
+license = "LicenseRef-Proprietary"
+dependencies = [
+    "pydantic>=2.14.3",
+    "pyyaml>=6.0.3",
+]
+
+[project.scripts]
+solargraf-profiles = "solargraf_profiles.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.13.5,<0.14"]
+build-backend = "uv_build"

@@ -52,6 +52,7 @@ Fizyczny punkt dostępu, z którym rozmawia agent (np. logger Wi-Fi, port Modbus
 - `transport`, `support_level` (`VERIFIED` / `COMMUNITY` / `EXPERIMENTAL`)
 - lista punktów danych ze źródłem dowodu i statusem weryfikacji (`ARCHITECTURE.md`)
 - zakres modeli i firmware, których dotyczy (tylko potwierdzone)
+- format pliku, katalog metryk, jednostki kanoniczne i konwencja znaków: D39, kod w `profiles-schema/` (`solargraf_profiles`); profil nie jest tabelą w bazie — urządzenie zapisuje `profile_id`/`profile_version`
 
 ## Encje: pomiary i zdarzenia
 
