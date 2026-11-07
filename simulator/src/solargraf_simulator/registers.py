@@ -9,7 +9,7 @@ from solargraf_profiles.codec import CodecError, encode
 from solargraf_profiles.model import MODBUS_MAX_BLOCK, Addressing, Profile, RegisterTable
 
 # Wielkości stringów PV dzielone równo między kanały (napięcie jest wspólne).
-_SPLIT_BY_STRINGS = frozenset({"pv_string_power", "pv_string_current"})
+SPLIT_BY_STRINGS = frozenset({"pv_string_power", "pv_string_current"})
 
 
 class ModbusException(Exception):
@@ -33,7 +33,7 @@ class RegisterMap:
             )
         self.profile = profile
         self._points = [p for p in profile.points if p.reg is not None]
-        self._strings = Counter(p.channel for p in self._points if p.metric in _SPLIT_BY_STRINGS)
+        self._strings = Counter(p.channel for p in self._points if p.metric in SPLIT_BY_STRINGS)
 
     def snapshot(self, metrics: dict[str, Decimal]) -> dict[tuple[RegisterTable, int], int]:
         """Wartości wszystkich rejestrów profilu dla bieżącego stanu modelu."""
@@ -41,7 +41,7 @@ class RegisterMap:
         for p in self._points:
             assert p.reg is not None  # noqa: S101 — przefiltrowane w __init__
             value = metrics[p.metric]
-            if p.metric in _SPLIT_BY_STRINGS and self._strings:
+            if p.metric in SPLIT_BY_STRINGS and self._strings:
                 value = value / len(self._strings)
             try:
                 encoded = encode(p, value)
