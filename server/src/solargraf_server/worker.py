@@ -13,7 +13,7 @@ import logging
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import delete, insert, select
@@ -33,6 +33,7 @@ from solargraf_server.aggregation import (
 )
 from solargraf_server.config import Settings
 from solargraf_server.db import create_engine, create_sessionmaker
+from solargraf_server.maintenance import Retention, next_maintenance, run_maintenance
 from solargraf_server.models import (
     Aggregate,
     AggregateDirty,
@@ -242,9 +243,24 @@ async def run(settings: Settings, interval_s: float = INTERVAL_S) -> None:
     catalog = ProfileCatalog.load(settings.profiles_dir)
     engine = create_engine(settings)
     maker = create_sessionmaker(engine)
+    policy = Retention(
+        raw_days=settings.retention_raw_days,
+        m5_days=settings.retention_m5_days,
+        runs_days=settings.retention_runs_days,
+        months_ahead=settings.partition_months_ahead,
+    )
     log.info("Worker agregatów uruchomiony (co %ss)", interval_s)
+    maintenance_at = datetime.now(UTC)  # przy starcie, potem codziennie o 03:00 UTC
     try:
         while True:
+            now = datetime.now(UTC)
+            if now >= maintenance_at:
+                try:
+                    async with maker() as db:
+                        await run_maintenance(db, now, policy)
+                except (SQLAlchemyError, OSError) as exc:
+                    log.warning("Utrzymanie bazy nieudane: %s", type(exc).__name__)
+                maintenance_at = next_maintenance(now)
             try:
                 done = await run_cycle(maker, catalog)
                 if done:
