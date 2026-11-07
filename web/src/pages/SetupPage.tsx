@@ -1,9 +1,10 @@
 import type { FormEvent } from 'react'
 import { useId, useState } from 'react'
 import type { FieldErrors, SetupFields } from '../api/setup'
+import { rememberLoginEmail } from '../api/auth'
 import { PASSWORD_MAX, PASSWORD_MIN, postSetup, validateSetup } from '../api/setup'
 import { branding } from '../branding'
-import styles from './SetupPage.module.css'
+import styles from './AuthPage.module.css'
 
 /** Odczytuje token z adresu i usuwa go z paska adresu oraz historii przeglądarki. */
 export function takeTokenFromLocation(): string {
@@ -73,6 +74,7 @@ export function SetupPage({
     })
     setPending(false)
     if (result.ok) {
+      rememberLoginEmail(fields.email.trim())
       setFields(EMPTY)
       setDone(true)
     } else {
@@ -85,11 +87,10 @@ export function SetupPage({
     content = (
       <div role="status">
         <p>Konto właściciela zostało utworzone. Link konfiguracji wygasł i nie zadziała ponownie.</p>
-        <p className={styles.muted}>
-          Logowanie w interfejsie pojawi się w kolejnej wersji. Do tego czasu panel pokazuje dane DEMO.
-        </p>
         <p>
-          <a href="/">Przejdź do panelu</a>
+          <a className={styles.submit} href="/login">
+            Zaloguj się
+          </a>
         </p>
       </div>
     )

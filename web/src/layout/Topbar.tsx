@@ -1,5 +1,6 @@
-import { Menu } from 'lucide-react'
+import { LogOut, Menu } from 'lucide-react'
 import { useId } from 'react'
+import { useOptionalSession } from '../auth/SessionContext'
 import { DemoBadge } from '../components/DemoBadge'
 import type { Origin, Site } from '../data/types'
 import { formatDateTime } from '../lib/format'
@@ -26,6 +27,7 @@ export function Topbar({
 }) {
   const selectId = useId()
   const site = sites.find((s) => s.id === siteId)
+  const auth = useOptionalSession()
   return (
     <header className={styles.topbar}>
       <button
@@ -64,6 +66,17 @@ export function Topbar({
             {formatDateTime(now.toISOString(), site.timezone)}
             <span className="visually-hidden"> (strefa {site.timezone})</span>
           </time>
+        ) : null}
+        {auth ? (
+          <div className={styles.user}>
+            <span className={styles.userName} title={auth.session.user.email}>
+              {auth.session.user.displayName}
+            </span>
+            <button type="button" className={styles.logout} onClick={auth.logout} disabled={auth.loggingOut}>
+              <LogOut size={16} aria-hidden="true" />
+              {auth.loggingOut ? 'Wylogowywanie…' : 'Wyloguj'}
+            </button>
+          </div>
         ) : null}
       </div>
     </header>
