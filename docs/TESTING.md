@@ -44,7 +44,8 @@ Projekt powstaje bez stałego dostępu do sprzętu. Dlatego warstwa symulatorów
 - Python: `pytest` (+ wsparcie asyncio), `ruff`, `mypy --strict`.
 - Frontend: Vitest + React Testing Library, oxlint (z wtyczkami react, jsx-a11y), `tsc -b`. ESLint zastąpiony przez oxlint, bo typescript-eslint nie wspiera jeszcze TypeScript 7.
 - E2E: Playwright.
-- Instalator: ShellCheck dla skryptu; testy instalacji w czystych maszynach wirtualnych/kontenerach każdego wspieranego systemu (amd64 w CI, arm64 na RPi lub emulacji).
+- Instalator (stan obecny, D34): CI uruchamia ShellCheck, `--dry-run` w kontenerach Debian 12/13 i Ubuntu 24.04 oraz pełną instalację z paczki na Ubuntu 24.04 (HTTPS z lokalnego CA, nagłówki, link `/setup`, logowanie, ponowna instalacja, `uninstall` i `--purge`). arm64 i Raspberry Pi OS — ręcznie.
+- Instalator (docelowo): ShellCheck dla skryptu; testy instalacji w czystych maszynach wirtualnych/kontenerach każdego wspieranego systemu (amd64 w CI, arm64 na RPi lub emulacji).
 - CI: lint, typecheck, testy, build obrazów, skan podatności, **kontrola licencji zależności** (lista dozwolonych z `COMPLIANCE.md`), generowanie SBOM.
 
 Dokładne komendy zostaną zapisane w README po skonfigurowaniu w etapie P0/P1.

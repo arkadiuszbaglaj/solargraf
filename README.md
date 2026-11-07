@@ -144,6 +144,24 @@ docker compose -f deploy/compose.dev.yaml exec api solargraf-admin setup-token
 
 Usługi: `db` (PostgreSQL 18, bez portu na hoście), `migrate` (jednorazowo `alembic upgrade head`), `api` (FastAPI na `127.0.0.1:8000`). W dev działa Swagger UI pod `/api/docs`. Testy integracyjne z bazą: `SOLARGRAF_TEST_DB=1` oraz zmienne `SOLARGRAF_DB_*` wskazujące na działającego PostgreSQL.
 
+### Instalacja na serwerze (wersja dev, D34)
+
+Na komputerze deweloperskim (Git Bash/Linux) — paczka z zatwierdzonego `HEAD`:
+
+```bash
+./tools/make-bundle.sh                 # dist/solargraf-<wersja>.tar.gz + .sha256
+```
+
+Na serwerze (Debian 12/13, Ubuntu 24.04, Raspberry Pi OS 64-bit; amd64/arm64), po skopiowaniu paczki:
+
+```bash
+tar -xzf solargraf-<wersja>.tar.gz
+sudo ./solargraf/deploy/install.sh install --dry-run   # tylko kontrola i plan
+sudo ./solargraf/deploy/install.sh install
+```
+
+Instalator sprawdza system, RAM, dysk i porty 80/443, po potwierdzeniu instaluje Dockera z oficjalnego repozytorium, tworzy `/opt/solargraf` (sekrety w `.env`, 600), buduje obrazy, uruchamia `db`, `migrate`, `api` i `proxy` (Caddy, TLS z lokalnego CA) i wypisuje jednorazowy link `https://<adres>/setup?token=…` do pierwszego konta. Certyfikat CA do zaimportowania w przeglądarce: `/opt/solargraf/solargraf-ca.crt`. Dalej: `sudo solargraf status`, `sudo solargraf setup-link`, `sudo solargraf uninstall` (dane zostają) i `uninstall --purge` (usuwa dane). Log: `/opt/solargraf/install.log` (bez sekretów).
+
 Lista dozwolonych licencji: `tools/license-policy.json` (zgodna z `docs/COMPLIANCE.md`). Kontrola obejmuje zależności produkcyjne wraz z przechodnimi; narzędzia deweloperskie nie trafiają do produktu. SBOM (CycloneDX) generuje CI jako artefakt.
 
 ## Uruchomienie z Claude Code

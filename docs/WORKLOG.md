@@ -74,6 +74,15 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: brak edycji/usuwania instalacji i zarządzania przypisaniami (`membership_sites` tylko przez bazę); brak UI wyboru instalacji z API.
 - Następne małe zadanie: P2.3 — agenci i urządzenia (modele) oraz `GET /api/sites/{id}/devices` przez `authz`.
 
+## 2026-11-07 (P1, wycinek 3)
+
+- Etap: P1 — instalator v1 (wersja dev).
+- Zmiany: `deploy/install.sh` (`install`, `status`, `setup-link`, `uninstall [--purge]`, `--dry-run`, `--yes`, `--dir`, `--address`; kontrola systemu, RAM, dysku, portów, LXC i karty SD; Docker z oficjalnego repozytorium po potwierdzeniu; sekrety w `.env` 600; log bez sekretów); `tools/make-bundle.sh` (paczka z `git archive`); produkcyjny `deploy/compose.yaml` z proxy Caddy (TLS `internal`, CSP i nagłówki, frontend + `/api`); strona `/setup` w web (token usuwany z adresu).
+- Testy uruchomione i wyniki: lokalnie Vitest, oxlint, tsc, build; `bash -n` skryptów. ShellCheck, `--dry-run` w kontenerach i pełna instalacja — w CI.
+- Decyzje zatwierdzone: D34 (instalator v1 w wersji dev).
+- Ryzyka / rzeczy nieweryfikowane: nie testowano na arm64/RPi ani w LXC; ostrzeżenie przeglądarki o certyfikacie do czasu importu CA; brak UI logowania (po utworzeniu konta panel nadal na DEMO); obrazy budowane na serwerze (wolno na RPi), przypięte tagami, nie digestami (P7).
+- Następne małe zadanie: UI logowania albo P2.3 (agenci i urządzenia).
+
 ## Szablon kolejnego wpisu
 
 - Data:

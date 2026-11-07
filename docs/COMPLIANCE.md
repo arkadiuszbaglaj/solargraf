@@ -34,6 +34,8 @@ Stan sprawdzony 2026-11-04 (do ponownej weryfikacji przy dodaniu):
 | cffi | MIT-0 | dozwolony (sprawdzone 2026-11-07) |
 | pycparser | BSD-3-Clause | dozwolony (sprawdzone 2026-11-07) |
 | tzdata | Apache-2.0 | dozwolony (sprawdzone 2026-11-07) |
+| Caddy (obraz `caddy`, proxy) | Apache-2.0 | dozwolony (sprawdzone 2026-11-07) |
+| Node.js (obraz `node`, tylko etap budowania frontendu, nie trafia do obrazu proxy) | MIT | dozwolony (sprawdzone 2026-11-07) |
 | psycopg (psycopg3) | **LGPL-3.0** | **zakazany** — używamy asyncpg (D24) |
 | huawei-solar | **AGPL-3.0** | **zakazany** — adapter Huawei piszemy samodzielnie z dokumentacji Huawei |
 | TimescaleDB (funkcje TSL) | Timescale License | **nieużywany** (D10) |
