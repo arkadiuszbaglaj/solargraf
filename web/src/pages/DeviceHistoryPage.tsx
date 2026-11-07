@@ -12,6 +12,7 @@ import { WidgetState } from '../components/WidgetState'
 import { displayUnit, hasValues, RESOLUTION_LABEL } from '../components/historyChartOption'
 import { useAsync } from '../hooks/useAsync'
 import { type Period, rangeFor, shiftAnchor, today } from '../lib/historyRange'
+import { DeviceEnergyPanel, hasEnergySources } from './DeviceEnergyPanel'
 import styles from './DeviceHistoryPage.module.css'
 
 // ECharts ładowany osobno — nie blokuje pierwszego renderu strony.
@@ -143,6 +144,7 @@ function HistoryPanel({
   const unit = displayUnit(metric.unit).unit
   const origins = state.status === 'ready' && state.data ? state.data.origins : []
   return (
+    <>
     <Panel
       title={`Historia — ${device.name}`}
       actions={
@@ -238,5 +240,16 @@ function HistoryPanel({
         ) : null}
       </WidgetState>
     </Panel>
+    {hasEnergySources(device) ? (
+      <DeviceEnergyPanel
+        siteId={site.id}
+        device={device}
+        range={range}
+        timeZone={tz}
+        fetchFn={fetchFn}
+        onExpired={onExpired}
+      />
+    ) : null}
+    </>
   )
 }

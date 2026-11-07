@@ -1,12 +1,16 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
+import { ENERGY_BODY } from '../test/energyFixture'
 import { historyIds, routeFor } from '../Root'
 import { DeviceHistoryPage } from './DeviceHistoryPage'
 
 // ECharts wymaga przeglądarki (wymiary, ResizeObserver); opcje wykresu testujemy osobno.
 vi.mock('../components/HistoryChartView', () => ({
   HistoryChartView: ({ label }: { label: string }) => <div role="img" aria-label={label} />,
+}))
+vi.mock('../components/EnergyBarsView', () => ({
+  EnergyBarsView: ({ label }: { label: string }) => <div role="img" aria-label={label} />,
 }))
 
 const SITE_ID = '0b5c3a52-6f0e-4d0b-9a77-6a1f2c3d4e5f'
@@ -52,13 +56,16 @@ function history(values: Array<number | null>, origins = ['SIMULATED']) {
   }
 }
 
-function server(historyBody: unknown = history([1000, null]), device: unknown = DEVICE) {
+function server(historyBody: unknown = history([1000, null]), device: unknown = DEVICE, energyBody: unknown = null) {
   return vi.fn<typeof fetch>(async (input) => {
     const url = String(input)
     if (url === `/api/sites/${SITE_ID}`) return json(200, SITE)
     if (url === `/api/sites/${SITE_ID}/devices`) return json(200, [device])
     if (url.startsWith(`/api/sites/${SITE_ID}/devices/${DEVICE_ID}/history?`)) {
       return historyBody instanceof Response ? historyBody : json(200, historyBody)
+    }
+    if (energyBody !== null && url.startsWith(`/api/sites/${SITE_ID}/devices/${DEVICE_ID}/energy?`)) {
+      return energyBody instanceof Response ? energyBody : json(200, energyBody)
     }
     return json(404, { detail: 'x' })
   })
@@ -160,5 +167,33 @@ describe('DeviceHistoryPage', () => {
       <DeviceHistoryPage siteId={SITE_ID} deviceId={DEVICE_ID} now={NOW} fetchFn={server(undefined, { ...DEVICE, metrics: [] })} />,
     )
     expect(await screen.findByText('Profil urządzenia nie udostępnia pomiarów.')).toBeTruthy()
+  })
+
+  it('panel energii: wskaźniki ze statusem, suma i oznaczenie SIMULATED', async () => {
+    const device = {
+      ...DEVICE,
+      metrics: [
+        ...METRICS,
+        { key: 'pv_energy_total', channel: null, name: 'Produkcja PV (licznik)', unit: 'Wh', cumulative: true },
+      ],
+    }
+    const fetchFn = server(history([1000]), device, ENERGY_BODY)
+    render(<DeviceHistoryPage siteId={SITE_ID} deviceId={DEVICE_ID} now={NOW} fetchFn={fetchFn} />)
+    const panel = await screen.findByRole('region', { name: 'Energia i wskaźniki' })
+    expect(await within(panel).findByText('94,4%')).toBeTruthy()
+    expect(within(panel).getByText('Brak.')).toBeTruthy()
+    expect(within(panel).getByRole('rowheader', { name: 'Produkcja PV' })).toBeTruthy()
+    expect(within(panel).getByText('0,8 kWh')).toBeTruthy()
+    expect(within(panel).getByText('wykryto reset licznika')).toBeTruthy()
+    expect(within(panel).getByText('SIMULATED')).toBeTruthy()
+    expect(await within(panel).findByRole('img', { name: /Wykres słupkowy energii/ })).toBeTruthy()
+    const energyUrl = fetchFn.mock.calls.map(([u]) => String(u)).find((u) => u.includes('/energy?'))
+    expect(new URL(energyUrl ?? '', 'https://x').searchParams.get('from')).toBe('2026-11-06T23:00:00.000Z')
+  })
+
+  it('bez źródeł energii panel jest ukryty', async () => {
+    render(<DeviceHistoryPage siteId={SITE_ID} deviceId={DEVICE_ID} now={NOW} fetchFn={server()} />)
+    await screen.findByRole('img')
+    expect(screen.queryByRole('region', { name: 'Energia i wskaźniki' })).toBeNull()
   })
 })

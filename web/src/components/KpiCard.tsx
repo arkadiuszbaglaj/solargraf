@@ -12,6 +12,7 @@ export function KpiCard({
   secondary,
   stale,
   unavailableReason,
+  notice,
 }: {
   label: string
   icon: LucideIcon
@@ -20,6 +21,8 @@ export function KpiCard({
   secondary?: string | null
   stale: boolean
   unavailableReason?: string | null
+  /** Ostrzeżenie o jakości wyniku (niedostępny, niepełne dane) — kolor ostrzeżenia. */
+  notice?: string | null
 }) {
   return (
     <article className={`${styles.card} ${stale ? styles.stale : ''}`}>
@@ -28,6 +31,7 @@ export function KpiCard({
         <h3 className={styles.label}>{label}</h3>
         <p className={styles.value}>{value}</p>
         {unavailableReason ? <p className={styles.detail}>{unavailableReason}</p> : null}
+        {notice ? <p className={styles.notice}>{notice}</p> : null}
         {detail ? <p className={styles.detail}>{detail}</p> : null}
         {secondary ? <p className={styles.secondary}>{secondary}</p> : null}
         {stale ? <p className={styles.staleText}>Wartość nieaktualna</p> : null}
