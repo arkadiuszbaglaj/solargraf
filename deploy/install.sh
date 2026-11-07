@@ -103,6 +103,7 @@ Użycie:
   install.sh install   [--yes] [--dry-run] [--dir KATALOG] [--address ADRES]
   install.sh status    [--dir KATALOG]
   install.sh setup-link [--dir KATALOG]   nowy jednorazowy link do pierwszego konta
+  install.sh simulator on|off [--dir KATALOG]   symulator urządzenia do testów (SIMULATED)
   install.sh uninstall [--purge] [--yes] [--dir KATALOG]
 
   --dry-run   pokaż plan i wynik kontroli, nic nie zmieniaj
@@ -207,10 +208,18 @@ site_addresses() {
 	printf '%s' "$list"
 }
 
+simulator_enabled() {
+	[ -f "$INSTALL_DIR/.env" ] && grep -q '^SOLARGRAF_SIMULATOR=1$' "$INSTALL_DIR/.env"
+}
+
 compose() {
+	local profiles=()
+	if simulator_enabled; then
+		profiles=(--profile symulator)
+	fi
 	docker compose -p "$PRODUCT" \
 		-f "$INSTALL_DIR/src/deploy/compose.yaml" \
-		--env-file "$INSTALL_DIR/.env" "$@"
+		--env-file "$INSTALL_DIR/.env" "${profiles[@]}" "$@"
 }
 
 new_secret() {
@@ -440,6 +449,31 @@ export_ca() {
 	say "Certyfikat CA: $target (zaimportuj go w przeglądarce jako zaufany urząd, aby usunąć ostrzeżenie)."
 }
 
+# Ustawia KLUCZ=wartość w .env (600). Wpis trafia przed adresy, które write_env zawsze
+# dopisuje na końcu — dzięki temu ponowna instalacja nie zmienia układu pliku.
+env_set() {
+	local env="$INSTALL_DIR/.env" key="$1" value="$2"
+	(
+		umask 077
+		grep -v -e "^$key=" -e '^SOLARGRAF_SITE_ADDRESSES=' -e '^SOLARGRAF_PUBLIC_ADDRESS=' \
+			"$env" >"$env.tmp" || true
+		printf '%s=%s\n' "$key" "$value" >>"$env.tmp"
+		grep -e '^SOLARGRAF_SITE_ADDRESSES=' -e '^SOLARGRAF_PUBLIC_ADDRESS=' "$env" >>"$env.tmp" || true
+	)
+	mv "$env.tmp" "$env"
+	chmod 600 "$env"
+}
+
+env_unset() {
+	local env="$INSTALL_DIR/.env" key="$1"
+	(
+		umask 077
+		grep -v "^$key=" "$env" >"$env.tmp" || true
+	)
+	mv "$env.tmp" "$env"
+	chmod 600 "$env"
+}
+
 # Token agenta (D43): tworzony raz i zapisany tylko w .env (600) — nigdy na ekranie ani w logu.
 # Gdy .env go nie ma, a agent już istnieje (np. odtworzony .env), wydajemy nowy token (rotate).
 ensure_agent_token() {
@@ -454,16 +488,7 @@ ensure_agent_token() {
 		say "Agent $AGENT_NAME istniał — wydano nowy token (poprzedni przestał działać)."
 	fi
 	[[ "$token" =~ ^[A-Za-z0-9_-]+$ ]] || die "Nieoczekiwana odpowiedź przy tworzeniu tokenu agenta."
-	(
-		umask 077
-		# Token przed adresami, które write_env dopisuje zawsze na końcu — układ pliku stały.
-		grep -v -e '^SOLARGRAF_AGENT_TOKEN=' -e '^SOLARGRAF_SITE_ADDRESSES=' -e '^SOLARGRAF_PUBLIC_ADDRESS=' \
-			"$env" >"$env.tmp" || true
-		printf 'SOLARGRAF_AGENT_TOKEN=%s\n' "$token" >>"$env.tmp"
-		grep -e '^SOLARGRAF_SITE_ADDRESSES=' -e '^SOLARGRAF_PUBLIC_ADDRESS=' "$env" >>"$env.tmp" || true
-	)
-	mv "$env.tmp" "$env"
-	chmod 600 "$env"
+	env_set SOLARGRAF_AGENT_TOKEN "$token"
 	log_line "zapisano token agenta $AGENT_NAME w .env (treść pominięta)"
 	say "Token agenta $AGENT_NAME zapisany w $env."
 }
@@ -534,9 +559,13 @@ cmd_install() {
 	ensure_agent_token
 	say "== Uruchamiam agenta"
 	compose up -d --build agent
+	if simulator_enabled; then
+		say "== Symulator (SIMULATED) włączony — uruchamiam"
+		compose up -d --build simulator
+	fi
 	export_ca
 	ln -sf "$INSTALL_DIR/src/deploy/install.sh" "$CLI_LINK"
-	say "Polecenie: $CLI_LINK (status, uninstall, setup-link)."
+	say "Polecenie: $CLI_LINK (status, uninstall, setup-link, simulator on|off)."
 
 	say ""
 	say "Gotowe. Adres aplikacji: https://${ADDRESS:-localhost}/"
@@ -566,7 +595,45 @@ cmd_status() {
 	else
 		say "Gotowość: BRAK (sprawdź: docker compose -p $PRODUCT logs)"
 	fi
+	if simulator_enabled; then
+		say "Symulator (SIMULATED): włączony (wyłącz: sudo $CLI_LINK simulator off)"
+	else
+		say "Symulator (SIMULATED): wyłączony"
+	fi
 	df -h "$INSTALL_DIR" /var/lib
+}
+
+# --- symulator (D45) -------------------------------------------------------------------------
+
+SIM_ACTION=""
+
+cmd_simulator() {
+	require_root
+	require_installation
+	LOG_FILE="$INSTALL_DIR/install.log"
+	case "$SIM_ACTION" in
+	on)
+		log_line "--- simulator on"
+		env_set SOLARGRAF_SIMULATOR 1
+		say "Buduję i uruchamiam symulator (dane SIMULATED, tylko w sieci Docker, bez portu na hoście)."
+		compose up -d --build simulator
+		say ""
+		say "Symulator działa. Dodaj urządzenie w aplikacji: Instalacje → Urządzenia →"
+		say "  profil: [SIMULATED] …, adres: simulator, port: 5020, unit ID: 1"
+		say "Odczyty pojawią się po pierwszym cyklu agenta (do ok. 1 min)."
+		say "Wyłączenie: sudo $CLI_LINK simulator off"
+		;;
+	off)
+		log_line "--- simulator off"
+		if simulator_enabled; then
+			compose rm --stop --force simulator
+		fi
+		env_unset SOLARGRAF_SIMULATOR
+		say "Symulator wyłączony. Zapisane odczyty zostają w bazie, oznaczone jako SIMULATED."
+		say "Urządzenie symulatora wyłącz lub usuń w aplikacji (Instalacje → Urządzenia)."
+		;;
+	*) die "Użycie: $CLI_LINK simulator on|off" ;;
+	esac
 }
 
 cmd_setup_link() {
@@ -585,7 +652,7 @@ cmd_uninstall() {
 		confirm "Usunąć aplikację RAZEM Z DANYMI (baza, certyfikaty, $INSTALL_DIR)? Tej operacji nie da się cofnąć." ||
 			die "Przerwano."
 		compose down --volumes --remove-orphans
-		docker image rm -f solargraf-api:local solargraf-proxy:local solargraf-agent:local >/dev/null 2>&1 || true
+		docker image rm -f solargraf-api:local solargraf-proxy:local solargraf-agent:local solargraf-simulator:local >/dev/null 2>&1 || true
 		rm -f "$CLI_LINK"
 		LOG_FILE=""
 		rm -rf "$INSTALL_DIR"
@@ -604,6 +671,10 @@ cmd_uninstall() {
 main() {
 	local command="${1:-}"
 	[ $# -gt 0 ] && shift
+	if [ "$command" = "simulator" ] && [ $# -gt 0 ] && [[ "$1" != -* ]]; then
+		SIM_ACTION="$1"
+		shift
+	fi
 	while [ $# -gt 0 ]; do
 		case "$1" in
 		--dry-run) DRY_RUN=1 ;;
@@ -646,6 +717,7 @@ main() {
 	install) cmd_install ;;
 	status) cmd_status ;;
 	setup-link) cmd_setup_link ;;
+	simulator) cmd_simulator ;;
 	uninstall) cmd_uninstall ;;
 	"" | -h | --help | help) usage ;;
 	*) die "Nieznane polecenie: $command (zobacz --help)" ;;

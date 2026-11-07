@@ -188,7 +188,9 @@ sudo ./solargraf/deploy/install.sh install --dry-run   # tylko kontrola i plan
 sudo ./solargraf/deploy/install.sh install
 ```
 
-Instalator sprawdza system, RAM, dysk i porty 80/443, po potwierdzeniu instaluje Dockera z oficjalnego repozytorium, tworzy `/opt/solargraf` (sekrety w `.env`, 600), buduje obrazy, uruchamia `db`, `migrate`, `api` i `proxy` (Caddy, TLS z lokalnego CA) i wypisuje jednorazowy link `https://<adres>/setup?token=…` do pierwszego konta. Certyfikat CA do zaimportowania w przeglądarce: `/opt/solargraf/solargraf-ca.crt`. Dalej: `sudo solargraf status`, `sudo solargraf setup-link`, `sudo solargraf uninstall` (dane zostają) i `uninstall --purge` (usuwa dane). Log: `/opt/solargraf/install.log` (bez sekretów).
+Instalator sprawdza system, RAM, dysk i porty 80/443, po potwierdzeniu instaluje Dockera z oficjalnego repozytorium, tworzy `/opt/solargraf` (sekrety w `.env`, 600), buduje obrazy, uruchamia `db`, `migrate`, `api`, `proxy` (Caddy, TLS z lokalnego CA) i `agent` (token w `.env`) i wypisuje jednorazowy link `https://<adres>/setup?token=…` do pierwszego konta. Certyfikat CA do zaimportowania w przeglądarce: `/opt/solargraf/solargraf-ca.crt`. Dalej: `sudo solargraf status`, `sudo solargraf setup-link`, `sudo solargraf uninstall` (dane zostają) i `uninstall --purge` (usuwa dane).
+
+Test bez sprzętu (D45): `sudo solargraf simulator on` uruchamia symulator urządzenia (dane `SIMULATED`, tylko w sieci Docker). Potem w aplikacji: Instalacje → Urządzenia → profil `[SIMULATED]`, adres `simulator`, port `5020`. Wyłączenie: `sudo solargraf simulator off` (zapisane odczyty zostają, oznaczone `SIMULATED`). Log: `/opt/solargraf/install.log` (bez sekretów).
 
 Lista dozwolonych licencji: `tools/license-policy.json` (zgodna z `docs/COMPLIANCE.md`). Kontrola obejmuje zależności produkcyjne wraz z przechodnimi; narzędzia deweloperskie nie trafiają do produktu. SBOM (CycloneDX) generuje CI jako artefakt.
 

@@ -159,6 +159,13 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: nazwy hosta nie są sprawdzane po stronie serwera (rozwiązuje je agent); edycja połączenia i usuwanie są tylko w API, nie w UI.
 - Następne małe zadanie: P3.7 — opcjonalna usługa symulatora w Compose (domyślnie wyłączona, SIMULATED), żeby przejść całą ścieżkę na serwerze bez sprzętu.
 
+- Etap: P3.7 — symulator na serwerze.
+- Zmiany: obraz `solargraf-simulator` (non-root), usługa `simulator` w profilu Compose `symulator` bez portu na hoście; `solargraf simulator on|off` (stan w `.env`, zachowany przy aktualizacji), status pokazuje stan symulatora; `env_set` w instalatorze utrzymuje stały układ `.env`.
+- Testy uruchomione i wyniki: lokalnie `bash -n`, walidacja YAML; pełna ścieżka (symulator → agent → API → baza → status OK, pomiary tylko SIMULATED, potem off) w CI instalatora.
+- Decyzje zatwierdzone: D45.
+- Ryzyka / rzeczy nieweryfikowane: lokalnie brak Dockera i ShellCheck — sprawdza CI.
+- Następne małe zadanie: P4 — historia i obliczenia energetyczne (agregaty, retencja, kolejne partycje).
+
 ## Szablon kolejnego wpisu
 
 - Data:
