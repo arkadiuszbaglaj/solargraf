@@ -92,6 +92,15 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: prawdziwe pobranie z GitHuba możliwe dopiero po upublicznieniu repozytorium i merge do `main`; brak pliku licencji zastrzeżonej w repozytorium; brak sumy kontrolnej i podpisu skryptu (P7).
 - Następne małe zadanie: test na serwerze użytkownika; potem UI logowania albo P2.3.
 
+## 2026-11-07 (UI, wycinek: logowanie)
+
+- Etap: P2 — logowanie w interfejsie.
+- Zmiany: `/login` (komunikat wspólny dla złego hasła i blokady), bramka sesji dla całego UI (start, co 5 min, powrót do karty), wylogowanie w topbarze, przycisk „Zaloguj się” po `/setup`, walidacja odpowiedzi `/api/auth/*`, ochrona `next` przed przekierowaniem na inny host, proxy `/api` w Vite; poprawka proxy: certyfikat przy wejściu po IP (`default_sni`, PR #10) po zgłoszeniu z serwera.
+- Testy uruchomione i wyniki: Vitest 97/97, oxlint, tsc, build; ręcznie w przeglądarce `/login` (także `reason=expired`) i bramka bez backendu (błąd z ponowieniem). Pełne logowanie przez proxy — w CI (job instalatora) i na serwerze użytkownika.
+- Decyzje zatwierdzone: D36 (logowanie w UI).
+- Ryzyka / rzeczy nieweryfikowane: logowania w przeglądarce z prawdziwym backendem nie sprawdzono lokalnie (brak Dockera); dashboard po zalogowaniu nadal na DEMO.
+- Następne małe zadanie: ekran „Instalacje” (lista i dodawanie przez `/api/sites`) albo P2.3.
+
 ## Szablon kolejnego wpisu
 
 - Data:

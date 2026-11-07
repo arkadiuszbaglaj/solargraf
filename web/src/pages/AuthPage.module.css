@@ -67,6 +67,9 @@
   background: var(--color-accent);
   color: var(--color-accent-contrast);
   cursor: pointer;
+  display: inline-block;
+  text-align: center;
+  text-decoration: none;
 }
 
 .submit:disabled {
