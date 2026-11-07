@@ -21,7 +21,7 @@ readonly RECOMMENDED_RAM_MB=2048
 readonly MIN_DISK_MB=5120
 readonly HEALTH_TIMEOUT_S=300
 readonly AGENT_NAME="lokalny"
-readonly CORE_SERVICES=(db migrate api proxy)
+readonly CORE_SERVICES=(db migrate api worker proxy)
 # Źródło kodu w trybie `curl | bash` (D35). Docelowo domena producenta (O13, P7).
 readonly GITHUB_REPO="arkadiuszbaglaj/solargraf"
 readonly SCRIPT_URL="https://raw.githubusercontent.com/$GITHUB_REPO/main/deploy/install.sh"

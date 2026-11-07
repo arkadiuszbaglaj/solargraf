@@ -1,4 +1,4 @@
-# Produkcja (D34, D43): db + migrate + api + proxy + agent. Uruchamia instalator
+# Produkcja (D34, D43, D46): db + migrate + api + worker + proxy + agent. Uruchamia instalator
 # deploy/install.sh, który tworzy plik .env (sekrety, uprawnienia 600) w katalogu instalacji.
 # Na hosta wystawione tylko proxy (80 → przekierowanie, 443). Baza, API i agent tylko w sieci
 # Compose; agent łączy się z urządzeniami w LAN przez sieć mostkową Dockera.
@@ -57,6 +57,20 @@ services:
     labels: *labels
     environment: *db-env
     <<: *hardening
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # Agregaty (D46): ten sam obraz co API, bez portów i bez dostępu do urządzeń.
+  worker:
+    image: solargraf-api:local
+    labels: *labels
+    command: ["solargraf-worker"]
+    environment: *db-env
+    <<: *hardening
+    healthcheck:
+      disable: true
     depends_on:
       migrate:
         condition: service_completed_successfully

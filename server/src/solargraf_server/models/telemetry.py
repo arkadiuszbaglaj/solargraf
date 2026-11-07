@@ -125,3 +125,50 @@ class Measurement(Base):
     quality: Mapped[str] = mapped_column(String(16))
     origin: Mapped[str] = mapped_column(String(16))
     batch_id: Mapped[uuid.UUID]
+
+
+class Resolution(enum.StrEnum):
+    M5 = "5m"
+    H1 = "1h"
+    D1 = "1d"
+
+
+class Aggregate(Base):
+    """Agregat metryki urządzenia w przedziale (D46). Liczony przez ``worker`` z próbek GOOD."""
+
+    __tablename__ = "aggregates"
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "device_id", "metric", "channel", "resolution", "bucket_start", name="pk_aggregates"
+        ),
+        CheckConstraint(_in(Resolution, "resolution"), name="resolution"),
+        CheckConstraint("good_samples >= 0 AND samples >= good_samples", name="samples"),
+        CheckConstraint("coverage >= 0 AND coverage <= 1", name="coverage"),
+        CheckConstraint("(good_samples = 0) = (avg IS NULL)", name="values_need_good"),
+    )
+
+    site_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sites.id", ondelete="CASCADE"))
+    device_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("devices.id", ondelete="CASCADE"))
+    metric: Mapped[str] = mapped_column(String(64))
+    channel: Mapped[int] = mapped_column(SmallInteger)
+    resolution: Mapped[str] = mapped_column(String(4))
+    bucket_start: Mapped[datetime]
+    avg: Mapped[float | None] = mapped_column(Double)
+    min: Mapped[float | None] = mapped_column(Double)
+    max: Mapped[float | None] = mapped_column(Double)
+    last: Mapped[float | None] = mapped_column(Double)
+    samples: Mapped[int] = mapped_column(Integer)
+    good_samples: Mapped[int] = mapped_column(Integer)
+    coverage: Mapped[float] = mapped_column(Double)
+    computed_at: Mapped[datetime] = created_at()
+
+
+class AggregateDirty(Base):
+    """Godziny urządzenia do przeliczenia — oznaczane przy przyjęciu partii (D46)."""
+
+    __tablename__ = "aggregate_dirty"
+    __table_args__ = (PrimaryKeyConstraint("device_id", "hour_start", name="pk_aggregate_dirty"),)
+
+    device_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("devices.id", ondelete="CASCADE"))
+    hour_start: Mapped[datetime]
+    marked_at: Mapped[datetime] = created_at()

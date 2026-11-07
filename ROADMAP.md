@@ -56,7 +56,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 ## P4 — Historia i obliczenia energetyczne
 
 - [ ] Normalizacja jednostek oraz walidacja zakresów.
-- [ ] Agregaty 5 min / godzina / dzień z liczbą próbek i pokryciem.
+- [x] Agregaty 5 min / godzina / dzień z liczbą próbek i pokryciem; usługa `worker`, API historii (P4.1, D46).
 - [ ] Wykresy dzień/tydzień/miesiąc/rok.
 - [ ] Zatwierdzone wzory KPI (O3) i bilansu energii.
 - [ ] Obsługa luk, zmian czasu, strefy czasowej i resetów liczników.

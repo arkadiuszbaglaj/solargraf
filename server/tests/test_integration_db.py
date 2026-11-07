@@ -43,7 +43,7 @@ async def _current_revision(settings: Settings) -> str | None:
 def test_migrations_upgrade_and_downgrade() -> None:
     settings = Settings()  # type: ignore[call-arg]
     _alembic("upgrade", "head")
-    assert asyncio.run(_current_revision(settings)) == "0005"
+    assert asyncio.run(_current_revision(settings)) == "0006"
     _alembic("downgrade", "base")
     assert asyncio.run(_current_revision(settings)) is None
     _alembic("upgrade", "head")

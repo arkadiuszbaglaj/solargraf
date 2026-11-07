@@ -211,7 +211,7 @@ jobs:
           test "$(curl -s -o /dev/null -w '%{http_code}' --cacert "$ca" -X POST -H 'Authorization: Bearer x' https://localhost/api/agent/batches)" = "404"
       - name: Tylko proxy wystawia porty
         run: |
-          for svc in db api agent; do
+          for svc in db api worker agent; do
             id="$(docker ps -q --filter label=com.docker.compose.project=solargraf --filter "label=com.docker.compose.service=$svc")"
             test -n "$id"
             test -z "$(docker port "$id")"
@@ -272,6 +272,19 @@ jobs:
           echo "pomiary SIMULATED: $simulated, inne: $other"
           test "$simulated" -gt 0
           test "$other" = "0"
+          # Worker (D46) liczy agregaty co 60 s; historia z API oznacza pochodzenie SIMULATED.
+          device="$(curl -fsS --cacert "$ca" -b sim-jar.txt "https://localhost/api/sites/$site/devices" | jq -r '.[0].id')"
+          for i in $(seq 1 30); do
+            aggregates="$(compose exec -T db psql -U solargraf -d solargraf -tAc "SELECT count(*) FROM aggregates WHERE resolution = '5m'")"
+            echo "agregaty 5m: $aggregates"
+            [ "$aggregates" -gt 0 ] && break
+            if [ "$i" -eq 30 ]; then compose logs --no-color worker; exit 1; fi
+            sleep 5
+          done
+          from="$(date -u -d '-1 hour' +%Y-%m-%dT%H:%M:%SZ)"
+          to="$(date -u -d '+5 minutes' +%Y-%m-%dT%H:%M:%SZ)"
+          history="$(curl -fsS --cacert "$ca" -b sim-jar.txt -G "https://localhost/api/sites/$site/devices/$device/history" --data-urlencode metric=pv_power --data-urlencode "from=$from" --data-urlencode "to=$to" --data-urlencode resolution=5m)"
+          echo "$history" | jq -e '.origins == ["SIMULATED"] and (.points | length) > 0 and ([.points[] | select(.value != null)] | length) > 0'
           sudo solargraf status > sim-status.txt
           grep -q 'Symulator (SIMULATED): włączony' sim-status.txt
           sudo solargraf simulator off

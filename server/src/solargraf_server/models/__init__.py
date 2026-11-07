@@ -17,11 +17,14 @@ from solargraf_server.models.sites import DEFAULT_TIMEZONE, MembershipSite, Site
 from solargraf_server.models.telemetry import (
     NO_CHANNEL,
     AgentBatch,
+    Aggregate,
+    AggregateDirty,
     Measurement,
     MeasurementOrigin,
     PollErrorCode,
     PollingRun,
     Quality,
+    Resolution,
     RunResult,
 )
 
@@ -32,6 +35,8 @@ __all__ = [
     "Agent",
     "AgentBatch",
     "AgentMode",
+    "Aggregate",
+    "AggregateDirty",
     "AuditEvent",
     "Base",
     "Connection",
@@ -45,6 +50,7 @@ __all__ = [
     "PollErrorCode",
     "PollingRun",
     "Quality",
+    "Resolution",
     "Role",
     "RunResult",
     "SetupToken",
