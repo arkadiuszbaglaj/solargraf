@@ -56,6 +56,15 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: brak porównania pikselowego z makietą (układ wzorowany, nie kopiowany); paczka ECharts ~180 kB gzip (ładowana leniwie); nie sprawdzono czytnikiem ekranu; widok dzienny w demo zależy od pory dnia.
 - Następne małe zadanie: P1 wycinek 3 — instalator v1 (wymaga Linuksa/WSL2 do testów).
 
+## 2026-11-07 (P2, wycinek 1)
+
+- Etap: P2 — konta i logowanie.
+- Zmiany: modele i migracja `0002` (organizations, users, memberships, auth_sessions, setup_tokens, audit_events; konwencja nazw ograniczeń); Argon2id w wątku; polityka blokady i ważności sesji jako czyste funkcje; `POST /api/setup`, `POST /api/auth/login`, `POST /api/auth/logout` (CSRF), `GET /api/auth/me`; `solargraf-admin setup-token`; audyt logowań bez haseł/e-maili/IP.
+- Testy uruchomione i wyniki: lokalnie ruff, mypy, pytest 70 OK (polityka, hasła, tokeny, DDL) + testy z bazą pominięte; licencje 26/26. Testy z PostgreSQL (setup, login, blokada, CSRF, wygasanie sesji, `alembic check`) — w CI.
+- Decyzje zatwierdzone: D29 (role, zamyka O6), D30 (sesje i CSRF), D31 (pierwsze konto), D32 (hasła i limit prób).
+- Ryzyka / rzeczy nieweryfikowane: czas Argon2id na RPi niezmierzony; blokada konta pozwala zablokować cudze konto znając e-mail (świadomy kompromis; ograniczony do 15 min); brak zmiany hasła i UI logowania; brak sprzątania wygasłych sesji (do workera).
+- Następne małe zadanie: P2.2 — instalacje (`Site`), autoryzacja per instalacja i testy izolacji.
+
 ## Szablon kolejnego wpisu
 
 - Data:

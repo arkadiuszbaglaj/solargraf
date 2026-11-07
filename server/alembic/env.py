@@ -6,18 +6,18 @@ import asyncio
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import MetaData
 from sqlalchemy.engine import Connection
 
 from solargraf_server.config import Settings
 from solargraf_server.db import create_engine
+from solargraf_server.models import Base
 
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Metadane modeli dojdą w P2; na razie pusta baza odniesienia.
-target_metadata = MetaData()
+# Wszystkie modele rejestrują się w Base.metadata (import pakietu models).
+target_metadata = Base.metadata
 
 
 def _run(connection: Connection) -> None:

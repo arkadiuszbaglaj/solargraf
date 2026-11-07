@@ -36,17 +36,20 @@ Data zatwierdzenia: 2026-11-04 (właściciel projektu).
 | D26 | Migracje bazy | Osobna jednorazowa usługa `migrate` w Compose (`alembic upgrade head`) przed startem `api`. API nie zmienia schematu. | Umożliwia backup przed migracją w instalatorze/aktualizacji (P7). Zatwierdzone 2026-11-07. |
 | D27 | Definicje KPI (z O3) | Autokonsumpcja = (produkcja PV − eksport) / produkcja PV. Samowystarczalność = (zużycie domu − import) / zużycie domu. Dwa osobne wskaźniki, liczone z energii w danym okresie. | Implementacja i testy w P4; UI podpisuje wskaźnik definicją i okresem. Zatwierdzone 2026-11-07. |
 | D28 | Frontend — biblioteki UI | ECharts (Apache-2.0) przez własny cienki komponent z importem modułowym; ikony lucide-react (ISC); style: CSS Modules + tokeny w zmiennych CSS; bez routera do czasu drugiego widoku. Testy: Testing Library + jsdom. | Bez echarts-for-react i Tailwind. Zatwierdzone 2026-11-07. |
+| D29 | Role (z O6) | Członkostwo w organizacji ma jedną rolę: `OWNER` (wszystko, w tym użytkownicy, ustawienia serwera, monitor i aktualizacje), `ADMIN` (instalacje, urządzenia, odczyt), `VIEWER` (odczyt). Członkostwo można zawęzić do wybranych instalacji. | Autoryzacja po stronie serwera dla każdego zasobu; zawężenie do instalacji od wycinka P2.2. Zatwierdzone 2026-11-07. |
+| D30 | Sesje i CSRF | Sesje w bazie; w cookie losowy token (`HttpOnly`, `SameSite=Strict`, `Secure` domyślnie), w bazie tylko jego skrót SHA-256. Wygaśnięcie: 24 h bezczynności, 14 dni bezwzględnie. Wylogowanie (i zmiana hasła, gdy powstanie) unieważnia sesję. Żądania modyfikujące wymagają nagłówka `X-CSRF-Token` zgodnego z tokenem sesji. | Do czasu TLS (P7) `Secure` można wyłączyć konfiguracją w dev. Zatwierdzone 2026-11-07. |
+| D31 | Pierwsze konto | `solargraf-admin setup-token` (w kontenerze `api`) wypisuje jednorazowy token ważny 1 h; `POST /api/setup` tworzy pierwszą organizację i konto `OWNER`, tylko gdy w bazie nie ma użytkowników. | Instalator (D18) użyje tego mechanizmu do „jednorazowego linku”. Zatwierdzone 2026-11-07. |
+| D32 | Hasła i limit prób | Argon2id (argon2-cffi, MIT), RFC 9106 low-memory: 64 MiB, t=3, p=4. Hasło 12–128 znaków, bez reguł składu. Login = e-mail bez rozróżniania wielkości liter. 5 nieudanych prób w 15 min → blokada konta na 15 min; jednakowa odpowiedź przy każdym niepowodzeniu. Audyt logowań bez haseł, e-maili z nieudanych prób i adresów IP. | Czas hashowania do zmierzenia na RPi; zapis IP — osobna decyzja (RODO). Zatwierdzone 2026-11-07. |
 
 ## Otwarte — blokujące określone etapy
 
-O1 (topologia sieci) rozstrzygnięte 2026-11-04 → D14. O3 (KPI) rozstrzygnięte 2026-11-07 → D27.
+O1 (topologia sieci) rozstrzygnięte 2026-11-04 → D14. O3 (KPI) rozstrzygnięte 2026-11-07 → D27. O6 (role) rozstrzygnięte 2026-11-07 → D29.
 
 | # | Pytanie | Rekomendacja | Blokuje |
 |---|---|---|---|
 | O2 | Pierwszy sprzęt docelowy. | Deye SUN-12K-SG05LP3 + BOS-G16 przez logger Solarman V5, licznik Eastron SDM630; równolegle ogólny SunSpec. | Pierwszy adapter (P3) |
 | O4 | Nazwa handlowa. | Wybrać nową nazwę i sprawdzić w EUIPO/UPRP przed jakimkolwiek materiałem sprzedażowym. | Sprzedaż, branding UI |
 | O5 | Model licencjonowania (np. per instalacja, per serwer, subskrypcja aktualizacji). | Podpisany plik licencji weryfikowany offline; limit liczby instalacji; okres aktualizacji. | P7 |
-| O6 | Role użytkowników. | Właściciel organizacji, administrator/instalator, podgląd; uprawnienia przypisane do instalacji. | P2 |
 | O7 | Opóźnienie danych i liczba urządzeń. | Interwał zależny od profilu urządzenia (zwykle 5–30 s dla loggerów Wi-Fi); UI pokazuje wiek danych. | P3 |
 | O8 | Retencja. | Próbki surowe 90 dni, agregaty 5-minutowe 2 lata, godzinowe i dzienne bez limitu — do potwierdzenia pomiarem rozmiaru bazy. | P4 |
 | O9 | Deklarowany okres wsparcia produktu (wymóg CRA). | Min. 5 lat aktualizacji bezpieczeństwa od wydania wersji. | P7 |

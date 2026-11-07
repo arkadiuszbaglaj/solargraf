@@ -4,10 +4,17 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import AsyncIterator
 
+from fastapi import Request
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from solargraf_server.config import Settings
 
@@ -20,6 +27,21 @@ def create_engine(settings: Settings) -> AsyncEngine:
         pool_pre_ping=True,
         connect_args={"timeout": settings.db_timeout_s},
     )
+
+
+def create_sessionmaker(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
+    return async_sessionmaker(engine, expire_on_commit=False)
+
+
+async def get_db(request: Request) -> AsyncIterator[AsyncSession]:
+    """Zależność FastAPI: sesja bazy na czas żądania; wycofanie przy wyjątku."""
+    maker: async_sessionmaker[AsyncSession] = request.app.state.sessionmaker
+    async with maker() as session:
+        try:
+            yield session
+        except BaseException:
+            await session.rollback()
+            raise
 
 
 async def database_ready(engine: AsyncEngine, timeout_s: float) -> bool:
