@@ -21,6 +21,7 @@ solargraf-profiles = { workspace = true }
 
 [project.scripts]
 solargraf-admin = "solargraf_server.cli:main"
+solargraf-worker = "solargraf_server.worker:main"
 
 [build-system]
 requires = ["uv_build>=0.13.5,<0.14"]

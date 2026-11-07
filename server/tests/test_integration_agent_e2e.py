@@ -33,7 +33,8 @@ SERVER_DIR = Path(__file__).resolve().parent.parent
 PROFILES_DIR = SERVER_DIR.parent / "profiles"
 PROFILE = ("simulated.hybrid-inverter", "0.1.0")
 TABLES = (
-    "measurements, polling_runs, agent_batches, devices, connections, agents, "
+    "aggregates, aggregate_dirty, measurements, polling_runs, agent_batches, devices, "
+    "connections, agents, "
     "membership_sites, sites, audit_events, auth_sessions, setup_tokens, memberships, users, "
     "organizations"
 )

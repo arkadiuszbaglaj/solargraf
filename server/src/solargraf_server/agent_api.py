@@ -19,12 +19,14 @@ from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from solargraf_profiles.catalog import METRICS, DeviceKind, Transport
+from solargraf_server.aggregation import H1, floor_utc
 from solargraf_server.auth.deps import DbSession, utcnow
 from solargraf_server.auth.tokens import token_hash
 from solargraf_server.models import (
     NO_CHANNEL,
     Agent,
     AgentBatch,
+    AggregateDirty,
     Connection,
     Device,
     Measurement,
@@ -275,6 +277,7 @@ async def ingest(request: Request, agent: CurrentAgent, db: DbSession) -> BatchO
         return BatchOut(duplicate=True, runs=0, readings=0)
 
     readings = 0
+    dirty: set[tuple[uuid.UUID, datetime]] = set()
     for run in batch.runs:
         site_id = sites[run.device_id]
         db.add(
@@ -310,6 +313,7 @@ async def ingest(request: Request, agent: CurrentAgent, db: DbSession) -> BatchO
             ]
             await db.execute(insert(Measurement).values(values).on_conflict_do_nothing())
             readings += len(values)
+            dirty.update((run.device_id, floor_utc(r.received_at, H1)) for r in run.readings)
         success = run.finished_at if run.result is not RunResult.FAILED else None
         await db.execute(
             update(Device)
@@ -318,6 +322,21 @@ async def ingest(request: Request, agent: CurrentAgent, db: DbSession) -> BatchO
                 # GREATEST pomija NULL — starsza partia (z bufora) nie cofa czasu.
                 last_attempt_at=func.greatest(Device.last_attempt_at, run.finished_at),
                 last_success_at=func.greatest(Device.last_success_at, success),
+            )
+        )
+    if dirty:
+        # Godziny do przeliczenia agregatów (D46). Posortowane — stała kolejność blokad.
+        # clock_timestamp(): worker usuwa oznaczenie tylko, gdy nie zmieniło się od odczytu.
+        mark = insert(AggregateDirty).values(
+            [
+                {"device_id": d, "hour_start": h, "marked_at": func.clock_timestamp()}
+                for d, h in sorted(dirty)
+            ]
+        )
+        await db.execute(
+            mark.on_conflict_do_update(
+                index_elements=[AggregateDirty.device_id, AggregateDirty.hour_start],
+                set_={"marked_at": func.clock_timestamp()},
             )
         )
     await db.commit()

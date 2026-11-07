@@ -130,6 +130,8 @@ def test_schema_compiles_for_postgresql_with_conventional_names() -> None:
         "agent_batches",
         "polling_runs",
         "measurements",
+        "aggregates",
+        "aggregate_dirty",
     }
     assert "CONSTRAINT uq_users_email UNIQUE (email)" in ddl["users"]
     assert "CONSTRAINT ck_memberships_role CHECK" in ddl["memberships"]

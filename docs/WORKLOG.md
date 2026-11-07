@@ -166,6 +166,13 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: lokalnie brak Dockera i ShellCheck — sprawdza CI.
 - Następne małe zadanie: P4 — historia i obliczenia energetyczne (agregaty, retencja, kolejne partycje).
 
+- Etap: P4.1 — agregaty i API historii.
+- Zmiany: tabele `aggregates` i `aggregate_dirty` (migracja 0006); czysty moduł obliczeń (przedziały UTC, doba lokalna, pokrycie, łączenie godzin w dobę); ingest oznacza godziny do przeliczenia; usługa `worker` (`solargraf-worker`, Compose prod i dev, instalator); `GET /api/sites/{id}/devices/{did}/history` (limit 2000 punktów, `auto`/`raw`/`5m`/`1h`/`1d`, luki jako `null`, `origins`).
+- Testy uruchomione i wyniki: lokalnie pytest server 118 passed (testy z bazą w CI), ruff, mypy --strict; testy z bazą (ingest → worker → agregaty, dane spóźnione, idempotencja, API: VIEWER, 404, 422, luki) i ścieżka symulator → worker → historia w CI instalatora.
+- Decyzje zatwierdzone: D46. Doprecyzowanie: `auto` wybiera surowe odczyty tylko dla zakresu do 6 h, bo surowe punkty nie pokazują luk jako `null`.
+- Ryzyka / rzeczy nieweryfikowane: strefy z przesunięciem niecałkowitym; brak przeliczenia danych sprzed 0006; worker przetwarza do 200 godzin na transakcję.
+- Następne małe zadanie: P4.2 — wykres historii w UI (ECharts, luki jako `null`, oznaczenie SIMULATED).
+
 ## Szablon kolejnego wpisu
 
 - Data:

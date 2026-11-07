@@ -127,6 +127,9 @@ Normalizuj do jednostek kanonicznych: moc W, energia Wh, napięcie V, prąd A, t
 - Brak pomiaru to brak danych, nie `0`.
 - Nie interpoluj luk bez jawnie wybranej metody i oznaczenia wartości jako `ESTIMATED`.
 - Agregaty przechowują liczbę próbek i pokrycie okresu, żeby UI mogło pokazać niepełne dane.
+- Tabela `aggregates` (D46): klucz (urządzenie, metryka, kanał, rozdzielczość `5m`/`1h`/`1d`, początek przedziału); `avg`, `min`, `max`, `last` tylko z próbek GOOD (brak GOOD = NULL, brak próbek = brak wiersza), `samples`, `good_samples`, `coverage` = min(1, GOOD * interwał / długość). 5 min i 1 h wyrównane w UTC; doba od północy w strefie instalacji (23/25 h przy zmianie czasu), liczona z agregatów godzinowych.
+- `aggregate_dirty`: przyjęta partia oznacza godziny (`received_at`) urządzenia; usługa `worker` co 60 s przelicza te godziny i ich doby (usuń i wstaw — idempotentnie). Dane sprzed migracji 0006 nie są przeliczane automatycznie.
+- Historia: `GET /api/sites/{id}/devices/{did}/history` — najwyżej 2000 punktów, `auto` (surowe odczyty tylko do 6 h), przedziały bez danych jako `null` z pokryciem 0, dla liczników wartość ostatnia, `origins` mówi o pochodzeniu (np. SIMULATED).
 
 ## Wymagane metadane każdego pomiaru
 

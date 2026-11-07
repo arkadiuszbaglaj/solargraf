@@ -1,4 +1,4 @@
-# Środowisko deweloperskie: db + migrate + api.
+# Środowisko deweloperskie: db + migrate + api + worker.
 # Uruchomienie (z katalogu głównego): docker compose -f deploy/compose.dev.yaml up -d --build
 # Wymaga deploy/.env (wzór: deploy/.env.example). Baza nie wystawia portu na hosta.
 name: solargraf-dev
@@ -53,6 +53,19 @@ services:
     <<: *hardening
     ports:
       - "127.0.0.1:8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # Agregaty (D46): ten sam obraz co API, bez portów i bez dostępu do urządzeń.
+  worker:
+    image: solargraf-api:dev
+    command: ["solargraf-worker"]
+    environment: *db-env
+    <<: *hardening
+    healthcheck:
+      disable: true
     depends_on:
       migrate:
         condition: service_completed_successfully
