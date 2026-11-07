@@ -342,3 +342,87 @@ class TestHistoryApi:
         assert foreign_site.status_code == 404
         mixed = client.get(self.url(world.site_a, world.device_b), params=params)
         assert mixed.status_code == 404
+
+
+class TestExportCsv:
+    """Eksport CSV historii urządzenia (D57)."""
+
+    @staticmethod
+    def url(site: uuid.UUID, device: uuid.UUID) -> str:
+        return f"/api/sites/{site}/devices/{device}/export.csv"
+
+    def get(self, client: TestClient, world: World, **params: str) -> Any:  # noqa: ANN401
+        query = {"from": HOUR.isoformat(), "to": (HOUR + H1).isoformat()} | params
+        return client.get(self.url(world.site_a, world.device_a), params=query)
+
+    @staticmethod
+    def rows(resp: Any) -> list[list[str]]:  # noqa: ANN401
+        assert resp.content.startswith(b"\xef\xbb\xbf")  # UTF-8 z BOM dla Excela
+        text_body = resp.content.decode("utf-8-sig")
+        assert "\r\n" in text_body
+        return [line.split(";") for line in text_body.removesuffix("\r\n").split("\r\n")]
+
+    def test_requires_login(self, world: World, client: TestClient) -> None:
+        assert self.get(client, world).status_code == 401
+
+    def test_aggregates_all_profile_metrics_gaps_empty_and_audit(
+        self, world: World, client: TestClient
+    ) -> None:
+        send(client, world, FIRST)
+        _work()
+        TestHistoryApi.login(client, "viewer@example.pl")  # VIEWER może eksportować
+        resp = self.get(client, world, resolution="5m")
+        assert resp.status_code == 200, resp.text
+        assert resp.headers["content-type"].startswith("text/csv")
+        disposition = resp.headers["content-disposition"]
+        assert disposition.startswith('attachment; filename="historia_a1_falownik_')
+        assert disposition.endswith('_5m_SIMULATED.csv"')
+        header, *data = self.rows(resp)
+        assert header[:5] == ["czas_utc", "czas_lokalny", "metryka", "kanał", "jednostka"]
+        assert header[5:] == ["średnia", "min", "max", "ostatnia", "pokrycie", "pochodzenie"]
+        metrics = {(r[2], r[3]) for r in data}
+        assert ("pv_power", "") in metrics
+        assert ("pv_string_voltage", "1") in metrics
+        assert all(m != "battery_temperature" for m, _ in metrics)  # UNSUPPORTED pominięta
+        assert len(data) == 12 * len(metrics)  # każdy przedział, także pusty
+        pv = [r for r in data if r[2] == "pv_power"]
+        assert pv[0][0] == HOUR.strftime("%Y-%m-%dT%H:%M:%SZ")
+        assert pv[0][4:] == ["W", "150,0", "100,0", "200,0", "200,0", "0,4", "SIMULATED"]
+        assert pv[2][5:] == ["", "", "", "", "0,0", "SIMULATED"]  # brak danych nigdy jako 0
+        [(target,)] = _sql("SELECT target FROM audit_events WHERE action = 'DATA_EXPORTED'")
+        assert str(target).startswith(f"device:{world.device_a};5m;")
+
+    def test_raw_rows_with_quality(self, world: World, client: TestClient) -> None:
+        send(client, world, FIRST)
+        TestHistoryApi.login(client, "owner@example.pl")
+        resp = self.get(client, world, resolution="raw")
+        assert resp.status_code == 200, resp.text
+        header, *data = self.rows(resp)
+        assert header[5:] == ["wartość", "jakość", "pochodzenie"]
+        assert [r[5:] for r in data] == [
+            ["100,0", "GOOD", "SIMULATED"],
+            ["200,0", "GOOD", "SIMULATED"],
+            ["", "INVALID", "SIMULATED"],
+            ["", "MISSING", "SIMULATED"],
+            ["400,0", "GOOD", "SIMULATED"],
+        ]
+
+    def test_limits_and_validation(self, world: World, client: TestClient) -> None:
+        TestHistoryApi.login(client, "owner@example.pl")
+        eight_days = {"from": (HOUR - timedelta(days=8)).isoformat(), "to": HOUR.isoformat()}
+        assert self.get(client, world, resolution="raw", **eight_days).status_code == 422
+        year = {"from": (HOUR - timedelta(days=400)).isoformat(), "to": HOUR.isoformat()}
+        assert self.get(client, world, resolution="5m", **year).status_code == 422  # > 500 000
+        assert self.get(client, world, resolution="1d", **year).status_code == 200
+        too_long = {"from": (HOUR - timedelta(days=401)).isoformat(), "to": HOUR.isoformat()}
+        assert self.get(client, world, resolution="1d", **too_long).status_code == 422
+        swapped = {"from": (HOUR + H1).isoformat(), "to": HOUR.isoformat()}
+        assert self.get(client, world, **swapped).status_code == 422
+        assert self.get(client, world, resolution="2h").status_code == 422
+        assert _sql("SELECT count(*) FROM audit_events WHERE action = 'DATA_EXPORTED'") == [(1,)]
+
+    def test_foreign_site_and_device_are_404(self, world: World, client: TestClient) -> None:
+        TestHistoryApi.login(client, "owner@example.pl")
+        params = {"from": HOUR.isoformat(), "to": (HOUR + H1).isoformat()}
+        assert client.get(self.url(world.site_b, world.device_b), params=params).status_code == 404
+        assert client.get(self.url(world.site_a, world.device_b), params=params).status_code == 404

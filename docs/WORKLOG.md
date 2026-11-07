@@ -256,6 +256,12 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Serwer testowy: panele zgodne z profilem symulatora (PV z temperaturą i String 1, magazyn SoC i moc, sieć moc i częstotliwość), wartości zgodne z diagramem. Pusty pas nad panelami (wyższa kolumna urządzeń i alarmów) usunięty: szczegóły w lewej części siatki obok kolumny bocznej; na telefonie kolejność bez zmian.
 - Następne małe zadanie: eksport CSV (ostatni punkt P5).
 
+- Etap: P5.7 — eksport CSV historii urządzenia (D57).
+- Zmiany: `server/.../export.py` (endpoint strumieniowany, limity, audyt `DATA_EXPORTED`, ochrona przed formułami), `web/src/api/export.ts`, `pages/DeviceCsvExport.tsx` na stronie historii.
+- Testy uruchomione i wyniki: ruff, mypy --strict, pytest 157 (bez bazy; testy integracyjne eksportu w CI), oxlint, tsc, Vitest 235; podgląd na mocku: pobranie pliku, komunikat limitu, blokada surowych dla roku, wąski ekran.
+- Ryzyka / rzeczy nieweryfikowane: duży eksport (500 000 wierszy) nie mierzony pod kątem czasu i pamięci na RPi; plik trzymany w pamięci przeglądarki przed zapisem.
+- Następne małe zadanie: test eksportu na serwerze, potem P6 albo eksport energii.
+
 ## Szablon kolejnego wpisu
 
 - Data:
