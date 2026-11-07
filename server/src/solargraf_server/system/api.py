@@ -109,7 +109,7 @@ async def system_health(
                 SystemMetricSample.sampled_at == sampled_at
             )
         )
-        metrics.update(dict(samples.tuples()))
+        metrics.update(dict(samples.tuples().all()))
 
     stored = {c.component: c for c in (await db.scalars(select(SystemComponent))).all()}
     components: list[ComponentOut] = []
