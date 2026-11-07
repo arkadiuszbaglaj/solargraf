@@ -15,7 +15,7 @@ Projekt powstaje bez stałego dostępu do sprzętu. Dlatego warstwa symulatorów
 ## Symulatory urządzeń
 
 - Symulator generujemy **z tego samego profilu** co adapter (np. serwer Modbus z pymodbus, serwer Solarman V5, serwer HTTP). Dzięki temu każdy profil ma od razu cyfrowego bliźniaka.
-- Wartości w symulatorze pochodzą z profili czasowych: realistyczna produkcja PV z PVGIS (np. przez pvlib) dla wskazanej lokalizacji, profil zużycia domu i model baterii. Dane mają `origin = SIMULATED`.
+- Wartości w symulatorze pochodzą z profili czasowych: realistyczna produkcja PV z PVGIS (np. przez pvlib) dla wskazanej lokalizacji, profil zużycia domu i model baterii. Dane mają `origin = SIMULATED`. Stan obecny (D40): prosty deterministyczny model w `simulator/`; PVGIS/pvlib dojdą później.
 - Wstrzykiwanie błędów: timeout, zerwanie połączenia, drugi klient odrzucony, błędna odpowiedź, wartość poza zakresem, reset licznika, skok czasu.
 - Nagrania (fixtures) z rzeczywistych urządzeń, gdy będą dostępne — anonimizowane, bez numerów seryjnych i adresów.
 - Symulator testuje zgodność z **naszym odczytaniem** dokumentacji, nie z urządzeniem. Profil przetestowany tylko na symulatorze ma najwyżej poziom `COMMUNITY`.

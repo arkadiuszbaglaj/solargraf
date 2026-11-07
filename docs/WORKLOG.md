@@ -124,6 +124,13 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: brak prawdziwego profilu sprzętowego — czeka na O2 i dokumentację Modbus producenta; reguły poziomu COMMUNITY doprecyzujemy przy symulatorze.
 - Następne małe zadanie: symulator Modbus generowany z profilu albo pierwszy profil sprzętowy (po O2).
 
+- Etap: P3.2 — symulator urządzeń z profilu.
+- Zmiany: kodowanie/dekodowanie rejestrów w `solargraf-profiles` (`codec.py`); pakiet `solargraf-simulator`: model instalacji (PV, zużycie, bateria, liczniki), mapa rejestrów z profilu, własny serwer Modbus TCP (FC 03/04) z wstrzykiwaniem błędów, CLI `solargraf-sim`. pymodbus 3.16.2 (BSD-3-Clause) jako klient w testach (grupa dev).
+- Testy uruchomione i wyniki: lokalnie pytest 176 passed (testy z bazą w CI), ruff, mypy --strict, licencje; ręcznie: `solargraf-sim` + odczyt pymodbus 13 rejestrów.
+- Decyzje zatwierdzone: D40 (serwer własny zamiast serwera pymodbus — API serwera pymodbus zmienia się przed v4).
+- Ryzyka / rzeczy nieweryfikowane: symulator potwierdza tylko nasze odczytanie profilu, nie zgodność ze sprzętem; brak PVGIS.
+- Następne małe zadanie: agent w trybie lokalnym — odczyt urządzenia przez pymodbus, timeouty, retry, `PollingRun`, testy na symulatorze.
+
 ## Szablon kolejnego wpisu
 
 - Data:

@@ -67,7 +67,7 @@ repos:
         entry: uv run --frozen python tools/check_licenses.py python
         language: system
         stages: [pre-push]
-        files: ^(uv\.lock|pyproject\.toml|server/pyproject\.toml|agent/pyproject\.toml|profiles-schema/pyproject\.toml|tools/license-policy\.json)$
+        files: ^(uv\.lock|pyproject\.toml|server/pyproject\.toml|agent/pyproject\.toml|profiles-schema/pyproject\.toml|simulator/pyproject\.toml|tools/license-policy\.json)$
         pass_filenames: false
       - id: licenses-npm
         name: licencje zależności (npm)

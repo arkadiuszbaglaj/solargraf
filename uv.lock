@@ -7,6 +7,7 @@ members = [
     "solargraf-agent",
     "solargraf-profiles",
     "solargraf-server",
+    "solargraf-simulator",
     "solargraf-workspace",
 ]
 
@@ -813,6 +814,15 @@ wheels = [
 ]
 
 [[package]]
+name = "pymodbus"
+version = "3.16.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/44/e8/910c866f041769d323df554835965571b054b10e1a3265427d246c4d2ccb/pymodbus-3.16.2.tar.gz", hash = "sha256:64057981fac117ed4b75ea8ef6035369f6ae803247700a5efdf75d76a2be8aef", size = 170282, upload-time = "2026-11-03T12:04:07.347Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/51/d4/ac60401cb41999f375887c8dee0902db0bf9d0f43dc6f8b0695483b7016c/pymodbus-3.16.2-py3-none-any.whl", hash = "sha256:385ad145955a7af15020ee55c266f7a2c6d9af2180d45c3755a56db9a5014078", size = 168896, upload-time = "2026-11-03T12:04:05.255Z" },
+]
+
+[[package]]
 name = "pyparsing"
 version = "3.3.3"
 source = { registry = "https://pypi.org/simple" }
@@ -1054,6 +1064,17 @@ requires-dist = [
 ]
 
 [[package]]
+name = "solargraf-simulator"
+version = "0.0.0"
+source = { editable = "simulator" }
+dependencies = [
+    { name = "solargraf-profiles" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "solargraf-profiles", editable = "profiles-schema" }]
+
+[[package]]
 name = "solargraf-workspace"
 version = "0.0.0"
 source = { virtual = "." }
@@ -1061,6 +1082,7 @@ dependencies = [
     { name = "solargraf-agent" },
     { name = "solargraf-profiles" },
     { name = "solargraf-server" },
+    { name = "solargraf-simulator" },
 ]
 
 [package.dev-dependencies]
@@ -1069,6 +1091,7 @@ dev = [
     { name = "httpx2" },
     { name = "mypy" },
     { name = "pre-commit" },
+    { name = "pymodbus" },
     { name = "pytest" },
     { name = "ruff" },
     { name = "types-pyyaml" },
@@ -1079,6 +1102,7 @@ requires-dist = [
     { name = "solargraf-agent", editable = "agent" },
     { name = "solargraf-profiles", editable = "profiles-schema" },
     { name = "solargraf-server", editable = "server" },
+    { name = "solargraf-simulator", editable = "simulator" },
 ]
 
 [package.metadata.requires-dev]
@@ -1087,6 +1111,7 @@ dev = [
     { name = "httpx2", specifier = ">=2.16.0" },
     { name = "mypy", specifier = ">=2.4.1" },
     { name = "pre-commit", specifier = ">=4.7.0" },
+    { name = "pymodbus", specifier = "==3.16.2" },
     { name = "pytest", specifier = ">=9.2.0" },
     { name = "ruff", specifier = ">=0.17.4" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20261103" },

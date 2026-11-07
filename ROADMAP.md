@@ -46,7 +46,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 - [ ] Agent w trybie lokalnym: harmonogram, jedno połączenie na urządzenie, timeouty, retry z backoff, bufor offline.
 - [ ] Protokół agent ↔ serwer: partie z identyfikatorem, heartbeat, poświadczenie agenta.
 - [ ] Sterowniki: Modbus TCP, SunSpec, Solarman V5.
-- [ ] Generator symulatora z profilu + profile czasowe PVGIS; wstrzykiwanie błędów.
+- [ ] Generator symulatora z profilu + profile czasowe PVGIS; wstrzykiwanie błędów. Zrobione: symulator Modbus TCP z profilu, prosty model wartości i wstrzykiwanie błędów (D40) — P3.2; PVGIS później.
 - [ ] Pierwsze profile: ogólny SunSpec oraz pierwszy sprzęt z O2.
 - [ ] Zapis `PollingRun`, metryki zdrowia agenta, alarm braku danych.
 
