@@ -294,6 +294,12 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: progi i odczyt niedoboru napięcia nie sprawdzone na RPi; pomiar narzutu na RPi niezmierzony; w LXC pamięć może dotyczyć kontenera.
 - Następne małe zadanie: P7.1b — strona „Stan serwera” w Ustawieniach.
 
+- Etap: P7.1b — strona „Stan serwera” (D60).
+- Zmiany: `web/src/api/system.ts` (walidacja `GET /api/system/health`, 401/403 osobno), `pages/ServerHealthPage.tsx` (ocena, przyczyny, procesor, pamięć, dysk, temperatura/zasilanie, system, składniki; odświeżanie co 60 s; brak pomiaru = „niedostępne”), trasa `/ustawienia/serwer`, link „Ustawienia” w menu tylko dla roli OWNER, `formatBytes` (jednostki binarne), `formatUptime`, `formatNumber`.
+- Testy uruchomione i wyniki: oxlint, tsc, vitest 251 passed; podgląd na atrapie API (SIMULATED) — szeroki i wąski ekran.
+- Ryzyka / rzeczy nieweryfikowane: strona nie sprawdzona na prawdziwym serwerze; czasy w strefie przeglądarki (dane serwera, nie instalacji).
+- Następne małe zadanie: P7.1c — historia 24 h/7 dni/30 dni i czas do zapełnienia dysku.
+
 ## Szablon kolejnego wpisu
 
 - Data:

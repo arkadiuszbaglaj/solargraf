@@ -7,7 +7,10 @@ import { DemoDataSource } from './data/demo/DemoDataSource'
 import { LoginPage } from './pages/LoginPage'
 import { SetupPage, takeTokenFromLocation } from './pages/SetupPage'
 
-export type Route = 'setup' | 'login' | 'sites' | 'devices' | 'history' | 'app'
+export type Route = 'setup' | 'login' | 'sites' | 'devices' | 'history' | 'server' | 'app'
+
+/** Ustawienia → Stan serwera (D60). */
+export const SERVER_HEALTH_PATH = '/ustawienia/serwer'
 
 const DEVICES_PATH = /^\/instalacje\/([0-9a-f-]{36})\/urzadzenia\/?$/i
 
@@ -28,6 +31,7 @@ export function routeFor(pathname: string): Route {
   if (pathname === '/setup') return 'setup'
   if (pathname === '/login') return 'login'
   if (pathname === '/instalacje') return 'sites'
+  if (pathname === SERVER_HEALTH_PATH || pathname === `${SERVER_HEALTH_PATH}/`) return 'server'
   if (devicesSiteId(pathname)) return 'devices'
   if (historyIds(pathname)) return 'history'
   return 'app'
@@ -64,7 +68,7 @@ export function Root() {
           deviceId={historyIds(window.location.pathname)?.deviceId ?? ''}
         />
       ) : (
-        <App page={route === 'sites' ? 'sites' : 'dashboard'} />
+        <App page={route === 'sites' || route === 'server' ? route : 'dashboard'} />
       )}
     </DataSourceProvider>
   )

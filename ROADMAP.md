@@ -46,7 +46,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 - [x] Agent w trybie lokalnym: harmonogram, jedno połączenie na urządzenie, timeouty, retry z backoff, bufor offline — odczyt Modbus TCP (D41) w P3.3; pętla, bufor SQLite 7 dni, usługa `agent` w Compose i token z instalatora (D43) w P3.5.
 - [x] Protokół agent ↔ serwer: partie z identyfikatorem, heartbeat, poświadczenie agenta — strona serwera (D42) w P3.4, strona agenta (D43) w P3.5.
 - [x] Dodawanie połączeń i urządzeń (API, ekran `/instalacje/{id}/urzadzenia`, katalog profili `GET /api/profiles`) — P3.6, D44.
-- [ ] Sterowniki: Modbus TCP, SunSpec, Solarman V5.
+- [ ] Sterowniki: [x] Modbus TCP, [x] SunSpec (D59), [ ] Solarman V5.
 - [ ] Generator symulatora z profilu + profile czasowe PVGIS; wstrzykiwanie błędów. Zrobione: symulator Modbus TCP z profilu, prosty model wartości i wstrzykiwanie błędów (D40) — P3.2; opcjonalna usługa na serwerze (`solargraf simulator on|off`, D45) — P3.7; PVGIS później.
 - [ ] Pierwsze profile: ogólny SunSpec oraz pierwszy sprzęt z O2.
 - [ ] Zapis `PollingRun`, metryki zdrowia agenta, alarm braku danych.
@@ -92,7 +92,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 - [ ] Instalator w wersji produkcyjnej (D18, O13, O14): podpis i suma kontrolna skryptu, obrazy z podpisanego manifestu, polecenia `update`, `backup`/`restore`, `logs`, tryb nieinteraktywny, paczka offline (do decyzji).
 - [ ] Aktualizacja z backupem przed migracją i rollbackiem.
 - [ ] Sprzątanie po udanej aktualizacji (D17, O12): stare obrazy aplikacji, osierocone warstwy, cache budowania, archiwa wydań; etykiety produktu na obrazach; `--dry-run`; raport odzyskanego miejsca.
-- [ ] Monitor serwera w Ustawieniach (D16, D60): [x] pomiar, stan składników, ocena stabilności i API (P7.1a); [ ] strona „Stan serwera” (P7.1b); [ ] historia i czas do zapełnienia dysku (P7.1c); [ ] alarmy systemowe (P7.1d).
+- [ ] Monitor serwera w Ustawieniach (D16, D60): [x] pomiar, stan składników, ocena stabilności i API (P7.1a); [x] strona „Stan serwera” (P7.1b); [ ] historia i czas do zapełnienia dysku (P7.1c); [ ] alarmy systemowe (P7.1d).
 - [ ] TLS w LAN (Caddy), instrukcja VPN.
 - [ ] Weryfikacja pliku licencji offline i limity (O5).
 - [ ] Sprawdzanie aktualizacji (D15, O10): ręcznie i automatycznie raz w tygodniu, podpisany manifest wersji, komunikat w UI o nowej wersji, ustawienie włącz/wyłącz; proces publikacji manifestu przy każdym wydaniu.

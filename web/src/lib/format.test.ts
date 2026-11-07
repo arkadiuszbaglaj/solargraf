@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   formatAge,
+  formatBytes,
+  formatNumber,
+  formatUptime,
   formatDateTime,
   formatDirectedPower,
   formatQuantity,
@@ -71,5 +74,37 @@ describe('czas', () => {
     expect(formatAge(125)).toBe('2 min')
     expect(formatAge(7200)).toBe('2 h')
     expect(formatAge(3 * 86400)).toBe('3 d')
+  })
+})
+
+describe('formatBytes', () => {
+  it('używa jednostek binarnych', () => {
+    expect(norm(formatBytes(512))).toBe('512 B')
+    expect(norm(formatBytes(1536))).toBe('1,5 KiB')
+    expect(norm(formatBytes(3.5 * 1024 ** 3))).toBe('3,5 GiB')
+    expect(norm(formatBytes(2 * 1024 ** 4))).toBe('2,0 TiB')
+  })
+
+  it('brak wartości to „—”, nie 0 B', () => {
+    expect(formatBytes(null)).toBe(MISSING)
+    expect(formatBytes(-1)).toBe(MISSING)
+    expect(formatBytes(0)).toBe('0 B')
+  })
+})
+
+describe('formatUptime', () => {
+  it('pokazuje dwie największe jednostki', () => {
+    expect(formatUptime(59)).toBe('0 min')
+    expect(formatUptime(12 * 60 + 5)).toBe('12 min')
+    expect(formatUptime(5 * 3600 + 12 * 60)).toBe('5 h 12 min')
+    expect(formatUptime(3 * 86400 + 4 * 3600 + 59)).toBe('3 d 4 h')
+    expect(formatUptime(null)).toBe(MISSING)
+  })
+})
+
+describe('formatNumber', () => {
+  it('formatuje albo zwraca „—”', () => {
+    expect(formatNumber(0.5, 2)).toBe('0,50')
+    expect(formatNumber(null, 2)).toBe(MISSING)
   })
 })
