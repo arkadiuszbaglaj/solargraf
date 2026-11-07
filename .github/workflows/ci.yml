@@ -197,6 +197,12 @@ jobs:
           echo "$headers" | grep -qi '^x-content-type-options: nosniff'
           if echo "$headers" | grep -qi '^server:'; then echo 'Niespełniony warunek'; exit 1; fi
           curl -fsS --cacert "$ca" https://localhost/setup | grep -q '<div id="root">'
+          # Wejście po adresie IP z LAN: klient nie wysyła SNI (tak jak przeglądarka).
+          addr="$(sudo sed -n 's/^SOLARGRAF_PUBLIC_ADDRESS=//p' "$DIR/.env")"
+          echo "Adres w LAN: $addr"
+          [[ "$addr" =~ ^[0-9.]+$ ]]
+          curl -fsS --cacert "$ca" "https://$addr/api/health/ready"
+          curl -fsS --cacert "$ca" "https://$addr/" | grep -q '<div id="root">'
           test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost/)" = "308"
           test "$(curl -s -o /dev/null -w '%{http_code}' --cacert "$ca" https://localhost/api/docs)" = "404"
       - name: Tylko proxy wystawia porty

@@ -3,6 +3,9 @@
 	admin off
 	persist_config off
 	skip_install_trust
+	# Przeglądarki nie wysyłają SNI przy wejściu po adresie IP, a w kontenerze adres lokalny
+	# połączenia to IP sieci Dockera — wtedy wybieramy certyfikat adresu w LAN.
+	default_sni {$SOLARGRAF_PUBLIC_ADDRESS}
 }
 
 {$SOLARGRAF_SITE_ADDRESSES} {
