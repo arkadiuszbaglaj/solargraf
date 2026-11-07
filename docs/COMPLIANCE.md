@@ -39,6 +39,7 @@ Stan sprawdzony 2026-11-04 (do ponownej weryfikacji przy dodaniu):
 | psycopg (psycopg3) | **LGPL-3.0** | **zakazany** — używamy asyncpg (D24) |
 | huawei-solar | **AGPL-3.0** | **zakazany** — adapter Huawei piszemy samodzielnie z dokumentacji Huawei |
 | TimescaleDB (funkcje TSL) | Timescale License | **nieużywany** (D10) |
+| Definicje modeli SunSpec (`sunspec/models`, pliki JSON dołączone do pakietu profili) | Apache-2.0 | dozwolony (sprawdzone 2026-11-07; kopie niezmienione, tekst licencji i źródło w `sunspec_models/`, brak pliku NOTICE w źródle) — D59 |
 
 ## Profile urządzeń i dokumentacja (clean room)
 

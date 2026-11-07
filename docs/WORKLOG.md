@@ -270,6 +270,12 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: O2 nadal otwarte — P6.3/P6.4 czekają na sprzęt i dokumentację producenta.
 - Następne małe zadanie: P6.2 ogólny SunSpec — najpierw sprawdzenie licencji definicji modeli.
 
+- Etap: P6.2a — format SunSpec (D59).
+- Zmiany: dołączone definicje modeli SunSpec (Apache-2.0, v2026-04-20); `sunspec.py` (wczytywanie, przesunięcia, grupy powtarzane, wartości „nie zaimplementowano”, skale); `addressing` i `sunspec` w profilu z walidacją; `decode_sunspec`/`encode_sunspec` w kodeku; agent i symulator jawnie odmawiają profilu SunSpec do P6.2b.
+- Testy uruchomione i wyniki: ruff, mypy --strict (111 plików), pytest 314 passed / 99 skipped (bez bazy); wheel zawiera pliki modeli.
+- Ryzyka / rzeczy nieweryfikowane: brak urządzenia SunSpec — wszystko na danych testowych; znak mocy licznika 201/203 do potwierdzenia.
+- Następne małe zadanie: P6.2b — wykrywanie modeli i odczyt SunSpec w agencie, symulator SunSpec.
+
 ## Szablon kolejnego wpisu
 
 - Data:

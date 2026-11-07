@@ -82,6 +82,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 - [ ] Profile kolejnych marek z dokumentacji producentów, każdy z symulatorem.
 - [ ] Beta-instalacje na rzeczywistym sprzęcie w celu nadania statusu `VERIFIED`.
 - [x] Widoczny w UI poziom wsparcia profilu (D58).
+- [ ] Ogólny SunSpec (D59): [x] format profilu, definicje modeli i dekodowanie (P6.2a); [ ] wykrywanie i odczyt w agencie, symulator (P6.2b); [ ] profile falownika i licznika, test end-to-end (P6.2c).
 
 **Akceptacja:** dodanie marki obsługiwanej istniejącym sterownikiem nie wymaga zmian w kodzie — tylko profil i testy.
 
