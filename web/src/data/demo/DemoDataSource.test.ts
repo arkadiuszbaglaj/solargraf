@@ -26,12 +26,12 @@ describe('DemoDataSource', () => {
     expect((await s.getAlarms('demo-a')).every((a) => a.origin === 'DEMO')).toBe(true)
   })
 
-  it('bilans mocy domyka się: PV + sieć = dom + ładowanie', async () => {
+  it('bilans mocy domyka się (D39): PV + sieć + rozładowanie = dom', async () => {
     const k = await source(NOON).getKpis('demo-a')
     const [pv, grid, home, battery] = [k.pvPower, k.gridPower, k.homePower, k.batteryPower].map(
       (m) => m.value,
     ) as [number, number, number, number]
-    expect(pv + grid).toBe(home + battery)
+    expect(pv + grid + battery).toBe(home)
   })
 
   it('autokonsumpcja zgodna z D27 dla energii dziennych', async () => {

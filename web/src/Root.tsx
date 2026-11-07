@@ -1,6 +1,7 @@
 import { App } from './App'
 import { safeNext, takeLoginEmail } from './api/auth'
 import { AuthGate } from './auth/AuthGate'
+import { ApiDataSource } from './data/api/ApiDataSource'
 import { DataSourceProvider } from './data/DataSourceContext'
 import { DemoDataSource } from './data/demo/DemoDataSource'
 import { LoginPage } from './pages/LoginPage'
@@ -51,9 +52,9 @@ export function Root() {
       />
     )
   }
-  // Jedyne źródło danych do czasu API (P2/P5) to jawnie oznaczone DEMO.
+  // DEMO tylko w serwerze deweloperskim bez backendu; z backendem dane z API i SSE (D50).
   const dashboard = (
-    <DataSourceProvider source={new DemoDataSource()}>
+    <DataSourceProvider source={skipAuth ? new DemoDataSource() : new ApiDataSource()}>
       {route === 'devices' ? (
         <App page="devices" siteId={devicesSiteId(window.location.pathname) ?? ''} />
       ) : route === 'history' ? (

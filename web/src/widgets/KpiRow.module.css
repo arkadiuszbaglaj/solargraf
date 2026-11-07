@@ -9,3 +9,11 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
 }
+
+.origin {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  color: var(--color-text-muted);
+}

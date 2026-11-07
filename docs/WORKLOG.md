@@ -201,6 +201,13 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: pierwsze usunięcie partycji na prawdziwym serwerze nastąpi dopiero po ~3 miesiącach; test `test_measurements_land_in_monthly_partition` ma na sztywno listopad 2026.
 - Następne małe zadanie: P5 — dashboard z danymi na żywo (SSE) albo liczniki sieci i baterii w profilu symulatora.
 
+- Etap: P5.1 — dane na żywo (SSE) i karty bieżących wartości.
+- Zmiany: `live.py` (magistrala w procesie, migawka, `GET /api/sites/{id}/live`), publikacja po zapisie partii w `agent_api.py`; w UI `api/live.ts`, `lib/liveValues.ts`, `hooks/useLiveSite.ts`, `widgets/LiveKpiRow.tsx`, `ApiDataSource` (instalacje z API), dashboard z API pokazuje karty na żywo, reszta „dostępne wkrótce”; znak baterii w UI i DEMO wg D39.
+- Testy uruchomione i wyniki: lokalnie pytest server 143 passed (testy z bazą w CI), ruff, mypy --strict; web: tsc, oxlint, vitest 165 passed. Przeglądarka: Vite + atrapa API SSE w scratchpadzie — aktualizacje, wiek wartości, ostrzeżenie przy zerwaniu i samodzielny powrót po 502.
+- Decyzje zatwierdzone: D50.
+- Ryzyka / rzeczy nieweryfikowane: przejście SSE przez Caddy (`encode zstd gzip`) niesprawdzone na prawdziwym serwerze; widok z prawdziwym API i agentem niesprawdzony lokalnie (brak bazy).
+- Następne małe zadanie: P5.2 — energia „dziś” i trendy w kartach.
+
 ## Szablon kolejnego wpisu
 
 - Data:

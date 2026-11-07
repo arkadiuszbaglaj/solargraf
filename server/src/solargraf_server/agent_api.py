@@ -22,6 +22,7 @@ from solargraf_profiles.catalog import METRICS, DeviceKind, Transport
 from solargraf_server.aggregation import H1, floor_utc
 from solargraf_server.auth.deps import DbSession, utcnow
 from solargraf_server.auth.tokens import token_hash
+from solargraf_server.live import LiveBus, LiveReading
 from solargraf_server.models import (
     NO_CHANNEL,
     Agent,
@@ -278,6 +279,7 @@ async def ingest(request: Request, agent: CurrentAgent, db: DbSession) -> BatchO
 
     readings = 0
     dirty: set[tuple[uuid.UUID, datetime]] = set()
+    published: dict[uuid.UUID, list[LiveReading]] = {}
     for run in batch.runs:
         site_id = sites[run.device_id]
         db.add(
@@ -313,6 +315,18 @@ async def ingest(request: Request, agent: CurrentAgent, db: DbSession) -> BatchO
             ]
             await db.execute(insert(Measurement).values(values).on_conflict_do_nothing())
             readings += len(values)
+            published.setdefault(site_id, []).extend(
+                LiveReading(
+                    device_id=run.device_id,
+                    metric=r.metric,
+                    channel=r.channel,
+                    value=r.value,
+                    quality=r.quality,
+                    origin=r.origin,
+                    received_at=r.received_at,
+                )
+                for r in run.readings
+            )
             dirty.update((run.device_id, floor_utc(r.received_at, H1)) for r in run.readings)
         success = run.finished_at if run.result is not RunResult.FAILED else None
         await db.execute(
@@ -340,4 +354,9 @@ async def ingest(request: Request, agent: CurrentAgent, db: DbSession) -> BatchO
             )
         )
     await db.commit()
+    # Dopiero po zapisie: widok na żywo nie pokaże odczytu, którego nie ma w bazie (D50).
+    bus: LiveBus | None = getattr(request.app.state, "live_bus", None)
+    if bus is not None:
+        for site, site_readings in published.items():
+            bus.publish(site, site_readings)
     return BatchOut(duplicate=False, runs=len(batch.runs), readings=readings)

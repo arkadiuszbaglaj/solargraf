@@ -66,7 +66,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 
 ## P5 — Dashboard produkcyjny z danymi na żywo
 
-- [ ] Strumień SSE per instalacja; UI pokazuje wiek każdej wartości.
+- [x] Strumień SSE per instalacja; UI pokazuje wiek każdej wartości (P5.1, D50).
 - [ ] Karty KPI i trendy.
 - [ ] Diagram przepływu energii na podstawie spójnego bilansu pomiarów.
 - [ ] Szczegóły PV/MPPT, baterii/BMS i sieci/faz — tylko jeśli profil je udostępnia.

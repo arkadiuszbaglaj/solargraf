@@ -132,6 +132,8 @@ Wszystkie endpointy wymagają uwierzytelnienia; endpointy instalacji sprawdzają
 
 Agent wysyła pomiary → API zapisuje je i publikuje do subskrybentów SSE danej instalacji (w procesie; bez brokera w MVP). UI pokazuje wiek każdej wartości. Rzeczywiste opóźnienie zależy od urządzenia (zwykle sekundy–dziesiątki sekund) i nie obiecujemy odświeżania szybszego niż interwał profilu.
 
+Szczegóły kontraktu i ograniczenia (jeden proces API, ponowne łączenie, wartości instalacji z jednego źródła): `DECISIONS.md` D50.
+
 ## Sprawdzanie aktualizacji
 
 Decyzja: `DECISIONS.md` D15; otwarte szczegóły: O10.

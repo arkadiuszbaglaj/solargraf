@@ -219,7 +219,8 @@ export class DemoDataSource implements DashboardDataSource {
         pvPower: demo(last?.pv ?? null, 'W', at),
         homePower: demo(last?.home ?? null, 'W', at),
         gridPower: demo(last?.grid ?? null, 'W', at),
-        batteryPower: demo(last?.battery ?? null, 'W', at),
+        // Model liczy + ładowanie; kontrakt UI (D39): + rozładowanie, − ładowanie.
+        batteryPower: demo(last === undefined || last.battery === null ? null : 0 - last.battery, 'W', at),
         batterySoc: demo(
           last === undefined || last.battery === null ? null : Math.round(sim.socPercent),
           '%',

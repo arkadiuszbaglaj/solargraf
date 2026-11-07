@@ -19,7 +19,7 @@ function today(m: Measurement): string {
 export function KpiCards({ kpis, now }: { kpis: DashboardKpis; now: Date }) {
   const stale = (m: Measurement): boolean => isStale(m, now, kpis.staleAfterSeconds)
   const grid = formatDirectedPower(kpis.gridPower.value, 'pobór z sieci', 'oddawanie do sieci')
-  const battery = formatDirectedPower(kpis.batteryPower.value, 'ładowanie', 'rozładowanie')
+  const battery = formatDirectedPower(kpis.batteryPower.value, 'rozładowanie', 'ładowanie')
   const selfUse = kpis.todaySelfConsumption
   const importToday = formatQuantity(kpis.todayGridImportEnergy.value, 'Wh')
   const exportToday = formatQuantity(kpis.todayGridExportEnergy.value, 'Wh')
