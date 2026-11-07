@@ -8,6 +8,7 @@
   godziny czekają na przeliczenie agregatów (``aggregate_dirty``).
 - Agregaty 5 min, ``polling_runs`` i ``agent_batches`` — ``DELETE`` porcjami. Agregaty
   godzinowe i dobowe bez limitu.
+- Alarmy zamknięte dawniej niż retencja — ``DELETE`` porcjami; otwarte nigdy (D55).
 
 Nazwy tabel w SQL to stałe albo nazwy partycji zbudowane z dat — nigdy dane wejściowe.
 """
@@ -83,6 +84,7 @@ class Retention:
     m5_days: int
     runs_days: int
     months_ahead: int
+    alarms_days: int = 365
 
 
 @dataclass
@@ -162,6 +164,7 @@ _DELETES: dict[str, tuple[str, str]] = {
     "aggregates_5m": ("aggregates", "resolution = '5m' AND bucket_start < :c"),
     "polling_runs": ("polling_runs", "started_at < :c"),
     "agent_batches": ("agent_batches", "received_at < :c"),
+    "alarms": ("alarms", "closed_at IS NOT NULL AND closed_at < :c"),
 }
 
 
@@ -203,6 +206,8 @@ async def apply_retention(db: AsyncSession, now: datetime, policy: Retention) ->
     report.deleted["aggregates_5m"] = await _delete_batches(db, "aggregates_5m", m5_cutoff)
     report.deleted["polling_runs"] = await _delete_batches(db, "polling_runs", runs_cutoff)
     report.deleted["agent_batches"] = await _delete_batches(db, "agent_batches", runs_cutoff)
+    alarms_cutoff = now - timedelta(days=policy.alarms_days)
+    report.deleted["alarms"] = await _delete_batches(db, "alarms", alarms_cutoff)
     return report
 
 

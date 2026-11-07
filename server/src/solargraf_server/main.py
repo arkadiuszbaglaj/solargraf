@@ -12,6 +12,7 @@ from fastapi import FastAPI
 
 from solargraf_server import __version__
 from solargraf_server.agent_api import router as agent_router
+from solargraf_server.alarms_api import router as alarms_router
 from solargraf_server.auth.router import router as auth_router
 from solargraf_server.config import Settings
 from solargraf_server.db import create_engine, create_sessionmaker, database_ready
@@ -68,6 +69,7 @@ def create_app(settings: Settings, readiness_check: ReadinessCheck | None = None
     app.include_router(history_router)
     app.include_router(energy_router)
     app.include_router(live_router)
+    app.include_router(alarms_router)
     app.include_router(profiles_router)
     app.include_router(agent_router)
     return app

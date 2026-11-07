@@ -82,10 +82,10 @@ Tabela partycjonowana miesięcznie po `received_at`. Unikalność: (`device_id`,
 - liczba parametrów udanych/nieudanych
 
 ### Alarm
-- `id`, `site_id`, `device_id` opcjonalne
-- `code`, `severity`, `title`, `details`
-- `opened_at`, `last_seen_at`, `closed_at`, `acknowledged_at`, `acknowledged_by`
-- wersja reguły alarmu
+- `id`, `site_id`, `device_id` i `agent_id` opcjonalne, `subject` (`device:<id>` / `agent:<id>` — klucz deduplikacji)
+- `code`, `severity`, `title`, `details`, `last_ok_at` (ostatni udany odczyt / heartbeat)
+- `opened_at`, `last_seen_at`, `closed_at`, `clear_count` (histereza), `acknowledged_at`, `acknowledged_by`
+- wersja reguły alarmu (`rule_version`); reguły i zachowanie — D55
 
 ### UpdateCheck
 - `id`, `checked_at`, `trigger` (`MANUAL` / `SCHEDULED`), `triggered_by` (użytkownik, jeśli ręcznie)

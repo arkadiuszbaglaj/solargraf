@@ -187,7 +187,8 @@ async function json(response: Response): Promise<unknown> {
   }
 }
 
-async function load<T>(
+/** GET z walidacją odpowiedzi; wspólne dla zasobów instalacji (urządzenia, alarmy). */
+export async function load<T>(
   url: string,
   parse: (v: unknown) => T | null,
   fetchFn: typeof fetch,
