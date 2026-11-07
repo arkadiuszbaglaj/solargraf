@@ -33,7 +33,7 @@ export interface DashboardKpis {
   homePower: Measurement
   /** Konwencja znaku: dodatnia = pobór z sieci (import), ujemna = oddawanie (eksport). */
   gridPower: Measurement
-  /** Konwencja znaku: dodatnia = ładowanie, ujemna = rozładowanie. */
+  /** Konwencja znaku D39: dodatnia = rozładowanie, ujemna = ładowanie. */
   batteryPower: Measurement
   batterySoc: Measurement
   todayPvEnergy: Measurement

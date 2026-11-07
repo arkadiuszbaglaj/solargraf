@@ -20,6 +20,8 @@ from solargraf_server.energy_api import router as energy_router
 from solargraf_server.health import ReadinessCheck
 from solargraf_server.health import router as health_router
 from solargraf_server.history import router as history_router
+from solargraf_server.live import LiveBus
+from solargraf_server.live import router as live_router
 from solargraf_server.profiles import ProfileCatalog
 from solargraf_server.profiles import router as profiles_router
 from solargraf_server.sites import router as sites_router
@@ -32,6 +34,7 @@ def create_app(settings: Settings, readiness_check: ReadinessCheck | None = None
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.settings = settings
         app.state.profiles = ProfileCatalog.load(settings.profiles_dir)
+        app.state.live_bus = LiveBus()
         if readiness_check is not None:
             app.state.readiness_check = readiness_check
             yield
@@ -64,6 +67,7 @@ def create_app(settings: Settings, readiness_check: ReadinessCheck | None = None
     app.include_router(devices_router)
     app.include_router(history_router)
     app.include_router(energy_router)
+    app.include_router(live_router)
     app.include_router(profiles_router)
     app.include_router(agent_router)
     return app

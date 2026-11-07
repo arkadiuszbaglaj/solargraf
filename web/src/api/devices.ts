@@ -72,7 +72,7 @@ function parseConnection(v: unknown): ApiConnection | null {
   return { id: v.id, name: v.name, host, port, unitId, pollIntervalSeconds: interval }
 }
 
-function parseMetric(v: unknown): ApiDeviceMetric | null {
+export function parseMetric(v: unknown): ApiDeviceMetric | null {
   if (!isRecord(v)) return null
   const { key, channel, name, unit, cumulative } = v
   if (
