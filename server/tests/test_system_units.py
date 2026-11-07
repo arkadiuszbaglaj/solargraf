@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from solargraf_server.system import host
+from solargraf_server.system import host, trends
 from solargraf_server.system.monitor import http_ok, tcp_ok
 from solargraf_server.system.stability import (
     CPU_HIGH,
@@ -240,3 +240,66 @@ def test_http_and_tcp_checks() -> None:
             await http_ok("https://api/", 1)
 
     asyncio.run(go())
+
+
+# --- historia i prognoza dysku (D61) -----------------------------------------------------
+
+
+def test_buckets_are_aligned_and_gaps_stay_empty() -> None:
+    step = timedelta(minutes=5)
+    start = datetime(2026, 11, 7, 12, 3, tzinfo=UTC)
+    end = datetime(2026, 11, 7, 12, 17, tzinfo=UTC)
+    starts = trends.bucket_starts(start, end, step)
+    assert [t.minute for t in starts] == [0, 5, 10, 15]
+    filled = trends.fill({starts[1]: trends.Bucket(10.0, 12.0)}, start, end, step)
+    assert [b for _, b in filled] == [
+        trends.EMPTY,
+        trends.Bucket(10.0, 12.0),
+        trends.EMPTY,
+        trends.EMPTY,
+    ]
+    assert trends.EMPTY.avg is None  # luka, nie 0
+
+
+def hourly(days: float, start_gib: float, per_day_gib: float) -> list[tuple[datetime, float]]:
+    return [
+        (T0 + timedelta(hours=h), (start_gib + per_day_gib * h / 24) * GIB)
+        for h in range(int(days * 24) + 1)
+    ]
+
+
+def test_forecast_linear_growth() -> None:
+    # 50 GiB zajęte, +1 GiB/dobę przez 4 dni → na końcu 54 GiB; do 100 GiB zostaje 46 dni.
+    points = hourly(4, 50, 1)
+    now = points[-1][0]
+    forecast = trends.disk_forecast(points, 100 * GIB, now)
+    assert forecast.status is trends.ForecastStatus.OK
+    assert forecast.growth_bytes_per_day == pytest.approx(GIB)
+    assert forecast.full_at == pytest.approx(now + timedelta(days=46), abs=timedelta(seconds=1))
+
+
+def test_forecast_requires_three_days_and_growth() -> None:
+    now = T0 + timedelta(days=4)
+    assert trends.disk_forecast(hourly(2.9, 50, 1), 100 * GIB, now).status is (
+        trends.ForecastStatus.INSUFFICIENT_DATA
+    )
+    assert trends.disk_forecast(hourly(4, 50, 1), None, now).status is (
+        trends.ForecastStatus.INSUFFICIENT_DATA
+    )
+    assert trends.disk_forecast([], 100 * GIB, now).status is (
+        trends.ForecastStatus.INSUFFICIENT_DATA
+    )
+    shrinking = trends.disk_forecast(hourly(4, 50, -1), 100 * GIB, now)
+    assert shrinking.status is trends.ForecastStatus.NOT_GROWING
+    flat = trends.disk_forecast(hourly(4, 50, 0), 100 * GIB, now)
+    assert flat.status is trends.ForecastStatus.NOT_GROWING
+
+
+def test_forecast_beyond_a_year_and_already_full() -> None:
+    now = T0 + timedelta(days=4)
+    slow = trends.disk_forecast(hourly(4, 10, 0.1), 100 * GIB, now)  # ok. 860 dni
+    assert slow.status is trends.ForecastStatus.OVER_YEAR
+    assert slow.full_at is None
+    full = trends.disk_forecast(hourly(4, 99, 1), 100 * GIB, now)
+    assert full.status is trends.ForecastStatus.OK
+    assert full.full_at == now  # już pełny — nie w przeszłości

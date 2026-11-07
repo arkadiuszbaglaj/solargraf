@@ -183,3 +183,106 @@ export async function getSystemHealth(fetchFn: typeof fetch = fetch, signal?: Ab
   const data = parseSystemHealth(body)
   return data === null ? { kind: 'error' } : { kind: 'ok', data }
 }
+
+// --- historia (D61): `GET /api/system/metrics?range=24h|7d|30d` ---------------------------
+
+export const HISTORY_RANGES = ['24h', '7d', '30d'] as const
+export type HistoryRange = (typeof HISTORY_RANGES)[number]
+export const SERIES_KEYS = ['cpu_percent', 'memory_percent', 'disk_percent', 'cpu_temp_c'] as const
+export type SeriesKey = (typeof SERIES_KEYS)[number]
+export type ForecastStatus = 'OK' | 'OVER_YEAR' | 'NOT_GROWING' | 'INSUFFICIENT_DATA'
+
+export interface MetricPoint {
+  t: string
+  /** `null` — brak próbek w przedziale (luka), nie 0. */
+  avg: number | null
+  max: number | null
+}
+
+export interface SystemMetrics {
+  range: HistoryRange
+  stepSeconds: number
+  start: string
+  end: string
+  series: Record<SeriesKey, { unit: string; points: MetricPoint[] }>
+  diskForecast: { status: ForecastStatus; fullAt: string | null; growthBytesPerDay: number | null }
+}
+
+export type MetricsResult =
+  | { kind: 'ok'; data: SystemMetrics }
+  | { kind: 'anonymous' }
+  | { kind: 'forbidden' }
+  | { kind: 'error' }
+
+const RANGES: ReadonlySet<string> = new Set(HISTORY_RANGES)
+const FORECASTS: ReadonlySet<string> = new Set(['OK', 'OVER_YEAR', 'NOT_GROWING', 'INSUFFICIENT_DATA'])
+
+function parsePoint(v: unknown): MetricPoint | null {
+  if (!isRecord(v) || !isTime(v.t)) return null
+  const avg = numberOrNull(v.avg)
+  const max = numberOrNull(v.max)
+  return avg === undefined || max === undefined ? null : { t: v.t, avg, max }
+}
+
+export function parseSystemMetrics(v: unknown): SystemMetrics | null {
+  if (!isRecord(v) || !isRecord(v.series) || !isRecord(v.disk_forecast)) return null
+  const f = v.disk_forecast
+  const fullAt = timeOrNull(f.full_at)
+  const growth = numberOrNull(f.growth_bytes_per_day)
+  if (
+    typeof v.range !== 'string' ||
+    !RANGES.has(v.range) ||
+    typeof v.step_s !== 'number' ||
+    !isTime(v.start) ||
+    !isTime(v.end) ||
+    typeof f.status !== 'string' ||
+    !FORECASTS.has(f.status) ||
+    fullAt === undefined ||
+    growth === undefined
+  ) {
+    return null
+  }
+  const series = {} as SystemMetrics['series']
+  for (const key of SERIES_KEYS) {
+    const s = v.series[key]
+    if (!isRecord(s) || typeof s.unit !== 'string') return null
+    const points = parseList(s.points, parsePoint)
+    if (points === null) return null
+    series[key] = { unit: s.unit, points }
+  }
+  return {
+    range: v.range as HistoryRange,
+    stepSeconds: v.step_s,
+    start: v.start,
+    end: v.end,
+    series,
+    diskForecast: { status: f.status as ForecastStatus, fullAt, growthBytesPerDay: growth },
+  }
+}
+
+export async function getSystemMetrics(
+  range: HistoryRange,
+  fetchFn: typeof fetch = fetch,
+  signal?: AbortSignal,
+): Promise<MetricsResult> {
+  let response: Response
+  try {
+    response = await fetchFn(`/api/system/metrics?range=${range}`, {
+      credentials: 'same-origin',
+      ...(signal ? { signal } : {}),
+    })
+  } catch {
+    return { kind: 'error' }
+  }
+  if (response.status === 401) return { kind: 'anonymous' }
+  if (response.status === 403) return { kind: 'forbidden' }
+  if (!response.ok) return { kind: 'error' }
+  let body: unknown = null
+  try {
+    body = await response.json()
+  } catch {
+    return { kind: 'error' }
+  }
+  const data = parseSystemMetrics(body)
+  return data === null ? { kind: 'error' } : { kind: 'ok', data }
+}

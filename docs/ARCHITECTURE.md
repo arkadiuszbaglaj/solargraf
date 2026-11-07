@@ -198,7 +198,7 @@ Historia: wykresy 24 h / 7 dni / 30 dni (ECharts, te same komponenty co dashboar
 
 API (szkic):
 - `GET /api/system/health` — bieżący stan i ocena;
-- `GET /api/system/metrics?metric=...&from=...&to=...` — historia.
+- `GET /api/system/metrics?range=24h|7d|30d` — historia 4 serii (średnia i maksimum w przedziale) i prognoza zapełnienia dysku (D61).
 
 ## Instalator jedną komendą
 

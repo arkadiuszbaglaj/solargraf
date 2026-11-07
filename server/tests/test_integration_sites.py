@@ -797,6 +797,58 @@ class TestSystemMonitor:
         worker = next(c for c in body["components"] if c["component"] == "worker")
         assert worker["state"] == "DOWN"
 
+    def test_history_buckets_percent_and_gaps(self, world: World, as_user: AsUser) -> None:
+        # Dwie próbki w jednym przedziale 5 min; temperatura niedostępna (NULL).
+        gib = 1024**3
+        for minutes, cpu, mem_used in ((7, 10.0, 2 * gib), (8, 30.0, 4 * gib)):
+            for metric, value in (
+                ("cpu_percent", cpu),
+                ("mem_used_bytes", mem_used),
+                ("mem_total_bytes", 8 * gib),
+                ("cpu_temp_c", None),
+            ):
+                _sql(
+                    "INSERT INTO system_metric_samples (sampled_at, metric, value) VALUES "
+                    "(date_bin('5 minutes', now(), TIMESTAMPTZ '1970-01-01Z') "
+                    "- make_interval(mins => 10) + make_interval(secs => :s), :m, :v)",
+                    s=minutes * 30,
+                    m=metric,
+                    v=value,
+                )
+        owner, _ = as_user("owner_a")
+        body = owner.get("/api/system/metrics?range=24h").json()
+        assert (body["range"], body["step_s"]) == ("24h", 300)
+        cpu_points = [p for p in body["series"]["cpu_percent"]["points"] if p["avg"] is not None]
+        assert [(p["avg"], p["max"]) for p in cpu_points] == [(20.0, 30.0)]
+        memory = [p for p in body["series"]["memory_percent"]["points"] if p["avg"] is not None]
+        assert [(p["avg"], p["max"]) for p in memory] == [(37.5, 50.0)]
+        temps = body["series"]["cpu_temp_c"]["points"]
+        assert len(temps) >= 288
+        assert all(p["avg"] is None for p in temps)  # luki, nie 0
+        assert body["series"]["disk_percent"]["unit"] == "%"
+        assert body["disk_forecast"]["status"] == "INSUFFICIENT_DATA"
+        assert owner.get("/api/system/metrics?range=1y").status_code == 422
+        admin, _ = as_user("admin_a")
+        assert admin.get("/api/system/metrics").status_code == 403
+
+    def test_disk_forecast_from_hourly_trend(self, world: World, as_user: AsUser) -> None:
+        # 4 dni, +1 GiB/dobę od 50 GiB, dysk 100 GiB → ok. 46 dni do zapełnienia.
+        _sql(
+            "INSERT INTO system_metric_samples (sampled_at, metric, value) "
+            "SELECT now() - make_interval(hours => h), 'disk_used_bytes', "
+            "(54 - h / 24.0) * 1073741824 FROM generate_series(0, 96) AS h"
+        )
+        _sql(
+            "INSERT INTO system_metric_samples (sampled_at, metric, value) "
+            "VALUES (now(), 'disk_total_bytes', 100 * 1073741824.0)"
+        )
+        owner, _ = as_user("owner_a")
+        forecast = owner.get("/api/system/metrics?range=7d").json()["disk_forecast"]
+        assert forecast["status"] == "OK"
+        assert forecast["growth_bytes_per_day"] == pytest.approx(1024**3, rel=0.01)
+        days = (datetime.fromisoformat(forecast["full_at"]) - datetime.now(UTC)).days
+        assert 44 <= days <= 46
+
     def test_old_samples_are_removed_by_retention(self, world: World, tmp_path: Path) -> None:
         _monitor(_fake_host(tmp_path))
         _sql(

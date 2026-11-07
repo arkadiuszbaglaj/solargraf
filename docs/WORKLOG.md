@@ -300,6 +300,14 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: strona nie sprawdzona na prawdziwym serwerze; czasy w strefie przeglądarki (dane serwera, nie instalacji).
 - Następne małe zadanie: P7.1c — historia 24 h/7 dni/30 dni i czas do zapełnienia dysku.
 
+- Data: 2026-11-08
+- Etap: P7.1c — historia monitora serwera i prognoza zapełnienia dysku (D61).
+- Zmiany: `system/trends.py` (siatka przedziałów, regresja liniowa, statusy prognozy), `GET /api/system/metrics` (agregacja `date_bin` w SQL, tylko OWNER), `web/src/api/system.ts` (walidacja), `pages/ServerHistory.tsx` (przełącznik 24 h/7 dni/30 dni, 4 wykresy wspólnym `HistoryChartView`, prognoza jako szacunek); podpowiedź wykresu pokazuje samo maksimum, gdy brak minimum.
+- Testy uruchomione i wyniki: ruff, mypy --strict, pytest serwera 173 passed / 104 skipped (testy z bazą — w CI); oxlint, tsc, vitest 258 passed; podgląd na atrapie API (SIMULATED) — szeroki i wąski ekran.
+- Decyzje zatwierdzone: D61.
+- Ryzyka / rzeczy nieweryfikowane: zapytanie agregujące niezmierzone na RPi przy 30 dniach danych; nie sprawdzone na prawdziwym serwerze.
+- Następne małe zadanie: P7.1d — alarmy systemowe dla OWNER.
+
 ## Szablon kolejnego wpisu
 
 - Data:
