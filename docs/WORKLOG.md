@@ -250,6 +250,12 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: czy instalator ma ustawiać `makestep` na maszynach wirtualnych — osobna decyzja (zmiana konfiguracji systemu).
 - Następne małe zadanie: szczegóły PV/baterii/sieci albo eksport CSV.
 
+- Etap: P5.6 — szczegóły PV, magazynu i sieci (D56).
+- Zmiany: `lib/siteDetails.ts` (panele z metryk profilu, kanały stringów i faz), `siteValue`/`singleSource` z kanałem, `widgets/SiteDetailsPanels.tsx` pod przepływem i wykresem; nagłówek `Panel` zawija się na wąskim ekranie.
+- Testy uruchomione i wyniki: oxlint, tsc, Vitest 230/230; podgląd na mocku SIMULATED (desktop 1440 px i telefon 375 px, bez poziomego przewijania).
+- Ryzyka / rzeczy nieweryfikowane: nie sprawdzone na serwerze testowym; symulator pokaże w magazynie tylko SoC i moc.
+- Następne małe zadanie: eksport CSV (ostatni punkt P5).
+
 ## Szablon kolejnego wpisu
 
 - Data:

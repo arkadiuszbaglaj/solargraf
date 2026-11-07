@@ -35,9 +35,13 @@ export interface MetricSourceDevice {
 
 export type Source<T> = { kind: 'one'; device: T } | { kind: 'none' } | { kind: 'many'; count: number }
 
-/** Jedno włączone urządzenie podające metrykę (bez kanału); kilka albo żadne — brak źródła. */
-export function singleSource<T extends MetricSourceDevice>(devices: readonly T[], metric: string): Source<T> {
-  const sources = devices.filter((d) => d.enabled && d.metrics.some((m) => m.key === metric && m.channel === null))
+/** Jedno włączone urządzenie podające metrykę (w danym kanale); kilka albo żadne — brak źródła. */
+export function singleSource<T extends MetricSourceDevice>(
+  devices: readonly T[],
+  metric: string,
+  channel: number | null = null,
+): Source<T> {
+  const sources = devices.filter((d) => d.enabled && d.metrics.some((m) => m.key === metric && m.channel === channel))
   const [device] = sources
   if (!device) return { kind: 'none' }
   return sources.length > 1 ? { kind: 'many', count: sources.length } : { kind: 'one', device }
@@ -56,17 +60,28 @@ export type SiteValue =
   | { kind: 'not-provided' }
   | { kind: 'ambiguous'; sources: number }
 
+/** Kanały metryki (string MPPT, faza) podawane przez włączone urządzenia, rosnąco. */
+export function metricChannels(devices: readonly MetricSourceDevice[], metric: string): number[] {
+  const channels = new Set<number>()
+  for (const d of devices) {
+    if (!d.enabled) continue
+    for (const m of d.metrics) if (m.key === metric && m.channel !== null) channels.add(m.channel)
+  }
+  return [...channels].toSorted((a, b) => a - b)
+}
+
 export function siteValue(
   devices: readonly LiveDevice[],
   readings: ReadingMap,
   metric: string,
   now: Date,
+  channel: number | null = null,
 ): SiteValue {
-  const source = singleSource(devices, metric)
+  const source = singleSource(devices, metric, channel)
   if (source.kind === 'none') return { kind: 'not-provided' }
   if (source.kind === 'many') return { kind: 'ambiguous', sources: source.count }
   const { device } = source
-  const reading = readings.get(readingKey(device.id, metric, null))
+  const reading = readings.get(readingKey(device.id, metric, channel))
   if (!reading) return { kind: 'no-data', ageSeconds: null }
   // Zegar przeglądarki może się różnić od serwera — wiek nie bywa ujemny.
   const ageSeconds = Math.max(0, (now.getTime() - Date.parse(reading.receivedAt)) / 1000)
