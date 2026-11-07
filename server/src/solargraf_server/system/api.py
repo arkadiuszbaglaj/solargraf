@@ -110,7 +110,7 @@ async def system_health(
                 SystemMetricSample.sampled_at == sampled_at
             )
         )
-        metrics.update(dict(samples.tuples().all()))
+        metrics.update(dict(samples.all()))
 
     stored = {c.component: c for c in (await db.scalars(select(SystemComponent))).all()}
     components: list[ComponentOut] = []
@@ -296,7 +296,7 @@ async def _disk_forecast(db: DbSession, now: datetime) -> trends.Forecast:
         )
         .group_by(hour)
     )
-    points = [(t, float(v)) for t, v in hourly.tuples().all() if v is not None]
+    points = [(t, float(v)) for t, v in hourly.all() if v is not None]
     total = await db.scalar(
         select(sample.value)
         .where(sample.metric == host.DISK_TOTAL, sample.value.is_not(None))
