@@ -253,7 +253,7 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Etap: P5.6 — szczegóły PV, magazynu i sieci (D56).
 - Zmiany: `lib/siteDetails.ts` (panele z metryk profilu, kanały stringów i faz), `siteValue`/`singleSource` z kanałem, `widgets/SiteDetailsPanels.tsx` pod przepływem i wykresem; nagłówek `Panel` zawija się na wąskim ekranie.
 - Testy uruchomione i wyniki: oxlint, tsc, Vitest 230/230; podgląd na mocku SIMULATED (desktop 1440 px i telefon 375 px, bez poziomego przewijania).
-- Ryzyka / rzeczy nieweryfikowane: nie sprawdzone na serwerze testowym; symulator pokaże w magazynie tylko SoC i moc.
+- Serwer testowy: panele zgodne z profilem symulatora (PV z temperaturą i String 1, magazyn SoC i moc, sieć moc i częstotliwość), wartości zgodne z diagramem. Pusty pas nad panelami (wyższa kolumna urządzeń i alarmów) usunięty: szczegóły w lewej części siatki obok kolumny bocznej; na telefonie kolejność bez zmian.
 - Następne małe zadanie: eksport CSV (ostatni punkt P5).
 
 ## Szablon kolejnego wpisu

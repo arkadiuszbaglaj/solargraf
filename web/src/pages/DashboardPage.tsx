@@ -37,19 +37,26 @@ function LiveDashboard({ site }: { site: Site }) {
   return (
     <div className={styles.page}>
       <LiveKpiRow live={live} today={today} />
+      {/* Szczegóły pod przepływem i wykresem, obok kolumny urządzeń i alarmów (bez pustego pasa). */}
       <div className={`${styles.grid} ${styles.withFlow}`}>
-        <div className={styles.flow}>
-          <EnergyFlowPanel live={live} />
-        </div>
-        <div className={styles.chart}>
-          <TodayPowerChart siteId={site.id} timeZone={site.timezone} />
+        <div className={styles.main}>
+          <div className={styles.mainTop}>
+            <div className={styles.flow}>
+              <EnergyFlowPanel live={live} />
+            </div>
+            <div className={styles.chart}>
+              <TodayPowerChart siteId={site.id} timeZone={site.timezone} />
+            </div>
+          </div>
+          <div className={styles.details}>
+            <SiteDetailsPanels live={live} />
+          </div>
         </div>
         <div className={styles.side}>
           <SiteDevicesPanel siteId={site.id} />
           <SiteAlarmsPanel siteId={site.id} timeZone={site.timezone} />
         </div>
       </div>
-      <SiteDetailsPanels live={live} />
     </div>
   )
 }
