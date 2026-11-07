@@ -20,7 +20,7 @@ main() {
 	mkdir -p dist
 	# core.autocrlf=false: skrypty w paczce zawsze z końcami linii LF (także z Windows).
 	git -c core.autocrlf=false archive --format=tar.gz --prefix=solargraf/ \
-		--add-virtual-file="VERSION:$version" -o "$out" HEAD
+		--add-virtual-file="solargraf/VERSION:$version" -o "$out" HEAD
 	sha256sum "$out" >"$out.sha256"
 	printf 'Paczka: %s\n' "$out"
 	printf 'SHA-256: %s\n' "$(cut -d' ' -f1 "$out.sha256")"
