@@ -91,7 +91,7 @@ async def list_devices(
     )
     now = utcnow()
     result: list[DeviceOut] = []
-    for device, conn, agent in rows.tuples():
+    for device, conn, agent in rows:
         state = DeviceState(
             enabled=device.enabled,
             last_attempt_at=device.last_attempt_at,
