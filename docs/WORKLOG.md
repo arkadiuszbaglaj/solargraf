@@ -138,6 +138,13 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: pymodbus wykrywa zerwane połączenie dopiero po timeoucie; test tylko na symulatorze, nie na sprzęcie.
 - Następne małe zadanie: P3.4 — protokół agent ↔ serwer (poświadczenie agenta, heartbeat, partie pomiarów, tabela pomiarów, bufor offline).
 
+- Etap: P3.4 — agent ↔ serwer, strona serwera.
+- Zmiany: migracja 0005 (token agenta jako skrót, `agent_batches`, `polling_runs`, `measurements` partycjonowane miesięcznie); `/api/agent/heartbeat`, `/api/agent/config` (ETag), `/api/agent/batches` (idempotentne, walidacja, tylko urządzenia agenta, aktualizacja `last_attempt_at`/`last_success_at`); `solargraf-admin agent create|disable|list`; proxy zwraca 404 dla `/api/agent/*`.
+- Testy uruchomione i wyniki: lokalnie pytest 202 passed (testy z bazą w CI), ruff, mypy --strict; testy integracyjne agenta i sprawdzenie proxy w CI.
+- Decyzje zatwierdzone: D42.
+- Ryzyka / rzeczy nieweryfikowane: kody błędów cyklu są zdefiniowane osobno w agencie i serwerze (kontrakt pilnowany walidacją API); partycje kończą się w 2028-10 — przed tym P4 musi dodać tworzenie kolejnych.
+- Następne małe zadanie: P3.5 — pętla agenta (konfiguracja, harmonogram, bufor SQLite, wysyłka, heartbeat) i usługa `agent` w Compose.
+
 ## Szablon kolejnego wpisu
 
 - Data:

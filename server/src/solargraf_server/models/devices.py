@@ -53,6 +53,8 @@ class Agent(Base):
     name: Mapped[str] = mapped_column(String(100))
     mode: Mapped[str] = mapped_column(String(16))
     version: Mapped[str | None] = mapped_column(String(64))
+    # Skrót SHA-256 tokenu agenta (D42); sam token jest pokazany tylko raz przy tworzeniu.
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
     enabled: Mapped[bool] = mapped_column(default=True)
     last_heartbeat_at: Mapped[datetime | None]
     created_at: Mapped[datetime] = created_at()

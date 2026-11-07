@@ -22,6 +22,11 @@
 		-Server
 	}
 
+	# Endpointy agenta tylko w sieci Compose (D42); z zewnątrz nie istnieją.
+	handle /api/agent/* {
+		respond 404
+	}
+
 	handle /api/* {
 		reverse_proxy api:8000
 	}

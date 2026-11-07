@@ -74,7 +74,7 @@ Fizyczny punkt dostępu, z którym rozmawia agent (np. logger Wi-Fi, port Modbus
 - `source_reference` — bez sekretów; np. identyfikator punktu danych w profilu
 - `batch_id` — partia od agenta (idempotentność)
 
-Tabela partycjonowana po czasie. Unikalność: (`device_id`, `metric_definition_id`, `observed_at` lub `received_at`) — do potwierdzenia w P2.
+Tabela partycjonowana miesięcznie po `received_at`. Unikalność: (`device_id`, `metric`, `channel`, `received_at`); metryka jako klucz z katalogu (D39), kanał 0 = brak; zapisywane są też odczyty `MISSING` z `value = NULL` (D42).
 
 ### PollingRun
 - `id`, `device_id` lub `connection_id`, `agent_id`, `started_at`, `finished_at`
