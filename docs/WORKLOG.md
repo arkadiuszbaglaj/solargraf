@@ -288,6 +288,12 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: brak testu na urządzeniu SunSpec; znak mocy licznika; urządzenia z jednym MPPT dają brak danych dla kanału 2, a niezaimplementowane punkty (np. TmpCab) — cykle PARTIAL.
 - Następne małe zadanie: O2 (sprzęt i dokumentacja producenta) — odblokowuje P6.3/P6.4; ewentualnie test profili SunSpec na serwerze z symulatorem.
 
+- Etap: P7.1a — monitor serwera: pomiar, ocena i API (D60, O11 rozstrzygnięte).
+- Zmiany: `system/host.py` (odczyt /proc, /sys, statvfs), `system/stability.py` (progi O11 z histerezą), `system/monitor.py` (cykl w workerze, składniki przez HTTP/TCP/heartbeat), migracja 0008 (`system_metric_samples`, `system_components`, `system_status`), retencja 30 dni, `GET /api/system/health` tylko dla OWNER; adresy składników w Compose.
+- Testy uruchomione i wyniki: ruff, mypy --strict (124 pliki), pytest serwera 169 passed / 102 skipped (testy z bazą — w CI).
+- Ryzyka / rzeczy nieweryfikowane: progi i odczyt niedoboru napięcia nie sprawdzone na RPi; pomiar narzutu na RPi niezmierzony; w LXC pamięć może dotyczyć kontenera.
+- Następne małe zadanie: P7.1b — strona „Stan serwera” w Ustawieniach.
+
 ## Szablon kolejnego wpisu
 
 - Data:

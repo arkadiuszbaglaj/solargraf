@@ -94,13 +94,16 @@ Tabela partycjonowana miesięcznie po `received_at`. Unikalność: (`device_id`,
 
 Ustawienia systemowe (np. `auto_update_check_enabled`) są globalne dla serwera, nie per instalacja. Ukrycie komunikatu o danej wersji zapisujemy per użytkownik.
 
-### SystemMetricSample
-- `sampled_at`, `metric` (np. `cpu_percent`, `load_1m`, `mem_used_bytes`, `mem_total_bytes`, `swap_used_bytes`, `disk_used_bytes`, `disk_total_bytes`, `db_size_bytes`, `cpu_temp_c`)
+### SystemMetricSample (`system_metric_samples`, D60)
+- `sampled_at`, `metric` (`cpu_percent`, `cpu_count`, `load_1m/5m/15m`, `mem_used_bytes`, `mem_total_bytes`, `swap_used_bytes`, `swap_total_bytes`, `disk_used_bytes`, `disk_total_bytes`, `db_size_bytes`, `cpu_temp_c`, `uptime_s`, `undervoltage_now`)
 - `value` — nullable, gdy metryka jest niedostępna na danym sprzęcie
-- jednostki kanoniczne (bajty, %, °C); tabela partycjonowana po czasie, retencja wg O11
+- jednostki kanoniczne (bajty, %, °C, s; flaga 0/1); retencja 30 dni (D60) przez usuwanie partiami — bez partycji (ok. 650 tys. wierszy)
 
-### ComponentStatus
-- `component` (`api`, `worker`, `agent`, `db`, `proxy`), `status`, `last_heartbeat_at`, `version`, `restart_count` (nullable)
+### SystemStatus (`system_status`, D60)
+- jeden wiersz: `evaluated_at` (też heartbeat workera), `level` (`STABLE`/`WARNING`/`CRITICAL`/`UNKNOWN`), `reasons` (JSONB), `conditions` (JSONB — stan histerezy)
+
+### ComponentStatus (`system_components`, D60)
+- `component` (`api`, `worker`, `agent`, `db`, `proxy`), `state` (`UP`/`DOWN`/`UNKNOWN`), `checked_at`, `last_ok_at`; wersja i liczba restartów — niedostępne bez gniazda Dockera
 
 ### SystemAlarm
 - jak `Alarm`, ale bez `site_id` — dotyczy serwera; widoczny tylko dla administratorów

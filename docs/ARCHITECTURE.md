@@ -169,7 +169,7 @@ API (szkic):
 
 ## Monitor serwera
 
-Decyzja: `DECISIONS.md` D16; progi i retencja: O11. Widok „Stan serwera” w Ustawieniach, tylko dla administratora.
+Decyzje: `DECISIONS.md` D16 i D60 (progi, histereza, sposób pomiaru). Widok „Stan serwera” w Ustawieniach, tylko dla roli OWNER.
 
 **Co pokazujemy:**
 
@@ -180,7 +180,7 @@ Decyzja: `DECISIONS.md` D16; progi i retencja: O11. Widok „Stan serwera” w U
 | Pamięć | RAM użyty / całkowity, swap |
 | Dysk | zajętość i wolne miejsce wolumenu danych, rozmiar bazy, szacowany czas do zapełnienia (z trendu przyrostu) |
 | Temperatura | temperatura CPU, jeśli host ją udostępnia (np. RPi) |
-| Zasilanie RPi | niedobór napięcia i dławienie taktowania, jeśli host to udostępnia |
+| Zasilanie RPi | niedobór napięcia (hwmon `rpi_volt`), jeśli host to udostępnia; dławienie taktowania — później |
 | System | czas pracy od uruchomienia, wersja aplikacji, data ostatniej aktualizacji |
 | Komponenty | `api`, `worker`, `agent`, `db`, `proxy`: stan, czas ostatniego heartbeatu, liczba restartów (jeśli dostępna) |
 | Aplikacja | opóźnienie zapisu pomiarów, rozmiar bufora agenta, czas odpowiedzi API |
@@ -188,13 +188,13 @@ Decyzja: `DECISIONS.md` D16; progi i retencja: O11. Widok „Stan serwera” w U
 Historia: wykresy 24 h / 7 dni / 30 dni (ECharts, te same komponenty co dashboard).
 
 **Jak zbieramy dane:**
-- Zadanie w `worker` co 60 s (O11) odczytuje metryki hosta przez bibliotekę o licencji permisywnej (np. psutil — do potwierdzenia licencji przy dodaniu) z `/proc` i `/sys` hosta zamontowanych **tylko do odczytu**.
-- Zajętość dysku mierzymy na wolumenie danych (to ten sam system plików co na hoście).
-- Stan komponentów pochodzi z ich endpointów health i heartbeatów — **bez montowania gniazda Dockera** w kontenerach aplikacji (dawałoby to uprawnienia równoważne rootowi na hoście).
+- Zadanie w `worker` co 60 s (D60) odczytuje metryki hosta własnym kodem z `/proc` i `/sys` (w kontenerze Dockera pokazują wartości hosta; `/sys` jest tylko do odczytu) — bez dodatkowej zależności, montowań i uprawnień.
+- Zajętość dysku mierzymy na systemie plików katalogu danych Dockera (`/` kontenera workera), na którym leżą wolumeny bazy; rozmiar bazy z `pg_database_size`.
+- Stan komponentów pochodzi z ich endpointów health i heartbeatów — **bez montowania gniazda Dockera** w kontenerach aplikacji (dawałoby to uprawnienia równoważne rootowi na hoście): `api` przez HTTP, `proxy` przez TCP, `agent` z heartbeatu, `worker` — wiek ostatniej oceny.
 - Metryki niedostępne na danym sprzęcie (np. temperatura w VM Proxmox) pokazujemy jako „niedostępne”, nie jako 0.
 - Pomiar musi być lekki: cel < 1% CPU na RPi 4.
 
-**Ocena stabilności:** wyliczana z progów (O11) z histerezą, żeby status nie migał. Przekroczenie progu krytycznego tworzy alarm systemowy widoczny dla administratorów (oddzielny od alarmów instalacji).
+**Ocena stabilności:** wyliczana z progów (D60) z histerezą, żeby status nie migał. Przekroczenie progu krytycznego tworzy alarm systemowy widoczny dla administratorów (oddzielny od alarmów instalacji).
 
 API (szkic):
 - `GET /api/system/health` — bieżący stan i ocena;

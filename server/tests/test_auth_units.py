@@ -133,8 +133,13 @@ def test_schema_compiles_for_postgresql_with_conventional_names() -> None:
         "aggregates",
         "aggregate_dirty",
         "alarms",
+        "system_metric_samples",
+        "system_components",
+        "system_status",
     }
     assert "CONSTRAINT uq_users_email UNIQUE (email)" in ddl["users"]
+    assert "CONSTRAINT ck_system_status_single_row CHECK" in ddl["system_status"]
+    assert "CONSTRAINT ck_system_metric_samples_metric CHECK" in ddl["system_metric_samples"]
     assert "CONSTRAINT ck_memberships_role CHECK" in ddl["memberships"]
     assert "CONSTRAINT ck_alarms_severity CHECK" in ddl["alarms"]
     assert "CONSTRAINT fk_alarms_site_id_sites FOREIGN KEY" in ddl["alarms"]

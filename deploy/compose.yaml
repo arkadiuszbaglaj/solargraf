@@ -73,6 +73,9 @@ services:
       SOLARGRAF_RETENTION_RAW_DAYS: ${SOLARGRAF_RETENTION_RAW_DAYS:-90}
       SOLARGRAF_RETENTION_M5_DAYS: ${SOLARGRAF_RETENTION_M5_DAYS:-730}
       SOLARGRAF_RETENTION_RUNS_DAYS: ${SOLARGRAF_RETENTION_RUNS_DAYS:-90}
+      # Monitor serwera (D60): składniki sprawdzane w sieci Compose, bez gniazda Dockera.
+      SOLARGRAF_MONITOR_API_URL: http://api:8000/api/health/ready
+      SOLARGRAF_MONITOR_PROXY_ADDRESS: proxy:443
       SOLARGRAF_RETENTION_ALARMS_DAYS: ${SOLARGRAF_RETENTION_ALARMS_DAYS:-365}
     <<: *hardening
     healthcheck:

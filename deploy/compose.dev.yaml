@@ -62,7 +62,10 @@ services:
   worker:
     image: solargraf-api:dev
     command: ["solargraf-worker"]
-    environment: *db-env
+    environment:
+      <<: *db-env
+      # Monitor serwera (D60); dev nie ma proxy — składnik niemonitorowany.
+      SOLARGRAF_MONITOR_API_URL: http://api:8000/api/health/ready
     <<: *hardening
     healthcheck:
       disable: true
