@@ -4,7 +4,16 @@ version = "0.0.0"
 description = "SolarGraf (nazwa robocza) — agent"
 requires-python = ">=3.12,<3.13"
 license = "LicenseRef-Proprietary"
-dependencies = []
+dependencies = [
+    "solargraf-profiles",
+    "pymodbus==3.16.2",
+]
+
+[tool.uv.sources]
+solargraf-profiles = { workspace = true }
+
+[project.scripts]
+solargraf-agent = "solargraf_agent.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.13.5,<0.14"]

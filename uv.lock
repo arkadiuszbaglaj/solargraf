@@ -1018,6 +1018,16 @@ wheels = [
 name = "solargraf-agent"
 version = "0.0.0"
 source = { editable = "agent" }
+dependencies = [
+    { name = "pymodbus" },
+    { name = "solargraf-profiles" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pymodbus", specifier = "==3.16.2" },
+    { name = "solargraf-profiles", editable = "profiles-schema" },
+]
 
 [[package]]
 name = "solargraf-profiles"
@@ -1091,7 +1101,6 @@ dev = [
     { name = "httpx2" },
     { name = "mypy" },
     { name = "pre-commit" },
-    { name = "pymodbus" },
     { name = "pytest" },
     { name = "ruff" },
     { name = "types-pyyaml" },
@@ -1111,7 +1120,6 @@ dev = [
     { name = "httpx2", specifier = ">=2.16.0" },
     { name = "mypy", specifier = ">=2.4.1" },
     { name = "pre-commit", specifier = ">=4.7.0" },
-    { name = "pymodbus", specifier = "==3.16.2" },
     { name = "pytest", specifier = ">=9.2.0" },
     { name = "ruff", specifier = ">=0.17.4" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20261103" },
