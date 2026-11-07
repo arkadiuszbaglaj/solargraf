@@ -37,6 +37,7 @@ Projekt zaczyna się od dokumentacji oraz kontrolowanego MVP; nie zakłada jeszc
 - [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) — encje, pomiary i reguły obliczeń.
 - [`docs/SECURITY.md`](docs/SECURITY.md) — bezpieczeństwo.
 - [`docs/COMPLIANCE.md`](docs/COMPLIANCE.md) — licencje, CRA, RODO, nazwa handlowa.
+- [`LICENSE`](LICENSE) — licencja zastrzeżona: kod publiczny tylko do wglądu, wszelkie prawa zastrzeżone (D35).
 - [`docs/TESTING.md`](docs/TESTING.md) — strategia testów, w tym symulatory.
 - [`docs/IMPLEMENTATION_GUIDE.md`](docs/IMPLEMENTATION_GUIDE.md) — instrukcja krok po kroku i praca z Claude Code.
 - [`docs/REFERENCES.md`](docs/REFERENCES.md) — dokumentacja techniczna i źródła.

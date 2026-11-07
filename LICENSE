@@ -1,0 +1,37 @@
+SolarGraf (nazwa robocza) — licencja zastrzeżona / Proprietary License
+
+Copyright (c) 2026 właściciel repozytorium https://github.com/arkadiuszbaglaj/solargraf
+Wszelkie prawa zastrzeżone. All rights reserved.
+
+PL
+Kod źródłowy, dokumentacja, profile urządzeń i pozostałe materiały w tym repozytorium
+(„Oprogramowanie”) są udostępnione publicznie wyłącznie do wglądu. Udostępnienie kodu
+nie oznacza udzielenia licencji open source ani żadnej innej licencji.
+
+Bez uprzedniej pisemnej zgody właściciela zabronione jest w szczególności: kopiowanie,
+modyfikowanie, rozpowszechnianie, sublicencjonowanie, sprzedaż, udostępnianie jako usługi
+oraz uruchamianie Oprogramowania w celach produkcyjnych lub komercyjnych. Prawo do
+korzystania z Oprogramowania wynika wyłącznie z odrębnej umowy licencyjnej zawartej
+z właścicielem.
+
+Oprogramowanie jest dostarczane „tak jak jest”, bez jakiejkolwiek gwarancji. W najszerszym
+zakresie dopuszczalnym przez prawo właściciel nie odpowiada za szkody wynikłe z korzystania
+z Oprogramowania.
+
+Komponenty stron trzecich zachowują własne licencje (wykaz: docs/COMPLIANCE.md).
+
+EN
+The source code, documentation, device profiles and other materials in this repository
+(the "Software") are made publicly visible for reference only. Publication of the code does
+not grant an open-source license or any other license.
+
+Without the owner's prior written permission you may not, in particular, copy, modify,
+distribute, sublicense, sell, offer as a service, or run the Software for production or
+commercial purposes. Any right to use the Software arises solely from a separate license
+agreement with the owner.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. TO THE MAXIMUM EXTENT
+PERMITTED BY LAW, THE OWNER SHALL NOT BE LIABLE FOR ANY DAMAGES ARISING FROM USE OF THE
+SOFTWARE.
+
+Third-party components remain under their own licenses (see docs/COMPLIANCE.md).
