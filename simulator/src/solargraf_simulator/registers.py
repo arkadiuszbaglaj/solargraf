@@ -6,7 +6,7 @@ from collections import Counter
 from decimal import Decimal
 
 from solargraf_profiles.codec import CodecError, encode
-from solargraf_profiles.model import MODBUS_MAX_BLOCK, Profile, RegisterTable
+from solargraf_profiles.model import MODBUS_MAX_BLOCK, Addressing, Profile, RegisterTable
 
 # Wielkości stringów PV dzielone równo między kanały (napięcie jest wspólne).
 _SPLIT_BY_STRINGS = frozenset({"pv_string_power", "pv_string_current"})
@@ -27,6 +27,10 @@ class ModbusException(Exception):
 
 class RegisterMap:
     def __init__(self, profile: Profile) -> None:
+        if profile.addressing is not Addressing.REGISTERS:
+            raise ValueError(
+                f"profil {profile.id}: adresowanie {profile.addressing} nieobsługiwane"
+            )
         self.profile = profile
         self._points = [p for p in profile.points if p.reg is not None]
         self._strings = Counter(p.channel for p in self._points if p.metric in _SPLIT_BY_STRINGS)

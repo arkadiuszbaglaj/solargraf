@@ -2,6 +2,9 @@
 
 Profil opisuje, jak odczytać metryki kanoniczne z rejestrów urządzenia. Każdy punkt danych
 wskazuje źródło dowodu; brak dowodu to status ``UNVERIFIED``, nigdy zgadywany rejestr.
+
+Adresowanie: ``registers`` — stałe adresy rejestrów; ``sunspec`` (D59) — model i nazwa punktu
+SunSpec, adres ustala agent z mapy urządzenia, a typ, skalę i jednostkę definicja modelu.
 """
 
 from __future__ import annotations
@@ -13,6 +16,7 @@ from typing import Annotated, Self
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, model_validator
 
+from solargraf_profiles import sunspec
 from solargraf_profiles.catalog import (
     METRICS,
     REGISTER_TRANSPORTS,
@@ -79,6 +83,11 @@ class WordOrder(enum.StrEnum):
     LOW_FIRST = "low_first"
 
 
+class Addressing(enum.StrEnum):
+    REGISTERS = "registers"
+    SUNSPEC = "sunspec"
+
+
 class Sign(enum.StrEnum):
     NORMAL = "normal"
     INVERT = "invert"  # urządzenie używa odwrotnej konwencji niż katalog metryk
@@ -133,6 +142,18 @@ class Register(_Strict):
         return range(self.address, self.address + self.type.registers)
 
 
+class SunSpecRef(_Strict):
+    """Punkt modelu SunSpec. ``group`` — grupa powtarzana; numer powtórzenia = ``channel`` - 1."""
+
+    model: StrictInt
+    point: Annotated[StrictStr, Field(min_length=1, max_length=32)]
+    group: Annotated[StrictStr, Field(min_length=1, max_length=32)] | None = None
+
+    def resolve(self) -> sunspec.SunSpecPoint:
+        """Definicja punktu z dołączonych modeli; błąd, gdy model, grupa albo punkt są nieznane."""
+        return sunspec.load_model(self.model).point(self.point, self.group)
+
+
 class DataPoint(_Strict):
     metric: StrictStr
     channel: Annotated[StrictInt, Field(ge=1, le=32)] | None = None
@@ -142,6 +163,7 @@ class DataPoint(_Strict):
     source_ref: Text | None = None
     # W YAML klucz ``register``; w Pythonie ``reg`` (``register`` zasłania metodę BaseModel).
     reg: Register | None = Field(default=None, alias="register")
+    sunspec: SunSpecRef | None = None
     scale: Annotated[Decimal, Field(gt=0)] = Decimal(1)
     unit: Unit | None = None
     sign: Sign = Sign.NORMAL
@@ -156,11 +178,13 @@ class DataPoint(_Strict):
         if not metric.channeled and self.channel is not None:
             raise ValueError(f"metryka {self.metric} nie ma kanałów")
         if self.status is PointStatus.UNSUPPORTED:
-            if self.reg is not None or self.unit is not None:
+            if self.reg is not None or self.sunspec is not None or self.unit is not None:
                 raise ValueError("punkt UNSUPPORTED nie ma rejestru ani jednostki")
             return self
-        if self.reg is None or self.unit is None:
-            raise ValueError("punkt danych wymaga register i unit")
+        if (self.reg is None) == (self.sunspec is None) or self.unit is None:
+            raise ValueError("punkt danych wymaga unit i dokładnie jednego z: register, sunspec")
+        if self.sunspec is not None:
+            self._check_sunspec(self.sunspec, metric.channeled)
         if UNITS[self.unit].quantity is not metric.quantity:
             raise ValueError(
                 f"jednostka {self.unit} nie pasuje do metryki {self.metric} "
@@ -169,6 +193,24 @@ class DataPoint(_Strict):
         if self.sign is Sign.INVERT and not metric.signed:
             raise ValueError(f"metryka {self.metric} nie ma znaku — sign: invert niedozwolone")
         return self
+
+    def _check_sunspec(self, ref: SunSpecRef, channeled: bool) -> None:
+        try:
+            point = ref.resolve()
+        except sunspec.SunSpecError as exc:
+            raise ValueError(str(exc)) from None
+        if point.type not in sunspec.VALUE_TYPES:
+            raise ValueError(f"punkt SunSpec {ref.point} ma typ {point.type} bez wartości metryki")
+        if sunspec.UNIT_NAMES.get(point.units or "") != (self.unit.value if self.unit else None):
+            raise ValueError(
+                f"jednostka {self.unit} nie zgadza się z definicją punktu SunSpec {ref.point} "
+                f"({point.units})"
+            )
+        # Skala SunSpec jest dynamiczna (rejestr ``*_SF``) — stała skala profilu byłaby drugą skalą.
+        if self.scale != 1:
+            raise ValueError("punkt SunSpec nie ma stałej skali (scale)")
+        if ref.group is not None and not channeled:
+            raise ValueError(f"punkt grupy {ref.group} wymaga metryki z kanałami")
 
     @property
     def key(self) -> tuple[str, int | None]:
@@ -188,6 +230,7 @@ class Profile(_Strict):
     models: list[Text] = Field(default_factory=list)
     firmware: list[Text] = Field(default_factory=list)
     transports: Annotated[list[Transport], Field(min_length=1)]
+    addressing: Addressing = Addressing.REGISTERS
     sources: Annotated[list[Source], Field(min_length=1)]
     hardware_tests: list[HardwareTest] = Field(default_factory=list)
     polling: Polling
@@ -250,6 +293,10 @@ class Profile(_Strict):
             if p.key in seen:
                 errors.append(f"powtórzony punkt {label}")
             seen.add(p.key)
+            if p.status is not PointStatus.UNSUPPORTED:
+                uses_sunspec = p.sunspec is not None
+                if uses_sunspec != (self.addressing is Addressing.SUNSPEC):
+                    errors.append(f"{label}: sposób adresowania niezgodny z addressing profilu")
             if p.reg is None:
                 continue
             for addr in p.reg.span:
@@ -260,9 +307,21 @@ class Profile(_Strict):
                     )
                     break
                 occupied[slot] = label
+        refs = [
+            (p.sunspec.model, p.sunspec.group, p.sunspec.point, p.channel)
+            for p in self.points
+            if p.sunspec
+        ]
+        if len(set(refs)) != len(refs):
+            errors.append("dwa punkty wskazują ten sam punkt SunSpec")
         if all(p.status is PointStatus.UNSUPPORTED for p in self.points):
             errors.append("profil nie ma żadnego odczytywalnego punktu")
         return errors
+
+    @property
+    def sunspec_models(self) -> list[int]:
+        """Modele SunSpec wymagane przez profil (rosnąco)."""
+        return sorted({p.sunspec.model for p in self.points if p.sunspec is not None})
 
     def _check_support_level(self) -> list[str]:
         if self.support_level is not SupportLevel.VERIFIED:

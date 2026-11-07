@@ -131,7 +131,7 @@ class TestPoints:
     def test_point_requires_register_and_unit(self) -> None:
         data = base()
         del data["points"][0]["register"]
-        assert "wymaga register i unit" in errors_of(data)
+        assert "wymaga unit i dokładnie jednego z: register, sunspec" in errors_of(data)
 
     def test_unsupported_point_has_no_register(self) -> None:
         assert "UNSUPPORTED" in errors_of(with_point(status="UNSUPPORTED"))

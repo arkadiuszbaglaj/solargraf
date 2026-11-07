@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from solargraf_profiles.model import DataPoint, Profile, RegisterTable
+from solargraf_profiles.model import Addressing, DataPoint, Profile, RegisterTable
 
 
 @dataclass(frozen=True)
@@ -25,6 +25,9 @@ class Block:
 
 
 def plan_blocks(profile: Profile) -> list[Block]:
+    if profile.addressing is not Addressing.REGISTERS:
+        # Adresy SunSpec ustala dopiero odczyt mapy urządzenia (P6.2b); bez tego odczyt byłby pusty.
+        raise ValueError(f"profil {profile.id}: adresowanie {profile.addressing} nieobsługiwane")
     limit = profile.polling.max_block_registers
     points = sorted(
         (p for p in profile.points if p.reg is not None),

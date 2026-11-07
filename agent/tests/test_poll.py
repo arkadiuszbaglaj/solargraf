@@ -10,6 +10,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+import pytest
 import yaml
 from pymodbus.client import AsyncModbusTcpClient
 
@@ -116,6 +117,25 @@ class TestPlan:
         assert sum(b.count for b in blocks) == 13
         # Wartość 32-bitowa nigdy nie jest dzielona między bloki.
         assert [(b.address, b.count) for b in blocks][:2] == [(0, 4), (4, 4)]
+
+    def test_sunspec_profile_is_refused_until_discovery(self) -> None:
+        # D59: adresy SunSpec zna dopiero mapa urządzenia — bez niej agent nie udaje odczytu.
+        data = copy.deepcopy(RAW)
+        data["addressing"] = "sunspec"
+        data["points"] = [
+            {
+                "metric": "pv_power",
+                "status": "UNVERIFIED",
+                "source": "simulator-map",
+                "sunspec": {"model": 103, "point": "DCW"},
+                "unit": "W",
+            }
+        ]
+        sunspec_profile = Profile.model_validate(data)
+        with pytest.raises(ValueError, match="adresowanie sunspec"):
+            plan_blocks(sunspec_profile)
+        with pytest.raises(ValueError, match="adresowanie sunspec"):
+            RegisterMap(sunspec_profile)
 
 
 class TestPoll:
