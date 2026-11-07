@@ -92,3 +92,37 @@ export function formatAge(seconds: number): string {
   }
   return `${Math.floor(seconds / 86400)} d`
 }
+
+const BYTE_UNITS = ['B', 'KiB', 'MiB', 'GiB', 'TiB'] as const
+
+/** Rozmiar w bajtach w jednostkach binarnych (1 GiB = 1024³ B), np. „3,4 GiB”. */
+export function formatBytes(bytes: number | null): string {
+  if (bytes === null || !Number.isFinite(bytes) || bytes < 0) {
+    return MISSING
+  }
+  let value = bytes
+  let unit = 0
+  while (value >= 1024 && unit < BYTE_UNITS.length - 1) {
+    value /= 1024
+    unit += 1
+  }
+  return `${number(value, unit === 0 ? 0 : 1)} ${BYTE_UNITS[unit]}`
+}
+
+/** Czas pracy w postaci „3 d 4 h”, „5 h 12 min”, „12 min”. */
+export function formatUptime(seconds: number | null): string {
+  if (seconds === null || !Number.isFinite(seconds) || seconds < 0) {
+    return MISSING
+  }
+  const days = Math.floor(seconds / 86400)
+  const hours = Math.floor((seconds % 86400) / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  if (days > 0) return `${days} d ${hours} h`
+  if (hours > 0) return `${hours} h ${minutes} min`
+  return `${minutes} min`
+}
+
+/** Liczba z określoną liczbą miejsc po przecinku albo „—” dla braku pomiaru. */
+export function formatNumber(value: number | null, fractionDigits: number): string {
+  return value === null || !Number.isFinite(value) ? MISSING : number(value, fractionDigits)
+}

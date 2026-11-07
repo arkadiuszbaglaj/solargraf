@@ -10,6 +10,7 @@ import type { Page } from './layout/Sidebar'
 import { DashboardPage } from './pages/DashboardPage'
 import { DeviceHistoryPage } from './pages/DeviceHistoryPage'
 import { DevicesPage } from './pages/DevicesPage'
+import { ServerHealthPage } from './pages/ServerHealthPage'
 import { SitesPage } from './pages/SitesPage'
 import styles from './App.module.css'
 
@@ -44,7 +45,9 @@ export function App({
               ? { title: 'Urządzenia', subtitle: 'Urządzenia i połączenia instalacji', showSiteSwitcher: false }
               : page === 'history'
                 ? { title: 'Historia', subtitle: 'Historia pomiarów urządzenia', showSiteSwitcher: false }
-                : {})}
+                : page === 'server'
+                  ? { title: 'Stan serwera', subtitle: 'Zasoby, składniki i ocena stabilności', showSiteSwitcher: false }
+                  : {})}
           sites={sites}
           siteId={site?.id ?? ''}
           onSiteChange={setSelected}
@@ -58,6 +61,8 @@ export function App({
         <main id="main" className={styles.main} tabIndex={-1}>
           {page === 'sites' ? (
             <SitesPage />
+          ) : page === 'server' ? (
+            <ServerHealthPage />
           ) : page === 'devices' ? (
             <DevicesPage siteId={routeSiteId} />
           ) : page === 'history' ? (

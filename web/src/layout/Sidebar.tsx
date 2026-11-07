@@ -8,16 +8,19 @@ import {
   SolarPanel,
   type LucideIcon,
 } from 'lucide-react'
+import { useOptionalSession } from '../auth/SessionContext'
 import { branding } from '../branding'
 import styles from './Sidebar.module.css'
 
-export type Page = 'dashboard' | 'sites'
+export type Page = 'dashboard' | 'sites' | 'server'
 
 interface NavItem {
   label: string
   icon: LucideIcon
   page?: Page
   href?: string
+  /** Pozycja tylko dla roli OWNER (D60); dostęp i tak sprawdza serwer. */
+  ownerOnly?: boolean
 }
 
 const NAV: NavItem[] = [
@@ -27,10 +30,12 @@ const NAV: NavItem[] = [
   { label: 'Urządzenia', icon: Cpu },
   { label: 'Alarmy', icon: Bell },
   { label: 'Raporty', icon: FileText },
-  { label: 'Ustawienia', icon: Settings },
+  { label: 'Ustawienia', icon: Settings, page: 'server', href: '/ustawienia/serwer', ownerOnly: true },
 ]
 
 export function Sidebar({ open, id, current = 'dashboard' }: { open: boolean; id: string; current?: Page }) {
+  const auth = useOptionalSession()
+  const isOwner = auth?.session.memberships.some((m) => m.role === 'OWNER') ?? false
   return (
     <aside id={id} className={`${styles.sidebar} ${open ? styles.open : ''}`}>
       <div className={styles.brand}>
@@ -39,9 +44,9 @@ export function Sidebar({ open, id, current = 'dashboard' }: { open: boolean; id
       </div>
       <nav aria-label="Główna nawigacja">
         <ul className={styles.nav}>
-          {NAV.map(({ label, icon: Icon, page, href }) => (
+          {NAV.map(({ label, icon: Icon, page, href, ownerOnly }) => (
             <li key={label}>
-              {href ? (
+              {href && (!ownerOnly || isOwner) ? (
                 <a
                   href={href}
                   className={page === current ? `${styles.link} ${styles.active}` : styles.link}
