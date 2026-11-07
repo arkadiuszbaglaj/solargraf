@@ -25,6 +25,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from solargraf_profiles.catalog import DeviceKind
@@ -195,7 +196,7 @@ async def load_snapshot(
     rows = await db.execute(
         select(m.device_id, m.metric, m.channel, m.value, m.quality, m.origin, m.received_at)
         .where(m.site_id == site_id, m.received_at >= now - SNAPSHOT_WINDOW)
-        .distinct(m.device_id, m.metric, m.channel)
+        .ext(distinct_on(m.device_id, m.metric, m.channel))
         .order_by(m.device_id, m.metric, m.channel, m.received_at.desc())
     )
     readings = [
