@@ -1,8 +1,13 @@
-"""Energia za okres i wskaźniki D27: ``GET /api/sites/{id}/devices/{did}/energy`` (D48).
+"""Energia za okres i wskaźniki D27 urządzenia (D48) i instalacji (D51).
+
+- ``GET /api/sites/{id}/devices/{did}/energy`` — serie jednego urządzenia.
+- ``GET /api/sites/{id}/energy`` — serie instalacji: każda z dokładnie jednego włączonego
+  urządzenia, którego profil ją udostępnia; kilka źródeł albo brak źródła → seria niedostępna
+  (bez sumowania). Wskaźniki z serii wybranych w ten sposób, także z różnych urządzeń.
 
 Liczone przy zapytaniu z agregatów (``worker``): liczniki z agregatów godzinowych, zużycie domu
 z agregatów 5 min mocy ``load_power``. Przedziały: godziny (zakres do doby), doby albo miesiące
-w strefie instalacji. Wskaźniki liczone dla jednego urządzenia, które dostarcza oba źródła.
+w strefie instalacji.
 """
 
 from __future__ import annotations
@@ -15,7 +20,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import AwareDatetime, BaseModel
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from solargraf_server import authz
@@ -33,7 +38,7 @@ from solargraf_server.energy import (
     total,
 )
 from solargraf_server.models import NO_CHANNEL, Aggregate, Device, Measurement, Resolution
-from solargraf_server.profiles import Catalog
+from solargraf_server.profiles import Catalog, ProfileCatalog
 from solargraf_server.sites import NOT_FOUND
 
 router = APIRouter(prefix="/api/sites", tags=["energy"])
@@ -50,6 +55,7 @@ COUNTERS = {
     "battery_discharge": "battery_discharge_energy_total",
 }
 LOAD_KEY, LOAD_METRIC = "load", "load_power"
+SOURCES = {**COUNTERS, LOAD_KEY: LOAD_METRIC}
 
 BucketSize = Literal["1h", "1d", "1mo"]
 
@@ -63,6 +69,7 @@ class EnergyBucketOut(BaseModel):
 class EnergySeriesOut(BaseModel):
     key: str
     metric: str
+    device_id: uuid.UUID
     # COUNTER — przyrost licznika; POWER — moc zintegrowana w czasie (wartość pochodna).
     source: Literal["COUNTER", "POWER"]
     total_wh: float | None
@@ -90,6 +97,18 @@ class EnergyOut(BaseModel):
     origins: list[str]
     series: list[EnergySeriesOut]
     kpis: KpisOut
+
+
+class UnavailableSeriesOut(BaseModel):
+    key: str
+    metric: str
+    # NOT_PROVIDED — żadne włączone urządzenie nie podaje metryki; AMBIGUOUS — kilka źródeł.
+    reason: Literal["NOT_PROVIDED", "AMBIGUOUS"]
+    sources: int
+
+
+class SiteEnergyOut(EnergyOut):
+    unavailable: list[UnavailableSeriesOut]
 
 
 SELF_CONSUMPTION = "Autokonsumpcja = (produkcja PV - eksport) / produkcja PV"
@@ -131,7 +150,7 @@ async def _counter_lasts(
             Aggregate.bucket_start < end,
         )
     )
-    lasts: dict[datetime, float | None] = dict(rows.tuples().all())
+    lasts: dict[datetime, float | None] = dict(rows.all())
     return lasts
 
 
@@ -182,6 +201,22 @@ async def device_energy(
     )
     if device is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, NOT_FOUND_DEVICE)
+    _check_range(start, end)
+    available = _available(catalog, device)
+    sources = {key: device.id for key, metric in SOURCES.items() if metric in available}
+    return await compute_energy(db, sources, start, end, access.site.timezone)
+
+
+def _available(catalog: ProfileCatalog, device: Device) -> set[str]:
+    profile = (
+        catalog.get(device.profile_id, device.profile_version)
+        if device.profile_id is not None and device.profile_version is not None
+        else None
+    )
+    return {m.key for m in device_metrics(profile) if m.channel is None}
+
+
+def _check_range(start: datetime, end: datetime) -> None:
     if start >= end:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT, "Początek zakresu musi być przed końcem."
@@ -189,13 +224,16 @@ async def device_energy(
     if end - start > MAX_RANGE:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Zakres jest za długi.")
 
-    tz = ZoneInfo(access.site.timezone)
-    profile = (
-        catalog.get(device.profile_id, device.profile_version)
-        if device.profile_id is not None and device.profile_version is not None
-        else None
-    )
-    available = {m.key for m in device_metrics(profile) if m.channel is None}
+
+async def compute_energy(
+    db: AsyncSession,
+    sources: dict[str, uuid.UUID],
+    start: datetime,
+    end: datetime,
+    timezone: str,
+) -> EnergyOut:
+    """Serie i wskaźniki dla ``sources`` (klucz serii → urządzenie, które ją podaje)."""
+    tz = ZoneInfo(timezone)
     hours = hour_starts(start, end)
     size = bucket_size(start, end)
     to_bucket = bucket_of(size, tz)
@@ -203,34 +241,44 @@ async def device_energy(
     per_hour: dict[str, list[HourEnergy]] = {}
     series: list[EnergySeriesOut] = []
     for key, metric in COUNTERS.items():
-        if metric not in available:
+        device_id = sources.get(key)
+        if device_id is None:
             continue
-        lasts = await _counter_lasts(db, device.id, metric, hours[0], end)
+        lasts = await _counter_lasts(db, device_id, metric, hours[0], end)
         per_hour[key] = counter_hours(hours, lasts)
-        series.append(_series(key, metric, "COUNTER", per_hour[key], to_bucket))
-    if LOAD_METRIC in available:
-        m5 = await _power_m5(db, device.id, LOAD_METRIC, hours[0], end)
+        series.append(_series(key, metric, device_id, "COUNTER", per_hour[key], to_bucket))
+    load_device = sources.get(LOAD_KEY)
+    if load_device is not None:
+        m5 = await _power_m5(db, load_device, LOAD_METRIC, hours[0], end)
         per_hour[LOAD_KEY] = power_hours(hours, m5)
-        series.append(_series(LOAD_KEY, LOAD_METRIC, "POWER", per_hour[LOAD_KEY], to_bucket))
-
-    metrics = [s.metric for s in series]
-    origins: list[str] = list(
-        await db.scalars(
-            select(Measurement.origin)
-            .where(
-                Measurement.device_id == device.id,
-                Measurement.metric.in_(metrics),
-                Measurement.received_at >= start,
-                Measurement.received_at < end,
-            )
-            .distinct()
-            .order_by(Measurement.origin)
+        series.append(
+            _series(LOAD_KEY, LOAD_METRIC, load_device, "POWER", per_hour[LOAD_KEY], to_bucket)
         )
-        if metrics
+
+    origins: list[str] = (
+        list(
+            await db.scalars(
+                select(Measurement.origin)
+                .where(
+                    or_(
+                        *(
+                            (Measurement.device_id == s.device_id)
+                            & (Measurement.metric == s.metric)
+                            for s in series
+                        )
+                    ),
+                    Measurement.received_at >= start,
+                    Measurement.received_at < end,
+                )
+                .distinct()
+                .order_by(Measurement.origin)
+            )
+        )
+        if series
         else []
     )
     return EnergyOut(
-        timezone=access.site.timezone,
+        timezone=timezone,
         bucket=size,
         origins=origins,
         series=series,
@@ -255,9 +303,51 @@ async def device_energy(
     )
 
 
+@router.get("/{site_id}/energy", response_model=SiteEnergyOut)
+async def site_energy(
+    site_id: uuid.UUID,
+    db: DbSession,
+    catalog: Catalog,
+    auth: Annotated[AuthContext, Depends(current_auth)],
+    start: Annotated[AwareDatetime, Query(alias="from")],
+    end: Annotated[AwareDatetime, Query(alias="to")],
+) -> SiteEnergyOut:
+    try:
+        access = await authz.authorize_site(db, auth.user.id, site_id, authz.SiteAction.READ)
+    except authz.NotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, NOT_FOUND) from None
+    _check_range(start, end)
+    devices = list(
+        await db.scalars(
+            select(Device)
+            .where(Device.site_id == site_id, Device.enabled.is_(True))
+            .order_by(Device.name, Device.id)
+        )
+    )
+    provided = {device.id: _available(catalog, device) for device in devices}
+    sources: dict[str, uuid.UUID] = {}
+    unavailable: list[UnavailableSeriesOut] = []
+    for key, metric in SOURCES.items():
+        providers = [d.id for d in devices if metric in provided[d.id]]
+        if len(providers) == 1:
+            sources[key] = providers[0]
+        else:
+            unavailable.append(
+                UnavailableSeriesOut(
+                    key=key,
+                    metric=metric,
+                    reason="NOT_PROVIDED" if not providers else "AMBIGUOUS",
+                    sources=len(providers),
+                )
+            )
+    energy = await compute_energy(db, sources, start, end, access.site.timezone)
+    return SiteEnergyOut(**energy.model_dump(), unavailable=unavailable)
+
+
 def _series(
     key: str,
     metric: str,
+    device_id: uuid.UUID,
     source: Literal["COUNTER", "POWER"],
     hours: list[HourEnergy],
     to_bucket: Callable[[datetime], datetime],
@@ -266,6 +356,7 @@ def _series(
     return EnergySeriesOut(
         key=key,
         metric=metric,
+        device_id=device_id,
         source=source,
         total_wh=result.wh,
         coverage=result.coverage,

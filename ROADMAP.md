@@ -58,7 +58,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 - [ ] Normalizacja jednostek oraz walidacja zakresów.
 - [x] Agregaty 5 min / godzina / dzień z liczbą próbek i pokryciem; usługa `worker`, API historii (P4.1, D46).
 - [x] Wykresy dzień/tydzień/miesiąc/rok — historia urządzenia w UI (P4.2, D47).
-- [ ] Zatwierdzone wzory KPI (O3) i bilansu energii — KPI D27 i energia za okres w API i UI (P4.3, D48); bilans instalacji (suma po urządzeniach) do zrobienia.
+- [ ] Zatwierdzone wzory KPI (O3) i bilansu energii — KPI D27 i energia za okres w API i UI (P4.3, D48); energia i KPI instalacji z jednego źródła na serię (D51); suma po urządzeniach — po decyzji o rolach.
 - [x] Obsługa luk, zmian czasu, strefy czasowej i resetów liczników (D46, D48).
 - [x] Retencja przez partycje i tworzenie kolejnych partycji (P4.4, D49).
 
@@ -67,7 +67,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 ## P5 — Dashboard produkcyjny z danymi na żywo
 
 - [x] Strumień SSE per instalacja; UI pokazuje wiek każdej wartości (P5.1, D50).
-- [ ] Karty KPI i trendy.
+- [x] Karty KPI i trendy — energia dziś, autokonsumpcja i wykres mocy od północy (P5.2, D51).
 - [ ] Diagram przepływu energii na podstawie spójnego bilansu pomiarów.
 - [ ] Szczegóły PV/MPPT, baterii/BMS i sieci/faz — tylko jeśli profil je udostępnia.
 - [ ] Status urządzeń i agentów wyliczany z polityki świeżości.

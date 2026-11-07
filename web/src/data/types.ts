@@ -54,8 +54,10 @@ export interface EnergyChart {
   unit: 'W'
   pv: SeriesPoint[]
   home: SeriesPoint[]
-  /** Pobór z sieci (import) — wartości ≥ 0. */
+  /** Pobór z sieci (import, ≥ 0) albo moc sieci ze znakiem D39 — wg `gridLabel`. */
   gridImport: SeriesPoint[]
+  /** Nazwa serii sieci w legendzie; domyślnie „Pobór z sieci”. */
+  gridLabel?: string
 }
 
 export type DeviceKind = 'INVERTER' | 'BATTERY' | 'BMS' | 'METER' | 'MPPT' | 'SENSOR'
