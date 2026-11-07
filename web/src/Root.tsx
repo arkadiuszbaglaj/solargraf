@@ -6,12 +6,20 @@ import { DemoDataSource } from './data/demo/DemoDataSource'
 import { LoginPage } from './pages/LoginPage'
 import { SetupPage, takeTokenFromLocation } from './pages/SetupPage'
 
-export type Route = 'setup' | 'login' | 'sites' | 'app'
+export type Route = 'setup' | 'login' | 'sites' | 'devices' | 'app'
+
+const DEVICES_PATH = /^\/instalacje\/([0-9a-f-]{36})\/urzadzenia\/?$/i
+
+/** Identyfikator instalacji z adresu `/instalacje/{id}/urzadzenia`. */
+export function devicesSiteId(pathname: string): string | null {
+  return DEVICES_PATH.exec(pathname)?.[1] ?? null
+}
 
 export function routeFor(pathname: string): Route {
   if (pathname === '/setup') return 'setup'
   if (pathname === '/login') return 'login'
   if (pathname === '/instalacje') return 'sites'
+  if (devicesSiteId(pathname)) return 'devices'
   return 'app'
 }
 
@@ -37,7 +45,11 @@ export function Root() {
   // Jedyne źródło danych do czasu API (P2/P5) to jawnie oznaczone DEMO.
   const dashboard = (
     <DataSourceProvider source={new DemoDataSource()}>
-      <App page={route === 'sites' ? 'sites' : 'dashboard'} />
+      {route === 'devices' ? (
+        <App page="devices" siteId={devicesSiteId(window.location.pathname) ?? ''} />
+      ) : (
+        <App page={route === 'sites' ? 'sites' : 'dashboard'} />
+      )}
     </DataSourceProvider>
   )
   return skipAuth ? dashboard : <AuthGate>{dashboard}</AuthGate>

@@ -28,9 +28,12 @@ WORKDIR /app
 COPY --from=build /app/.venv /app/.venv
 COPY server/alembic.ini ./alembic.ini
 COPY server/alembic ./alembic
+# Katalog profili (D44) — ten sam co w obrazie agenta.
+COPY profiles ./profiles
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    SOLARGRAF_PROFILES_DIR=/app/profiles
 USER 10001:10001
 EXPOSE 8000
 HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 \

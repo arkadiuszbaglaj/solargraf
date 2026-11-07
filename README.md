@@ -152,6 +152,8 @@ Agent (D42) — token wypisany tylko raz; `rotate` wydaje nowy, `disable` go uni
 docker compose -f deploy/compose.dev.yaml exec api solargraf-admin agent create --name lokalny
 ```
 
+Urządzenia (D44): w UI „Instalacje” → „Urządzenia” (`/instalacje/{id}/urzadzenia`); OWNER/ADMIN dodaje połączenie Modbus TCP z urządzeniem (profil z `GET /api/profiles`), VIEWER widzi tylko listę i statusy. Status pojawia się po pierwszym odczycie agenta.
+
 Agent lokalnie (D43) poza Dockerem: `SOLARGRAF_AGENT_TOKEN=… SOLARGRAF_API_URL=http://127.0.0.1:8000 SOLARGRAF_PROFILES_DIR=profiles SOLARGRAF_AGENT_BUFFER=.agent/buffer.sqlite3 uv run solargraf-agent run`. Na serwerze instalator sam tworzy agenta `lokalny`, zapisuje jego token w `.env` (600) i uruchamia usługę `agent`.
 
 Usługi: `db` (PostgreSQL 18, bez portu na hoście), `migrate` (jednorazowo `alembic upgrade head`), `api` (FastAPI na `127.0.0.1:8000`). W dev działa Swagger UI pod `/api/docs`. Testy integracyjne z bazą: `SOLARGRAF_TEST_DB=1` oraz zmienne `SOLARGRAF_DB_*` wskazujące na działającego PostgreSQL.

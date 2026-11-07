@@ -152,6 +152,13 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: jedynym profilem jest profil symulatora — bez połączeń i urządzeń w bazie agent tylko wysyła heartbeat; agent w kontenerze sięga do LAN przez NAT sieci Dockera (do potwierdzenia na sprzęcie).
 - Następne małe zadanie: P3.6 — dodawanie połączeń i urządzeń przez API i UI.
 
+- Etap: P3.6 — dodawanie połączeń i urządzeń.
+- Zmiany: katalog profili w obrazie API i `GET /api/profiles`; `POST /api/sites/{id}/connections` (z pierwszym urządzeniem), `POST …/connections/{cid}/devices`, `PATCH …/connections/{cid}`, `PATCH …/devices/{did}`, `DELETE …/devices/{did}` (tylko bez danych; puste połączenie znika), audyt; walidacja adresu (prywatny IPv4 lub nazwa hosta), przypisanie do jedynego agenta lokalnego, próg świeżości z interwału; UI `/instalacje/{id}/urzadzenia` (tabela, formularz, włącz/wyłącz, oznaczenie SIMULATED).
+- Testy uruchomione i wyniki: lokalnie pytest (serwer 102 passed, testy z bazą w CI), ruff, mypy --strict; web vitest 128 passed, tsc, oxlint, build; ręcznie podgląd ekranu urządzeń z atrapą API.
+- Decyzje zatwierdzone: D44.
+- Ryzyka / rzeczy nieweryfikowane: nazwy hosta nie są sprawdzane po stronie serwera (rozwiązuje je agent); edycja połączenia i usuwanie są tylko w API, nie w UI.
+- Następne małe zadanie: P3.7 — opcjonalna usługa symulatora w Compose (domyślnie wyłączona, SIMULATED), żeby przejść całą ścieżkę na serwerze bez sprzętu.
+
 ## Szablon kolejnego wpisu
 
 - Data:
