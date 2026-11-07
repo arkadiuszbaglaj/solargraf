@@ -19,6 +19,7 @@ solargraf-agent = { workspace = true }
 [dependency-groups]
 dev = [
     "cyclonedx-bom>=8.0.1",
+    "httpx2>=2.16.0",
     "mypy>=2.4.1",
     "pre-commit>=4.7.0",
     "pytest>=9.2.0",
@@ -39,7 +40,7 @@ select = ["E", "W", "F", "I", "B", "UP", "S", "C4", "SIM", "RUF", "ANN", "ASYNC"
 [tool.mypy]
 strict = true
 python_version = "3.12"
-files = ["server/src", "server/tests", "agent/src", "agent/tests", "tools"]
+files = ["server/src", "server/tests", "server/alembic", "agent/src", "agent/tests", "tools"]
 explicit_package_bases = true
 mypy_path = ["server/src", "agent/src", "."]
 

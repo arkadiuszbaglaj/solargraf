@@ -31,6 +31,9 @@ Data zatwierdzenia: 2026-11-04 (właściciel projektu).
 | D21 | CI i repozytorium zdalne | GitHub Actions w prywatnym repozytorium GitHub. | Push i utworzenie repozytorium tylko za wyraźną zgodą właściciela. Zatwierdzone 2026-11-07. |
 | D22 | Frontend — narzędzia | npm z `package-lock.json`; Node.js 26 LTS przypięty w `.nvmrc` i `engines`. | Node tylko do budowania (D8). Zatwierdzone 2026-11-07. |
 | D23 | Docker w środowisku deweloperskim | Docker Engine w WSL2 albo na docelowej maszynie Linux (VM Proxmox / RPi). Bez Docker Desktop. | Unikamy płatnej licencji Docker Desktop; potrzebne od P1. Zatwierdzone 2026-11-07. |
+| D24 | Wersja PostgreSQL | PostgreSQL 18 (oficjalny obraz `postgres:18`). Sterownik asyncpg (Apache-2.0); psycopg wykluczony (LGPL). | Zmiana wersji głównej wymaga migracji danych (`pg_upgrade`/dump) — osobna decyzja. Zatwierdzone 2026-11-07. |
+| D25 | Endpointy health | `GET /api/health` (proces żyje) i `GET /api/health/ready` (także baza; 200/503) dostępne bez uwierzytelnienia. Odpowiedź zawiera tylko status — bez wersji, hostów i treści błędów. | Jedyny wyjątek od reguły „wszystkie endpointy wymagają uwierzytelnienia”; potrzebny dla health checków Dockera i instalatora. Zatwierdzone 2026-11-07. |
+| D26 | Migracje bazy | Osobna jednorazowa usługa `migrate` w Compose (`alembic upgrade head`) przed startem `api`. API nie zmienia schematu. | Umożliwia backup przed migracją w instalatorze/aktualizacji (P7). Zatwierdzone 2026-11-07. |
 
 ## Otwarte — blokujące określone etapy
 
