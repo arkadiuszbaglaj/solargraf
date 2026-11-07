@@ -142,11 +142,20 @@ Normalizuj do jednostek kanonicznych: moc W, energia Wh, napięcie V, prąd A, t
 
 ## Wartości pochodne dashboardu
 
-Proponowane definicje (do zatwierdzenia — `DECISIONS.md` O3), liczone z energii w okresie:
+Definicje zatwierdzone (`DECISIONS.md` D27), liczone z energii w okresie (D48,
+`GET /api/sites/{id}/devices/{did}/energy`):
 - **autokonsumpcja** = (produkcja PV − eksport) / produkcja PV;
 - **samowystarczalność** = (zużycie domu − import) / zużycie domu.
 
-Do zatwierdzenia także: ładowanie/rozładowanie baterii, sprawność falownika, energia dzienna i miesięczna.
+Energia z liczników: przyrost ostatniego odczytu między sąsiednimi godzinami (spadek = reset,
+przyrost > 100 kWh/h = błąd — godzina pominięta). Zużycie domu: moc `load_power` zintegrowana
+z agregatów 5 min (wartość pochodna). Wskaźnik liczony tylko z godzin, w których oba źródła mają
+wartość; statusy: `OK`, `INCOMPLETE` (pokrycie < 95% albo reset), `UNAVAILABLE` (brak źródła,
+danych albo mianownik 0 — nigdy 0% ani 100%), `INCONSISTENT` (wynik poza 0–100%, bez wartości).
+Przykład kontrolny (makieta): PV 28,4, zużycie 22,7, import 4,2, eksport 1,6 kWh → autokonsumpcja
+94,4%, samowystarczalność 81,5%.
+
+Energia dzienna i miesięczna oraz ładowanie/rozładowanie baterii — z liczników jak wyżej (D48). Do zatwierdzenia: sprawność falownika, bilans energii instalacji (suma po urządzeniach).
 
 Nie zakładaj, że każdy falownik lub BMS dostarcza te same dane. Widżet jest ukryty albo pokazuje „parametr niedostępny”, gdy nie ma źródła. Przykłady często niedostępnych bez dodatkowego sprzętu: napięcia min/max ogniw, temperatura paneli, nasłonecznienie, pogoda.
 
