@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     # Alarmy zamknięte dawniej niż tyle dni są usuwane; otwarte nigdy (D55).
     retention_alarms_days: int = Field(default=365, ge=30, le=3650)
     partition_months_ahead: int = Field(default=12, ge=2, le=36)
+    # Monitor serwera (D60): historia próbek metryk hosta [dni] (O11: 30).
+    retention_system_days: int = Field(default=30, ge=1, le=365)
+    # Adresy składników w sieci Compose; puste = składnik niemonitorowany (UNKNOWN).
+    monitor_api_url: str | None = None
+    monitor_proxy_address: str | None = None
+    monitor_timeout_s: float = Field(default=2.0, gt=0, le=10)
 
     def database_url(self) -> URL:
         """URL dla SQLAlchemy (asyncpg). Hasło nie pojawia się w ``repr``/logach URL."""

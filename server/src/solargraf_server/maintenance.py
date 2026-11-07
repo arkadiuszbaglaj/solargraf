@@ -85,6 +85,7 @@ class Retention:
     runs_days: int
     months_ahead: int
     alarms_days: int = 365
+    system_days: int = 30
 
 
 @dataclass
@@ -165,6 +166,7 @@ _DELETES: dict[str, tuple[str, str]] = {
     "polling_runs": ("polling_runs", "started_at < :c"),
     "agent_batches": ("agent_batches", "received_at < :c"),
     "alarms": ("alarms", "closed_at IS NOT NULL AND closed_at < :c"),
+    "system_metric_samples": ("system_metric_samples", "sampled_at < :c"),
 }
 
 
@@ -208,6 +210,10 @@ async def apply_retention(db: AsyncSession, now: datetime, policy: Retention) ->
     report.deleted["agent_batches"] = await _delete_batches(db, "agent_batches", runs_cutoff)
     alarms_cutoff = now - timedelta(days=policy.alarms_days)
     report.deleted["alarms"] = await _delete_batches(db, "alarms", alarms_cutoff)
+    system_cutoff = now - timedelta(days=policy.system_days)
+    report.deleted["system_metric_samples"] = await _delete_batches(
+        db, "system_metric_samples", system_cutoff
+    )
     return report
 
 

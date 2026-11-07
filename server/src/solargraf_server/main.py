@@ -27,6 +27,7 @@ from solargraf_server.live import router as live_router
 from solargraf_server.profiles import ProfileCatalog
 from solargraf_server.profiles import router as profiles_router
 from solargraf_server.sites import router as sites_router
+from solargraf_server.system.api import router as system_router
 
 
 def create_app(settings: Settings, readiness_check: ReadinessCheck | None = None) -> FastAPI:
@@ -74,6 +75,7 @@ def create_app(settings: Settings, readiness_check: ReadinessCheck | None = None
     app.include_router(alarms_router)
     app.include_router(profiles_router)
     app.include_router(agent_router)
+    app.include_router(system_router)
     return app
 
 

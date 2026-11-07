@@ -22,6 +22,8 @@ from solargraf_server.db import create_engine, create_sessionmaker
 from solargraf_server.main import create_app
 from solargraf_server.maintenance import Retention, apply_retention
 from solargraf_server.models import Membership, MembershipSite, Organization, Role, Site, User
+from solargraf_server.system.host import METRICS, HostSampler
+from solargraf_server.system.monitor import MonitorTargets, run_monitor
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("SOLARGRAF_TEST_DB") != "1", reason="wymaga SOLARGRAF_TEST_DB=1 i bazy"
@@ -30,6 +32,7 @@ pytestmark = pytest.mark.skipif(
 SERVER_DIR = Path(__file__).resolve().parent.parent
 PASSWORD = "haslo-testowe-izolacji"
 TABLES = (
+    "system_metric_samples, system_components, system_status, "
     "alarms, aggregates, aggregate_dirty, measurements, polling_runs, agent_batches, devices, "
     "connections, agents, "
     "membership_sites, sites, audit_events, auth_sessions, setup_tokens, memberships, users, "
@@ -726,3 +729,81 @@ class TestAlarms:
     def test_requires_login(self, world: World) -> None:
         with TestClient(create_app(Settings()), base_url="https://testserver") as c:  # type: ignore[call-arg]
             assert c.get(f"/api/sites/{world.a1}/alarms").status_code == 401
+
+
+# --- monitor serwera (D60) ---
+
+
+def _fake_host(root: Path) -> HostSampler:
+    """Host testowy bez czujników; wartości nie pochodzą z prawdziwego hosta."""
+    proc = root / "proc"
+    proc.mkdir()
+    (proc / "stat").write_text("cpu  100 0 100 700 100 0 0 0 0 0\n", encoding="ascii")
+    (proc / "meminfo").write_text(
+        "MemTotal: 8000000 kB\nMemAvailable: 6000000 kB\nSwapTotal: 0 kB\nSwapFree: 0 kB\n",
+        encoding="ascii",
+    )
+    return HostSampler(proc, root / "sys", root)
+
+
+def _monitor(sampler: HostSampler) -> None:
+    async def go() -> None:
+        engine = create_engine(Settings())  # type: ignore[call-arg]
+        try:
+            async with create_sessionmaker(engine)() as db:
+                await run_monitor(db, sampler, MonitorTargets(), datetime.now(UTC))
+        finally:
+            await engine.dispose()
+
+    asyncio.run(go())
+
+
+class TestSystemMonitor:
+    def test_owner_sees_health_others_do_not(
+        self, world: World, as_user: AsUser, tmp_path: Path
+    ) -> None:
+        owner, _ = as_user("owner_a")
+        assert owner.get("/api/system/health").json()["level"] == "UNKNOWN"
+        _monitor(_fake_host(tmp_path))
+        body = owner.get("/api/system/health").json()
+        assert (body["level"], body["stale"], body["reasons"]) == ("STABLE", False, [])
+        assert body["metrics"]["mem_used_bytes"] == 2_000_000 * 1024
+        assert body["percent"]["memory"] == 25.0
+        assert body["metrics"]["cpu_temp_c"] is None  # brak czujnika — niedostępne, nie 0
+        assert body["metrics"]["db_size_bytes"] > 0
+        states = {c["component"]: c["state"] for c in body["components"]}
+        assert states == {
+            "api": "UNKNOWN",  # niemonitorowany bez adresu
+            "worker": "UP",
+            "agent": "UNKNOWN",  # brak włączonego agenta lokalnego
+            "proxy": "UNKNOWN",
+            "db": "UP",
+        }
+        for user in ("admin_a", "scoped_viewer_a"):
+            c, _ = as_user(user)
+            assert c.get("/api/system/health").status_code == 403
+        with TestClient(create_app(Settings())) as anonymous:  # type: ignore[call-arg]
+            assert anonymous.get("/api/system/health").status_code == 401
+
+    def test_stale_evaluation_means_worker_down(
+        self, world: World, as_user: AsUser, tmp_path: Path
+    ) -> None:
+        _monitor(_fake_host(tmp_path))
+        _sql("UPDATE system_status SET evaluated_at = now() - interval '10 minutes'")
+        owner, _ = as_user("owner_a")
+        body = owner.get("/api/system/health").json()
+        assert (body["level"], body["stale"]) == ("CRITICAL", True)
+        assert body["reasons"][0]["code"] == "COMPONENT_DOWN:worker"
+        worker = next(c for c in body["components"] if c["component"] == "worker")
+        assert worker["state"] == "DOWN"
+
+    def test_old_samples_are_removed_by_retention(self, world: World, tmp_path: Path) -> None:
+        _monitor(_fake_host(tmp_path))
+        _sql(
+            "INSERT INTO system_metric_samples (sampled_at, metric, value) "
+            "VALUES (now() - interval '40 days', 'cpu_percent', 5)"
+        )
+        deleted = _retention(datetime.now(UTC))
+        assert deleted["system_metric_samples"] == 1
+        [(count,)] = _sql("SELECT count(*) FROM system_metric_samples")
+        assert count == len(METRICS)  # bieżąca próbka zostaje

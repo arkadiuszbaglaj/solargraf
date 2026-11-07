@@ -46,6 +46,8 @@ from solargraf_server.models import (
     Site,
 )
 from solargraf_server.profiles import ProfileCatalog
+from solargraf_server.system.host import HostSampler
+from solargraf_server.system.monitor import MonitorTargets, run_monitor
 
 log = logging.getLogger("solargraf_server.worker")
 
@@ -250,6 +252,13 @@ async def run(settings: Settings, interval_s: float = INTERVAL_S) -> None:
         runs_days=settings.retention_runs_days,
         months_ahead=settings.partition_months_ahead,
         alarms_days=settings.retention_alarms_days,
+        system_days=settings.retention_system_days,
+    )
+    sampler = HostSampler()
+    targets = MonitorTargets(
+        api_url=settings.monitor_api_url,
+        proxy_address=settings.monitor_proxy_address,
+        timeout_s=settings.monitor_timeout_s,
     )
     log.info("Worker agregatów uruchomiony (co %ss)", interval_s)
     maintenance_at = datetime.now(UTC)  # przy starcie, potem codziennie o 03:00 UTC
@@ -277,6 +286,14 @@ async def run(settings: Settings, interval_s: float = INTERVAL_S) -> None:
                     log.info("Alarmy: otwarte %d, zamknięte %d", changes.opened, changes.closed)
             except (SQLAlchemyError, OSError) as exc:
                 log.warning("Sprawdzenie alarmów nieudane: %s", type(exc).__name__)
+            try:
+                async with maker() as db:
+                    evaluation = await run_monitor(db, sampler, targets, datetime.now(UTC))
+                reasons = [r.code for r in evaluation.reasons()]
+                if reasons:
+                    log.info("Monitor serwera: %s", ", ".join(reasons))
+            except (SQLAlchemyError, OSError) as exc:
+                log.warning("Pomiar monitora serwera nieudany: %s", type(exc).__name__)
             await asyncio.sleep(interval_s)
     finally:
         await engine.dispose()
