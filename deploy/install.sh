@@ -291,6 +291,32 @@ check_system() {
 
 	check_ports
 	check_internet
+	check_clock
+}
+
+# Synchronizacja czasu (D53): zły zegar serwera psuje znaczniki czasu pomiarów i statusy.
+# Tylko ostrzeżenie — nie blokuje instalacji. Przy chrony liczy się jego stan, nie flaga timedatectl.
+CLOCK_MAX_OFFSET_S=1
+
+check_clock() {
+	local leap offset synced
+	if have chronyc && leap="$(chronyc tracking 2>/dev/null | awk -F': *' '/^Leap status/ {print $2}')" && [ -n "$leap" ]; then
+		offset="$(chronyc tracking 2>/dev/null | awk -F': *' '/^System time/ {split($2, a, " "); print a[1]}')"
+		if [ "$leap" != "Normal" ]; then
+			warn "Zegar: chrony nie jest zsynchronizowany ($leap). Sprawdź: chronyc sources (dostęp do NTP, UDP 123)."
+		elif [ -n "$offset" ] && awk -v o="$offset" -v m="$CLOCK_MAX_OFFSET_S" 'BEGIN {exit !(o > m)}'; then
+			warn "Zegar: różni się od NTP o ${offset%.*} s. Popraw: sudo chronyc makestep"
+		else
+			say "Zegar: zsynchronizowany (chrony)."
+		fi
+		return 0
+	fi
+	synced="$(timedatectl show -p NTPSynchronized --value 2>/dev/null || true)"
+	case "$synced" in
+	yes) say "Zegar: zsynchronizowany (NTP)." ;;
+	no) warn "Zegar: brak synchronizacji NTP. Sprawdź: timedatectl (włącz: sudo timedatectl set-ntp true)." ;;
+	*) warn "Zegar: nie udało się sprawdzić synchronizacji czasu (brak chrony i timedatectl)." ;;
+	esac
 }
 
 proxy_running() {
@@ -595,6 +621,7 @@ cmd_status() {
 	else
 		say "Gotowość: BRAK (sprawdź: docker compose -p $PRODUCT logs)"
 	fi
+	check_clock
 	if simulator_enabled; then
 		say "Symulator (SIMULATED): włączony (wyłącz: sudo $CLI_LINK simulator off)"
 	else

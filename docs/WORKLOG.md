@@ -222,6 +222,14 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: widok z prawdziwym agentem niesprawdzony lokalnie (brak bazy); do sprawdzenia na serwerze.
 - Następne małe zadanie: P5 — alarmy albo diagram przepływu energii (do wyboru).
 
+- Etap: test P5.3 na serwerze i wykrywanie rozjechanego zegara (D53).
+- Test na serwerze: po aktualizacji panel pokazywał „połączony” i „2 h temu” — zegar serwera spóźniał się o 2 h 13 min (chrony działał, ale korygował powoli); po `sudo chronyc makestep` panel poprawny (heartbeat i odczyt sprzed kilku sekund). Odczyty z ok. 2 h mają przesunięte znaczniki czasu (SIMULATED).
+- Zmiany: `server_time` w `/api/health`; UI: `lib/clockSkew.ts`, `api/health.ts`, `layout/ClockSkewBanner.tsx` w powłoce aplikacji; instalator: `check_clock` w kontroli systemu i w `status`.
+- Testy uruchomione i wyniki: pytest server (health z `server_time`), ruff, mypy --strict; web: tsc, oxlint, vitest 190 passed; `check_clock` na podstawionym `chronyc` (różnica, zgodność, brak synchronizacji) i na serwerze testowym (OK).
+- Decyzje zatwierdzone: D53.
+- Ryzyka / rzeczy nieweryfikowane: ShellCheck tylko w CI; baner w przeglądarce sprawdzony na atrapie API.
+- Następne małe zadanie: P5 — alarmy albo diagram przepływu energii (do wyboru).
+
 ## Szablon kolejnego wpisu
 
 - Data:

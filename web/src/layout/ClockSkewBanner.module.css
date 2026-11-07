@@ -1,0 +1,23 @@
+.banner {
+  margin: var(--space-4) var(--space-5) 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--color-warning);
+  background: var(--color-surface);
+  color: var(--color-warning);
+  font-size: var(--font-size-sm);
+}
+
+.banner p {
+  margin: 0;
+}
+
+.hint {
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 899px) {
+  .banner {
+    margin: var(--space-3) var(--space-4) 0;
+  }
+}
