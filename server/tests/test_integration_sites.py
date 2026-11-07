@@ -303,6 +303,36 @@ class TestDevices:
     def test_requires_login(self, world: World) -> None:
         with TestClient(create_app(Settings()), base_url="https://testserver") as c:  # type: ignore[call-arg]
             assert c.get(f"/api/sites/{world.a1}/devices").status_code == 401
+            assert c.get(f"/api/sites/{world.a1}/agents").status_code == 401
+
+    def test_site_agents_status_and_version_by_role(self, world: World, as_user: AsUser) -> None:
+        _seed_devices(world)
+        _sql("UPDATE agents SET version = '0.1.0'")
+        c, _ = as_user("owner_a")
+        [agent] = c.get(f"/api/sites/{world.a1}/agents").json()
+        assert (agent["name"], agent["status"], agent["version"]) == ("agent", "ONLINE", "0.1.0")
+        [device] = c.get(f"/api/sites/{world.a1}/devices").json()
+        assert device["agent_id"] == agent["id"]
+        v, _ = as_user("scoped_viewer_a")
+        [seen] = v.get(f"/api/sites/{world.a1}/agents").json()
+        assert seen["version"] is None  # wersja tylko dla OWNER/ADMIN
+        assert "token" not in str(seen)
+        _sql("UPDATE agents SET last_heartbeat_at = now() - interval '1 hour'")
+        [late] = c.get(f"/api/sites/{world.a1}/agents").json()
+        assert late["status"] == "UNREACHABLE"
+        _sql("UPDATE agents SET enabled = false")
+        [off] = c.get(f"/api/sites/{world.a1}/agents").json()
+        assert off["status"] == "DISABLED"
+
+    def test_site_agents_hide_foreign_sites(self, world: World, as_user: AsUser) -> None:
+        _seed_devices(world)
+        c, _ = as_user("owner_b")
+        assert c.get(f"/api/sites/{world.a1}/agents").status_code == 404
+        _sql("UPDATE connections SET agent_id = NULL")
+        own, _ = as_user("owner_a")
+        assert own.get(f"/api/sites/{world.a1}/agents").json() == []
+        [device] = own.get(f"/api/sites/{world.a1}/devices").json()
+        assert (device["agent_id"], device["status"]) == (None, "UNKNOWN")
 
     def test_device_cannot_use_connection_of_another_site(self, world: World) -> None:
         _seed_devices(world)

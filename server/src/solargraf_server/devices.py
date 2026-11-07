@@ -23,7 +23,14 @@ from solargraf_profiles.model import PointStatus, Profile
 from solargraf_server import authz
 from solargraf_server.auth import service as auth_service
 from solargraf_server.auth.deps import AuthContext, DbSession, current_auth, require_csrf, utcnow
-from solargraf_server.device_status import AgentState, DeviceState, DeviceStatus, device_status
+from solargraf_server.device_status import (
+    AgentState,
+    AgentStatus,
+    DeviceState,
+    DeviceStatus,
+    agent_status,
+    device_status,
+)
 from solargraf_server.models import (
     DEFAULT_FRESHNESS_THRESHOLD_S,
     Agent,
@@ -152,8 +159,19 @@ class DeviceOut(BaseModel):
     enabled: bool
     status: DeviceStatus
     last_success_at: datetime | None
+    # Agent połączenia urządzenia (tylko identyfikator, D52); None — połączenie bez agenta.
+    agent_id: uuid.UUID | None = None
     details: DeviceDetails | None
     metrics: list[DeviceMetric] = []
+
+
+class AgentOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    status: AgentStatus
+    last_heartbeat_at: datetime | None
+    # Wersja agenta tylko dla OWNER/ADMIN (D52); token i adresy nigdy.
+    version: str | None
 
 
 Name = Annotated[str, Field(min_length=1, max_length=200)]
@@ -247,6 +265,7 @@ def _device_out(
         enabled=device.enabled,
         status=device_status(state, agent_state, now),
         last_success_at=device.last_success_at,
+        agent_id=conn.agent_id,
         details=DeviceDetails(
             firmware_version=device.firmware_version,
             serial_number=device.serial_number,
@@ -389,6 +408,35 @@ async def list_devices(
     now = utcnow()
     return [
         _device_out(d, c, a, details=show_details, now=now, catalog=catalog) for d, c, a in rows
+    ]
+
+
+@router.get("/{site_id}/agents", response_model=list[AgentOut])
+async def list_site_agents(
+    site_id: uuid.UUID,
+    db: DbSession,
+    auth: Annotated[AuthContext, Depends(current_auth)],
+) -> list[AgentOut]:
+    """Agenci obsługujący połączenia instalacji ze statusem z heartbeatu (D52)."""
+    access = await _authorize(db, auth, site_id, authz.SiteAction.READ)
+    show_version = authz.role_allows(access.role, authz.SiteAction.MANAGE)
+    agents = await db.scalars(
+        select(Agent)
+        .where(
+            exists().where(Connection.agent_id == Agent.id, Connection.site_id == access.site.id)
+        )
+        .order_by(Agent.name, Agent.id)
+    )
+    now = utcnow()
+    return [
+        AgentOut(
+            id=a.id,
+            name=a.name,
+            status=agent_status(AgentState(a.enabled, a.last_heartbeat_at), now),
+            last_heartbeat_at=a.last_heartbeat_at,
+            version=a.version if show_version else None,
+        )
+        for a in agents
     ]
 
 

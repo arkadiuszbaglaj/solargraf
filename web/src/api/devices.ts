@@ -32,6 +32,8 @@ export interface ApiDevice {
   enabled: boolean
   status: DeviceStatus
   lastSuccessAt: string | null
+  /** Agent połączenia urządzenia (D52); null — połączenie bez agenta. */
+  agentId: string | null
   details: { profileId: string | null; profileVersion: string | null; connection: ApiConnection } | null
   metrics: ApiDeviceMetric[]
 }
@@ -93,6 +95,8 @@ export function parseDevice(v: unknown): ApiDevice | null {
   const manufacturer = strOrNull(v.manufacturer)
   const model = strOrNull(v.model)
   const lastSuccessAt = strOrNull(v.last_success_at)
+  // Starsze odpowiedzi bez pola `agent_id` — agent nieznany.
+  const agentId = v.agent_id === undefined ? null : strOrNull(v.agent_id)
   if (
     typeof id !== 'string' ||
     typeof name !== 'string' ||
@@ -102,7 +106,8 @@ export function parseDevice(v: unknown): ApiDevice | null {
     !STATUSES.has(status) ||
     manufacturer === undefined ||
     model === undefined ||
-    lastSuccessAt === undefined
+    lastSuccessAt === undefined ||
+    agentId === undefined
   ) {
     return null
   }
@@ -127,6 +132,7 @@ export function parseDevice(v: unknown): ApiDevice | null {
     enabled,
     status: status as DeviceStatus,
     lastSuccessAt,
+    agentId,
     details,
     metrics,
   }
@@ -200,6 +206,40 @@ async function load<T>(
 }
 
 const site = (siteId: string) => `/api/sites/${encodeURIComponent(siteId)}`
+
+export type AgentStatus = 'ONLINE' | 'UNREACHABLE' | 'DISABLED'
+
+/** Agent obsługujący połączenia instalacji (D52); wersja tylko dla OWNER/ADMIN. */
+export interface ApiAgent {
+  id: string
+  name: string
+  status: AgentStatus
+  lastHeartbeatAt: string | null
+  version: string | null
+}
+
+const AGENT_STATUSES: ReadonlySet<string> = new Set(['ONLINE', 'UNREACHABLE', 'DISABLED'])
+
+export function parseAgent(v: unknown): ApiAgent | null {
+  if (!isRecord(v)) return null
+  const { id, name, status } = v
+  const lastHeartbeatAt = strOrNull(v.last_heartbeat_at)
+  const version = strOrNull(v.version)
+  if (
+    typeof id !== 'string' ||
+    typeof name !== 'string' ||
+    typeof status !== 'string' ||
+    !AGENT_STATUSES.has(status) ||
+    lastHeartbeatAt === undefined ||
+    version === undefined
+  ) {
+    return null
+  }
+  return { id, name, status: status as AgentStatus, lastHeartbeatAt, version }
+}
+
+export const listSiteAgents = (siteId: string, fetchFn: typeof fetch = fetch, signal?: AbortSignal) =>
+  load(`${site(siteId)}/agents`, (v) => parseList(v, parseAgent), fetchFn, signal)
 
 export const listDevices = (siteId: string, fetchFn: typeof fetch = fetch, signal?: AbortSignal) =>
   load(`${site(siteId)}/devices`, (v) => parseList(v, parseDevice), fetchFn, signal)

@@ -7,8 +7,10 @@ import pytest
 from solargraf_server.device_status import (
     AGENT_HEARTBEAT_TIMEOUT,
     AgentState,
+    AgentStatus,
     DeviceState,
     DeviceStatus,
+    agent_status,
     device_status,
 )
 
@@ -90,3 +92,12 @@ def test_stale_after_threshold_boundary() -> None:
     past = dev(attempt=THRESHOLD + timedelta(seconds=1), success=THRESHOLD + timedelta(seconds=1))
     assert device_status(at, LIVE_AGENT, NOW) is DeviceStatus.OK
     assert device_status(past, LIVE_AGENT, NOW) is DeviceStatus.STALE
+
+
+def test_agent_status_online_unreachable_disabled() -> None:
+    fresh = NOW - AGENT_HEARTBEAT_TIMEOUT
+    assert agent_status(AgentState(True, fresh), NOW) is AgentStatus.ONLINE
+    late = NOW - AGENT_HEARTBEAT_TIMEOUT - timedelta(seconds=1)
+    assert agent_status(AgentState(True, late), NOW) is AgentStatus.UNREACHABLE
+    assert agent_status(AgentState(True, None), NOW) is AgentStatus.UNREACHABLE
+    assert agent_status(AgentState(False, NOW), NOW) is AgentStatus.DISABLED

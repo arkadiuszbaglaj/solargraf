@@ -70,7 +70,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 - [x] Karty KPI i trendy — energia dziś, autokonsumpcja i wykres mocy od północy (P5.2, D51).
 - [ ] Diagram przepływu energii na podstawie spójnego bilansu pomiarów.
 - [ ] Szczegóły PV/MPPT, baterii/BMS i sieci/faz — tylko jeśli profil je udostępnia.
-- [ ] Status urządzeń i agentów wyliczany z polityki świeżości.
+- [x] Status urządzeń i agentów wyliczany z polityki świeżości. (P5.3, D52)
 - [ ] Alarmy z priorytetem, timestampem i potwierdzaniem.
 - [ ] Eksport CSV.
 
