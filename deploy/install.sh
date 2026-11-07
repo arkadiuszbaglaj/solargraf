@@ -456,8 +456,11 @@ ensure_agent_token() {
 	[[ "$token" =~ ^[A-Za-z0-9_-]+$ ]] || die "Nieoczekiwana odpowiedź przy tworzeniu tokenu agenta."
 	(
 		umask 077
-		grep -v '^SOLARGRAF_AGENT_TOKEN=' "$env" >"$env.tmp" || true
+		# Token przed adresami, które write_env dopisuje zawsze na końcu — układ pliku stały.
+		grep -v -e '^SOLARGRAF_AGENT_TOKEN=' -e '^SOLARGRAF_SITE_ADDRESSES=' -e '^SOLARGRAF_PUBLIC_ADDRESS=' \
+			"$env" >"$env.tmp" || true
 		printf 'SOLARGRAF_AGENT_TOKEN=%s\n' "$token" >>"$env.tmp"
+		grep -e '^SOLARGRAF_SITE_ADDRESSES=' -e '^SOLARGRAF_PUBLIC_ADDRESS=' "$env" >>"$env.tmp" || true
 	)
 	mv "$env.tmp" "$env"
 	chmod 600 "$env"
