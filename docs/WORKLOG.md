@@ -244,6 +244,12 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: na serwerze testowym — wyłączenie symulatora powinno otworzyć „Dane nieaktualne” po progu świeżości (300 s) + do 60 s; zamknięcie ok. 2 min po powrocie danych.
 - Następne małe zadanie: test alarmów na serwerze, potem szczegóły PV/baterii/sieci albo eksport CSV.
 
+- Etap: test P5.4/P5.5 na serwerze testowym (VM VirtualBox).
+- Wynik: po przestawieniu zegara chwilowy „Agent lokalny nie odpowiada” (otwarty i zamknięty po 2 min); wyłączenie symulatora → „Błąd odczytu: PV” w ciągu minuty, potwierdzenie przez OWNER, zamknięcie 2 min po powrocie odczytów; zamknięte alarmy zostają na liście. Log `worker` zgodny („Alarmy: otwarte 1 / zamknięte 1”).
+- Zegar: VM traciła ok. 1,5 h (uśpienie hosta), a chrony z `makestep 1 3` przestawia skokowo tylko po starcie. Na serwerze testowym dodano `/etc/chrony/conf.d/solargraf-vm.conf` z `makestep 1 -1`. Baner D53 i `solargraf status` wykrywają taki stan.
+- Ryzyka / rzeczy nieweryfikowane: czy instalator ma ustawiać `makestep` na maszynach wirtualnych — osobna decyzja (zmiana konfiguracji systemu).
+- Następne małe zadanie: szczegóły PV/baterii/sieci albo eksport CSV.
+
 ## Szablon kolejnego wpisu
 
 - Data:
