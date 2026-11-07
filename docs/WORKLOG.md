@@ -65,6 +65,15 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: czas Argon2id na RPi niezmierzony; blokada konta pozwala zablokować cudze konto znając e-mail (świadomy kompromis; ograniczony do 15 min); brak zmiany hasła i UI logowania; brak sprzątania wygasłych sesji (do workera).
 - Następne małe zadanie: P2.2 — instalacje (`Site`), autoryzacja per instalacja i testy izolacji.
 
+## 2026-11-07 (P2, wycinek 2)
+
+- Etap: P2 — instalacje i autoryzacja per instalacja.
+- Zmiany: modele i migracja `0003` (`sites`, `membership_sites`, `memberships.all_sites`); centralny moduł `authz` (widoczność instalacji z członkostwa, 404 dla cudzej/nieistniejącej, 403 dla braku prawa zarządzania, zawężony ADMIN nie tworzy instalacji); `GET /api/sites`, `GET /api/sites/{id}`, `POST /api/sites` (CSRF, audyt `SITE_CREATED`, walidacja strefy IANA); zależność `tzdata` (Apache-2.0).
+- Testy uruchomione i wyniki: lokalnie ruff, mypy, pytest 87 OK (macierz ról, walidacja strefy i nazwy, DDL) + testy z bazą pominięte; licencje 27/27. Testy izolacji z PostgreSQL (dwie organizacje, zawężony VIEWER/ADMIN, OWNER bez zawężenia, CSRF, 401) — w CI.
+- Decyzje zatwierdzone: D33 (zakres dostępu do instalacji).
+- Ryzyka / rzeczy nieweryfikowane: brak edycji/usuwania instalacji i zarządzania przypisaniami (`membership_sites` tylko przez bazę); brak UI wyboru instalacji z API.
+- Następne małe zadanie: P2.3 — agenci i urządzenia (modele) oraz `GET /api/sites/{id}/devices` przez `authz`.
+
 ## Szablon kolejnego wpisu
 
 - Data:

@@ -55,4 +55,6 @@ class Membership(Base):
         ForeignKey("organizations.id", ondelete="CASCADE"), index=True
     )
     role: Mapped[str] = mapped_column(String(16))
+    # D33: true = wszystkie instalacje organizacji; false = tylko z membership_sites.
+    all_sites: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = created_at()
