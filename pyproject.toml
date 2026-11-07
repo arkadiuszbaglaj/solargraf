@@ -1,0 +1,48 @@
+# Root workspace (wirtualny) — nie jest dystrybuowany.
+[project]
+name = "solargraf-workspace"
+version = "0.0.0"
+requires-python = ">=3.12,<3.13"
+dependencies = ["solargraf-server", "solargraf-agent"]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["server", "agent"]
+
+[tool.uv.sources]
+solargraf-server = { workspace = true }
+solargraf-agent = { workspace = true }
+
+# Narzędzia deweloperskie — nie trafiają do obrazów produktu.
+[dependency-groups]
+dev = [
+    "cyclonedx-bom>=8.0.1",
+    "mypy>=2.4.1",
+    "pre-commit>=4.7.0",
+    "pytest>=9.2.0",
+    "ruff>=0.17.4",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["server/src", "agent/src", "tools"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "S", "C4", "SIM", "RUF", "ANN", "ASYNC", "PT"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["S101"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+files = ["server/src", "server/tests", "agent/src", "agent/tests", "tools"]
+explicit_package_bases = true
+mypy_path = ["server/src", "agent/src", "."]
+
+[tool.pytest.ini_options]
+testpaths = ["server/tests", "agent/tests", "tools/tests"]
+addopts = "--import-mode=importlib -ra --strict-markers"

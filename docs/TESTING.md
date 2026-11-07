@@ -42,7 +42,7 @@ Projekt powstaje bez stałego dostępu do sprzętu. Dlatego warstwa symulatorów
 ## Narzędzia
 
 - Python: `pytest` (+ wsparcie asyncio), `ruff`, `mypy --strict`.
-- Frontend: Vitest + React Testing Library, ESLint, `tsc --noEmit`.
+- Frontend: Vitest + React Testing Library, oxlint (z wtyczkami react, jsx-a11y), `tsc -b`. ESLint zastąpiony przez oxlint, bo typescript-eslint nie wspiera jeszcze TypeScript 7.
 - E2E: Playwright.
 - Instalator: ShellCheck dla skryptu; testy instalacji w czystych maszynach wirtualnych/kontenerach każdego wspieranego systemu (amd64 w CI, arm64 na RPi lub emulacji).
 - CI: lint, typecheck, testy, build obrazów, skan podatności, **kontrola licencji zależności** (lista dozwolonych z `COMPLIANCE.md`), generowanie SBOM.

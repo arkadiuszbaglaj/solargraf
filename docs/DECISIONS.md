@@ -26,6 +26,11 @@ Data zatwierdzenia: 2026-11-04 (właściciel projektu).
 | D16 | Monitor serwera | W Ustawieniach widok „Stan serwera” dla administratora: ogólna ocena stabilności oraz zużycie CPU, RAM, dysku, temperatura (jeśli dostępna), stan komponentów aplikacji i historia. | Odczyt metryk hosta bez dostępu do gniazda Dockera; lekki pomiar, by nie obciążać RPi. Zatwierdzone 2026-11-05. |
 | D17 | Sprzątanie po aktualizacji | Po udanej aktualizacji skrypt aktualizacji usuwa nieaktualne pliki instalacyjne: stare obrazy Dockera aplikacji, osierocone warstwy, cache budowania i pobrane archiwa wydań. Zostaje poprzednia wersja do rollbacku. | Nigdy nie usuwa wolumenów z danymi, kopii zapasowych, konfiguracji ani obrazów innych aplikacji na tym samym hoście. Zatwierdzone 2026-11-05. |
 | D18 | Instalacja jedną komendą | Instalacja na czystym Linuksie jedną komendą w terminalu. Instalator sprawdza wymagania, w razie potrzeby instaluje Dockera, generuje sekrety, uruchamia aplikację i podaje adres do pierwszej konfiguracji. Ten sam program obsługuje aktualizację, status, backup i odinstalowanie. | Wysoki priorytet — pierwsza wersja instalatora już w P1, rozwijana do P7. Instalator jest wersjonowany i podpisany; dostępna ścieżka z ręczną weryfikacją przed uruchomieniem. Zatwierdzone 2026-11-05. |
+| D19 | Wersja Pythona | Python 3.12 przypięty w `.python-version` i `requires-python`. | Obrazy Dockera używają tej samej wersji; zmiana wersji to osobna decyzja. Zatwierdzone 2026-11-07. |
+| D20 | Menedżer pakietów Python | uv (MIT/Apache-2.0) z workspace i lockfile `uv.lock`. | Instalacje w CI i obrazach z `uv sync --locked`. Zatwierdzone 2026-11-07. |
+| D21 | CI i repozytorium zdalne | GitHub Actions w prywatnym repozytorium GitHub. | Push i utworzenie repozytorium tylko za wyraźną zgodą właściciela. Zatwierdzone 2026-11-07. |
+| D22 | Frontend — narzędzia | npm z `package-lock.json`; Node.js 26 LTS przypięty w `.nvmrc` i `engines`. | Node tylko do budowania (D8). Zatwierdzone 2026-11-07. |
+| D23 | Docker w środowisku deweloperskim | Docker Engine w WSL2 albo na docelowej maszynie Linux (VM Proxmox / RPi). Bez Docker Desktop. | Unikamy płatnej licencji Docker Desktop; potrzebne od P1. Zatwierdzone 2026-11-07. |
 
 ## Otwarte — blokujące określone etapy
 

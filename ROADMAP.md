@@ -9,10 +9,10 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 - [x] Zatwierdzić model produktu, wdrożenie, stos i zakres (D1–D18).
 - [x] Rozstrzygnąć topologię sieci (O1 → D14: wszystkie instalacje w sieci serwera).
 - [ ] Rozstrzygnąć O2 (pierwszy sprzęt).
-- [ ] Repozytorium Git (prywatne), reguły gałęzi i PR.
-- [ ] Struktura monorepo: `server/`, `agent/`, `web/`, `profiles/`, `deploy/`, `docs/`.
-- [ ] ruff, mypy, pytest; ESLint, tsc, Vitest; konfiguracja pre-commit.
-- [ ] CI: lint, typecheck, testy, kontrola licencji zależności, SBOM.
+- [ ] Repozytorium Git (prywatne), reguły gałęzi i PR. Lokalne repozytorium istnieje; zdalne — po zgodzie (D21).
+- [x] Struktura monorepo: `server/`, `agent/`, `web/`, `profiles/`, `deploy/`, `docs/`.
+- [x] ruff, mypy, pytest; oxlint, tsc, Vitest; konfiguracja pre-commit.
+- [x] CI: lint, typecheck, testy, kontrola licencji zależności, SBOM (konfiguracja gotowa; pierwsze uruchomienie po utworzeniu repozytorium zdalnego).
 
 **Akceptacja:** czyste repozytorium przechodzi CI; kontrola licencji blokuje niedozwoloną zależność; żadnych sekretów w Git.
 

@@ -27,7 +27,7 @@ Projekt zaczyna się od dokumentacji oraz kontrolowanego MVP; nie zakłada jeszc
 
 ## Stan projektu
 
-**Faza: dokumentacja i decyzje architektoniczne.** Nie istnieje jeszcze działająca aplikacja ani zweryfikowana integracja z urządzeniami.
+**Faza: P0 — fundament repozytorium.** Istnieje szkielet monorepo z narzędziami jakości i CI; nie ma jeszcze funkcji aplikacji ani zweryfikowanej integracji z urządzeniami.
 
 ## Dokumenty
 
@@ -59,7 +59,7 @@ Zatwierdzony kierunek. Konkretne wersje zostaną przypięte w lockfile w etapie 
 | Wykresy | Apache ECharts | Apache-2.0 |
 | Reverse proxy / TLS | Caddy | Apache-2.0 |
 | Wdrożenie | Docker Compose, obrazy amd64 + arm64 | — |
-| Jakość | ruff, mypy, pytest; ESLint, Vitest, Playwright | MIT / Apache-2.0 |
+| Jakość | ruff, mypy, pytest; oxlint, Vitest, Playwright | MIT / Apache-2.0 |
 
 Licencje należy potwierdzić ponownie w momencie dodawania zależności. Node.js jest potrzebny tylko do budowania frontendu, nie na serwerze klienta.
 
@@ -79,8 +79,36 @@ Licencje należy potwierdzić ponownie w momencie dodawania zależności. Node.j
 - W produkcji nie wolno podstawiać wartości przykładowych, gdy urządzenie nie odpowiada.
 - Każdy profil urządzenia ma status weryfikacji; `VERIFIED` wymaga testu na rzeczywistym modelu i firmware.
 
+## Praca deweloperska
+
+Wymagania: Git, [uv](https://docs.astral.sh/uv/) 0.13.x (instaluje Pythona 3.12 z `.python-version`), Node.js 26 (`.nvmrc`) z npm.
+
+Struktura: `server/` (API, pakiet `solargraf_server`), `agent/` (kolektor, `solargraf_agent`), `web/` (React + Vite), `profiles/` (profile urządzeń), `deploy/` (Compose, instalator), `tools/` (kontrola licencji), `docs/`.
+
+```bash
+uv sync --locked                       # środowisko Python (workspace server + agent + narzędzia dev)
+npm --prefix web ci                    # zależności frontendu
+uv run pre-commit install              # hooki przed commitem
+```
+
+Kontrole (te same co w CI, `.github/workflows/ci.yml`):
+
+```bash
+uv run ruff format --check . && uv run ruff check .
+uv run mypy                            # mypy --strict
+uv run pytest
+npm --prefix web run lint              # oxlint
+npm --prefix web run typecheck         # tsc -b
+npm --prefix web test                  # Vitest
+npm --prefix web run build
+uv run python tools/check_licenses.py python   # licencje zależności produkcyjnych Pythona
+uv run python tools/check_licenses.py npm      # licencje zależności produkcyjnych web/
+uv run pre-commit run --all-files
+```
+
+Lista dozwolonych licencji: `tools/license-policy.json` (zgodna z `docs/COMPLIANCE.md`). Kontrola obejmuje zależności produkcyjne wraz z przechodnimi; narzędzia deweloperskie nie trafiają do produktu. SBOM (CycloneDX) generuje CI jako artefakt.
+
 ## Uruchomienie z Claude Code
 
-1. Zainicjuj repozytorium Git w katalogu `SolarGraf/` (repozytorium zdalne — prywatne, po decyzji).
-2. Uruchom Claude Code w katalogu `SolarGraf/` — wtedy wczytany zostanie `CLAUDE.md` i skille.
-3. Postępuj według [`docs/IMPLEMENTATION_GUIDE.md`](docs/IMPLEMENTATION_GUIDE.md), jeden etap na raz.
+1. Uruchom Claude Code w katalogu `SolarGraf/` — wtedy wczytany zostanie `CLAUDE.md` i skille.
+2. Postępuj według [`docs/IMPLEMENTATION_GUIDE.md`](docs/IMPLEMENTATION_GUIDE.md), jeden etap na raz.

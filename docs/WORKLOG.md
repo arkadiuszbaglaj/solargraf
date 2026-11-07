@@ -27,6 +27,15 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: O10 — adres publikacji manifestu i domyślne włączenie sprawdzania automatycznego; O11 — progi stabilności i retencja metryk; O12 — liczba wersji do rollbacku; licencja psutil do sprawdzenia przy dodaniu; O13 — źródło pobierania skryptu i obrazów; O14 — lista wspieranych systemów.
 - Następne małe zadanie: O2 (pierwszy sprzęt), `git init`, fundament repozytorium.
 
+## 2026-11-07
+
+- Etap: P0 — fundament repozytorium.
+- Zmiany: `git init` (gałąź `main`, commit dokumentacji); workspace uv (`server/`, `agent/`, Python 3.12); ruff, mypy --strict, pytest, pre-commit (hooki lokalne); `web/` — Vite 8 + React 19 + TypeScript 7 strict, oxlint, Vitest; `tools/check_licenses.py` + `tools/license-policy.json` (Python przez `uv export --no-dev`, npm przez `npm query .prod`); CI GitHub Actions z SBOM CycloneDX; katalogi `profiles/`, `deploy/`.
+- Testy uruchomione i wyniki: ruff, mypy (10 plików), pytest 31/31, oxlint, tsc, Vitest 1/1, build, kontrola licencji (Python 0 zależności produkcyjnych, npm 3/3 MIT), pre-commit — wszystko zielone lokalnie na Windows. CI nieuruchomione (brak repozytorium zdalnego).
+- Decyzje zatwierdzone: D19–D23 (Python 3.12, uv, GitHub Actions w prywatnym repo, npm + Node 26, Docker bez Docker Desktop). Odstępstwo: oxlint zamiast ESLint — typescript-eslint nie wspiera TypeScript 7.
+- Ryzyka / rzeczy nieweryfikowane: akcje GitHub przypięte tagiem, nie SHA; nazwy pakietów `solargraf_*` zawierają nazwę roboczą; uv zainstalowany przez `pip --user` (poza PATH); Docker niezainstalowany (potrzebny w P1).
+- Następne małe zadanie: utworzenie prywatnego repozytorium GitHub i pierwszy przebieg CI (za zgodą), potem P1 — Compose z FastAPI `/health`, PostgreSQL i Alembic.
+
 ## Szablon kolejnego wpisu
 
 - Data:

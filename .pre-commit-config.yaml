@@ -1,0 +1,39 @@
+# Wszystkie hooki są lokalne: używają wersji narzędzi przypiętych w uv.lock i package-lock.json.
+# Instalacja: uv run pre-commit install
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --frozen ruff format
+        language: system
+        types: [python]
+      - id: ruff-check
+        name: ruff check
+        entry: uv run --frozen ruff check --fix
+        language: system
+        types: [python]
+      - id: mypy
+        name: mypy --strict
+        entry: uv run --frozen mypy
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: web-lint
+        name: oxlint (web)
+        entry: npm --prefix web run lint
+        language: system
+        files: ^web/
+        pass_filenames: false
+      - id: web-typecheck
+        name: tsc (web)
+        entry: npm --prefix web run typecheck
+        language: system
+        files: ^web/
+        pass_filenames: false
+      - id: no-secrets-files
+        name: blokada plików z sekretami
+        entry: pliki .env, .pem i .key nie mogą trafić do repozytorium
+        language: fail
+        files: (^|/)(\.env(\..+)?|.*\.pem|.*\.key)$
+        exclude: (^|/)\.env\.example$

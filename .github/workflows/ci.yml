@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python — lint, typy, testy, licencje, SBOM
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.13.5"
+      - name: Instalacja zależności (lockfile)
+        run: uv sync --locked
+      - name: ruff format
+        run: uv run --frozen ruff format --check .
+      - name: ruff check
+        run: uv run --frozen ruff check .
+      - name: mypy --strict
+        run: uv run --frozen mypy
+      - name: pytest
+        run: uv run --frozen pytest
+      - name: Kontrola licencji (zależności produkcyjne)
+        run: uv run --frozen python tools/check_licenses.py python
+      - name: SBOM (CycloneDX, zależności produkcyjne)
+        run: |
+          uv export --no-dev --no-hashes --frozen --no-emit-workspace > requirements-prod.txt
+          uv run --frozen cyclonedx-py requirements requirements-prod.txt -o sbom-python.cdx.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom-python
+          path: sbom-python.cdx.json
+
+  web:
+    name: Web — lint, typy, testy, build, licencje, SBOM
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.13.5"
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Kontrola licencji (zależności produkcyjne)
+        working-directory: .
+        run: uv run --frozen --no-dev python tools/check_licenses.py npm
+      - name: SBOM (CycloneDX, zależności produkcyjne)
+        run: npm run --silent sbom > sbom-web.cdx.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom-web
+          path: web/sbom-web.cdx.json

@@ -36,3 +36,7 @@ htmlcov/
 Thumbs.db
 .vscode/
 .idea/
+
+# Artefakty CI
+sbom-*.cdx.json
+requirements-prod.txt

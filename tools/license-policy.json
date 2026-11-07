@@ -1,0 +1,17 @@
+{
+  "_comment": "Lista dozwolonych licencji zależności produkcyjnych (docs/COMPLIANCE.md). Wyjątki tylko po ręcznej weryfikacji, z podaną licencją i źródłem.",
+  "allowed": [
+    "MIT",
+    "MIT-0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "0BSD",
+    "Apache-2.0",
+    "ISC",
+    "PSF-2.0",
+    "Python-2.0",
+    "PostgreSQL",
+    "Zlib"
+  ],
+  "exceptions": {}
+}
