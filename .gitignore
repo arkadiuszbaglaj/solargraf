@@ -1,0 +1,38 @@
+# Node / frontend
+node_modules/
+dist/
+build/
+coverage/
+playwright-report/
+test-results/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Sekrety i konfiguracja lokalna
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Dane lokalne
+*.log
+*.sqlite
+*.db
+/data/
+
+# System / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
