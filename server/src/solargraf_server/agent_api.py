@@ -242,7 +242,9 @@ async def ingest(request: Request, agent: CurrentAgent, db: DbSession) -> BatchO
     try:
         batch = BatchIn.model_validate_json(raw)
     except ValidationError as exc:
-        raise _reject(exc.errors(include_url=False, include_input=False)) from None
+        raise _reject(
+            exc.errors(include_url=False, include_input=False, include_context=False)
+        ) from None
 
     now = utcnow()
     if batch.latest_time() > now + MAX_CLOCK_SKEW:
