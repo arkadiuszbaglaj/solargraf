@@ -22,7 +22,10 @@ pytestmark = pytest.mark.skipif(
 )
 
 SERVER_DIR = Path(__file__).resolve().parent.parent
-TABLES = "audit_events, auth_sessions, setup_tokens, memberships, users, organizations"
+TABLES = (
+    "membership_sites, sites, audit_events, auth_sessions, setup_tokens, memberships, users, "
+    "organizations"
+)
 PASSWORD = "bardzo-dlugie-haslo-1"
 
 

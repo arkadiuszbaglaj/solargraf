@@ -122,6 +122,8 @@ def test_schema_compiles_for_postgresql_with_conventional_names() -> None:
         "auth_sessions",
         "setup_tokens",
         "audit_events",
+        "sites",
+        "membership_sites",
     }
     assert "CONSTRAINT uq_users_email UNIQUE (email)" in ddl["users"]
     assert "CONSTRAINT ck_memberships_role CHECK" in ddl["memberships"]
@@ -129,3 +131,7 @@ def test_schema_compiles_for_postgresql_with_conventional_names() -> None:
     # Sesja nie przechowuje samego tokenu — tylko skrót.
     assert "token_hash" in ddl["auth_sessions"]
     assert " token " not in ddl["auth_sessions"]
+    assert (
+        "CONSTRAINT pk_membership_sites PRIMARY KEY (membership_id, site_id)"
+        in ddl["membership_sites"]
+    )

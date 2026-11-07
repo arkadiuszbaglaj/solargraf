@@ -16,6 +16,7 @@ from solargraf_server.config import Settings
 from solargraf_server.db import create_engine, create_sessionmaker, database_ready
 from solargraf_server.health import ReadinessCheck
 from solargraf_server.health import router as health_router
+from solargraf_server.sites import router as sites_router
 
 
 def create_app(settings: Settings, readiness_check: ReadinessCheck | None = None) -> FastAPI:
@@ -52,6 +53,7 @@ def create_app(settings: Settings, readiness_check: ReadinessCheck | None = None
     )
     app.include_router(health_router)
     app.include_router(auth_router)
+    app.include_router(sites_router)
     return app
 
 

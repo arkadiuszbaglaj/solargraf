@@ -33,8 +33,8 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 
 - [ ] Encje z `docs/DATA_MODEL.md`: Organization, User, Membership, Site, Agent, Connection, Device, DeviceProfile, MetricDefinition, Measurement, PollingRun, Alarm, AuditEvent.
 - [ ] Partycjonowanie tabeli pomiarów po czasie.
-- [ ] Uwierzytelnianie, sesje i role (O6 → D29–D32) — gotowe w P2.1; autoryzacja per instalacja — P2.2.
-- [ ] Testy izolacji danych między organizacjami.
+- [x] Uwierzytelnianie, sesje i role (O6 → D29–D32) — P2.1; autoryzacja per instalacja (D33) — P2.2.
+- [x] Testy izolacji danych między organizacjami (instalacje; kolejne zasoby dopisują własne przypadki).
 - [ ] Endpointy odczytu dashboardu, urządzeń, pomiarów i alarmów; OpenAPI i typy dla frontendu.
 - [ ] Paginacja historii, filtrowanie zakresem czasu i limitami.
 
