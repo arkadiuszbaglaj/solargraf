@@ -133,3 +133,22 @@ export function validateSite(input: SiteInput, zones: readonly string[]): SiteFi
   if (!input.organizationId) errors.organizationId = 'Wybierz organizację.'
   return errors
 }
+
+export type GetResult = { kind: 'ok'; site: ApiSite } | { kind: 'anonymous' } | { kind: 'not-found' } | { kind: 'error' }
+
+export async function getSite(siteId: string, fetchFn: typeof fetch = fetch, signal?: AbortSignal): Promise<GetResult> {
+  let response: Response
+  try {
+    response = await fetchFn(`/api/sites/${encodeURIComponent(siteId)}`, {
+      credentials: 'same-origin',
+      ...(signal ? { signal } : {}),
+    })
+  } catch {
+    return { kind: 'error' }
+  }
+  if (response.status === 401) return { kind: 'anonymous' }
+  if (response.status === 404 || response.status === 422) return { kind: 'not-found' }
+  if (!response.ok) return { kind: 'error' }
+  const site = parseSite(await json(response))
+  return site ? { kind: 'ok', site } : { kind: 'error' }
+}

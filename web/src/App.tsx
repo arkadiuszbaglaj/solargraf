@@ -7,10 +7,15 @@ import { Sidebar } from './layout/Sidebar'
 import { Topbar } from './layout/Topbar'
 import type { Page } from './layout/Sidebar'
 import { DashboardPage } from './pages/DashboardPage'
+import { DevicesPage } from './pages/DevicesPage'
 import { SitesPage } from './pages/SitesPage'
 import styles from './App.module.css'
 
-export function App({ now: fixedNow, page = 'dashboard' }: { now?: Date; page?: Page } = {}) {
+export function App({
+  now: fixedNow,
+  page = 'dashboard',
+  siteId: routeSiteId = '',
+}: { now?: Date; page?: Page | 'devices'; siteId?: string } = {}) {
   const source = useDataSource()
   const tickingNow = useNow()
   const now = fixedNow ?? tickingNow
@@ -27,12 +32,14 @@ export function App({ now: fixedNow, page = 'dashboard' }: { now?: Date; page?: 
       <a className={styles.skip} href="#main">
         Przejdź do treści
       </a>
-      <Sidebar open={menuOpen} id={menuId} current={page} />
+      <Sidebar open={menuOpen} id={menuId} current={page === 'devices' ? 'sites' : page} />
       <div className={styles.content}>
         <Topbar
           {...(page === 'sites'
             ? { title: 'Instalacje', subtitle: 'Instalacje dostępne dla Twojego konta', showSiteSwitcher: false }
-            : {})}
+            : page === 'devices'
+              ? { title: 'Urządzenia', subtitle: 'Urządzenia i połączenia instalacji', showSiteSwitcher: false }
+              : {})}
           sites={sites}
           siteId={site?.id ?? ''}
           onSiteChange={setSelected}
@@ -45,6 +52,8 @@ export function App({ now: fixedNow, page = 'dashboard' }: { now?: Date; page?: 
         <main id="main" className={styles.main} tabIndex={-1}>
           {page === 'sites' ? (
             <SitesPage />
+          ) : page === 'devices' ? (
+            <DevicesPage siteId={routeSiteId} />
           ) : state.status !== 'ready' ? (
             <WidgetState
               status={state.status === 'loading' ? { kind: 'loading' } : { kind: 'error', onRetry: reload }}

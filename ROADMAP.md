@@ -45,6 +45,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 - [x] Format profilu urządzenia i jego walidator (źródło dowodu, status, poziom wsparcia) — P3.1, D39.
 - [x] Agent w trybie lokalnym: harmonogram, jedno połączenie na urządzenie, timeouty, retry z backoff, bufor offline — odczyt Modbus TCP (D41) w P3.3; pętla, bufor SQLite 7 dni, usługa `agent` w Compose i token z instalatora (D43) w P3.5.
 - [x] Protokół agent ↔ serwer: partie z identyfikatorem, heartbeat, poświadczenie agenta — strona serwera (D42) w P3.4, strona agenta (D43) w P3.5.
+- [x] Dodawanie połączeń i urządzeń (API, ekran `/instalacje/{id}/urzadzenia`, katalog profili `GET /api/profiles`) — P3.6, D44.
 - [ ] Sterowniki: Modbus TCP, SunSpec, Solarman V5.
 - [ ] Generator symulatora z profilu + profile czasowe PVGIS; wstrzykiwanie błędów. Zrobione: symulator Modbus TCP z profilu, prosty model wartości i wstrzykiwanie błędów (D40) — P3.2; PVGIS później.
 - [ ] Pierwsze profile: ogólny SunSpec oraz pierwszy sprzęt z O2.

@@ -315,3 +315,212 @@ class TestDevices:
                 site=world.a1,
                 conn=conn_b,
             )
+
+
+def _local_agent() -> uuid.UUID:
+    agent = uuid.uuid4()
+    _sql(
+        "INSERT INTO agents (id, name, mode, token_hash, enabled, last_heartbeat_at) "
+        "VALUES (:id, 'lokalny', 'LOCAL', :h, true, now())",
+        id=agent,
+        h="1" * 64,
+    )
+    return agent
+
+
+NEW_DEVICE = {
+    "name": "Falownik (symulator)",
+    "profile_id": "simulated.hybrid-inverter",
+    "profile_version": "0.1.0",
+}
+SETTINGS: dict[str, object] = {"name": "Logger w garażu", "host": "192.168.1.50"}
+NEW_CONNECTION: dict[str, object] = SETTINGS | {"device": NEW_DEVICE}
+
+
+def _headers(csrf: str) -> dict[str, str]:
+    return {"X-CSRF-Token": csrf}
+
+
+class TestDeviceWrites:
+    def test_admin_creates_connection_with_device_visible_to_agent(
+        self, world: World, as_user: AsUser
+    ) -> None:
+        agent = _local_agent()
+        c, csrf = as_user("admin_a")
+        resp = c.post(
+            f"/api/sites/{world.a1}/connections", json=NEW_CONNECTION, headers=_headers(csrf)
+        )
+        assert resp.status_code == 201, resp.text
+        body = resp.json()
+        assert body["connection"]["port"] == 502
+        assert body["connection"]["unit_id"] == 1
+        device = body["device"]
+        assert device["kind"] == "INVERTER"
+        assert device["status"] == "UNKNOWN"  # jeszcze nieodczytane
+        assert device["details"]["profile_id"] == "simulated.hybrid-inverter"
+        [(conn_agent,)] = _sql(
+            "SELECT agent_id FROM connections WHERE id = :c", c=uuid.UUID(body["connection"]["id"])
+        )
+        assert conn_agent == agent
+        # Próg świeżości: max(300 s, 3 * interwał z profilu = 10 s).
+        [(threshold,)] = _sql(
+            "SELECT freshness_threshold_seconds FROM devices WHERE id = :d",
+            d=uuid.UUID(device["id"]),
+        )
+        assert threshold == 300
+        actions = {r[0] for r in _sql("SELECT action FROM audit_events")}
+        assert {"CONNECTION_CREATED", "DEVICE_CREATED"} <= actions
+        listed = c.get(f"/api/sites/{world.a1}/devices").json()
+        assert [d["id"] for d in listed] == [device["id"]]
+
+    def test_viewer_forbidden_foreign_and_missing_404(self, world: World, as_user: AsUser) -> None:
+        _local_agent()
+        v, csrf = as_user("scoped_viewer_a")
+        resp = v.post(
+            f"/api/sites/{world.a1}/connections", json=NEW_CONNECTION, headers=_headers(csrf)
+        )
+        assert resp.status_code == 403
+        b, csrf_b = as_user("owner_b")
+        foreign = b.post(
+            f"/api/sites/{world.a1}/connections", json=NEW_CONNECTION, headers=_headers(csrf_b)
+        )
+        missing = b.post(
+            f"/api/sites/{uuid.uuid4()}/connections", json=NEW_CONNECTION, headers=_headers(csrf_b)
+        )
+        assert foreign.status_code == missing.status_code == 404
+        assert foreign.json() == missing.json()
+        no_csrf = b.post(f"/api/sites/{world.b1}/connections", json=NEW_CONNECTION)
+        assert no_csrf.status_code == 403
+        assert _sql("SELECT count(*) FROM connections") == [(0,)]
+
+    @pytest.mark.parametrize(
+        ("change", "fragment"),
+        [
+            ({"host": "8.8.8.8"}, "prywatne"),
+            ({"host": "127.0.0.1"}, "prywatne"),
+            ({"host": "169.254.169.254"}, "prywatne"),
+            ({"host": "localhost"}, "lokalny"),
+            ({"transport": "MODBUS_RTU"}, "MODBUS_TCP"),
+            ({"poll_interval_seconds": 5, "timeout_seconds": 5}, "krótszy"),
+        ],
+    )
+    def test_invalid_connection_rejected(
+        self, world: World, as_user: AsUser, change: dict[str, object], fragment: str
+    ) -> None:
+        _local_agent()
+        c, csrf = as_user("owner_a")
+        resp = c.post(
+            f"/api/sites/{world.a1}/connections",
+            json=NEW_CONNECTION | change,
+            headers=_headers(csrf),
+        )
+        assert resp.status_code == 422, resp.text
+        assert fragment in resp.text
+
+    def test_unknown_profile_and_missing_agent(self, world: World, as_user: AsUser) -> None:
+        c, csrf = as_user("owner_a")
+        no_agent = c.post(
+            f"/api/sites/{world.a1}/connections", json=NEW_CONNECTION, headers=_headers(csrf)
+        )
+        assert no_agent.status_code == 409
+        _local_agent()
+        unknown = SETTINGS | {
+            "device": {"name": "X", "profile_id": "vendor.unknown", "profile_version": "1.0.0"}
+        }
+        resp = c.post(f"/api/sites/{world.a1}/connections", json=unknown, headers=_headers(csrf))
+        assert resp.status_code == 422
+        assert "Nieznany profil" in resp.text
+
+    def test_update_disable_and_delete(self, world: World, as_user: AsUser) -> None:
+        _local_agent()
+        c, csrf = as_user("owner_a")
+        created = c.post(
+            f"/api/sites/{world.a1}/connections", json=NEW_CONNECTION, headers=_headers(csrf)
+        ).json()
+        conn_id, dev_id = created["connection"]["id"], created["device"]["id"]
+
+        second = c.post(
+            f"/api/sites/{world.a1}/connections/{conn_id}/devices",
+            json=NEW_DEVICE | {"name": "Drugi"},
+            headers=_headers(csrf),
+        )
+        assert second.status_code == 201, second.text
+        second_id = second.json()["id"]
+
+        upd = c.patch(
+            f"/api/sites/{world.a1}/connections/{conn_id}",
+            json=SETTINGS | {"host": "inverter.lan", "poll_interval_seconds": 600},
+            headers=_headers(csrf),
+        )
+        assert upd.status_code == 200, upd.text
+        assert upd.json()["host"] == "inverter.lan"
+        thresholds = {r[0] for r in _sql("SELECT freshness_threshold_seconds FROM devices")}
+        assert thresholds == {1800}
+
+        off = c.patch(
+            f"/api/sites/{world.a1}/devices/{dev_id}",
+            json={"enabled": False},
+            headers=_headers(csrf),
+        )
+        assert off.status_code == 200, off.text
+        assert off.json()["status"] == "DISABLED"
+
+        # Urządzenie z danymi: tylko wyłączenie.
+        _sql(
+            "INSERT INTO polling_runs (id, site_id, device_id, batch_id, started_at, finished_at, "
+            "result, ok_points, failed_points) "
+            "VALUES (:id, :s, :d, :b, now(), now(), 'OK', 1, 0)",
+            id=uuid.uuid4(),
+            s=world.a1,
+            d=uuid.UUID(dev_id),
+            b=uuid.uuid4(),
+        )
+        busy = c.delete(f"/api/sites/{world.a1}/devices/{dev_id}", headers=_headers(csrf))
+        assert busy.status_code == 409
+        assert "wyłącz" in busy.text
+
+        gone = c.delete(f"/api/sites/{world.a1}/devices/{second_id}", headers=_headers(csrf))
+        assert gone.status_code == 204
+        assert _sql("SELECT count(*) FROM connections") == [(1,)]
+
+        _sql("DELETE FROM polling_runs")
+        last = c.delete(f"/api/sites/{world.a1}/devices/{dev_id}", headers=_headers(csrf))
+        assert last.status_code == 204
+        # Ostatnie urządzenie zabiera puste połączenie.
+        assert _sql("SELECT count(*) FROM connections") == [(0,)]
+        actions = {r[0] for r in _sql("SELECT action FROM audit_events")}
+        assert {"CONNECTION_UPDATED", "DEVICE_UPDATED", "DEVICE_DELETED"} <= actions
+        assert "CONNECTION_DELETED" in actions
+
+    def test_cannot_touch_other_sites_resources(self, world: World, as_user: AsUser) -> None:
+        _local_agent()
+        a, csrf_a = as_user("owner_a")
+        created = a.post(
+            f"/api/sites/{world.a1}/connections", json=NEW_CONNECTION, headers=_headers(csrf_a)
+        ).json()
+        dev_id, conn_id = created["device"]["id"], created["connection"]["id"]
+        # Urządzenie z A1 pod adresem A2 (ten sam właściciel) — nie istnieje.
+        moved = a.patch(
+            f"/api/sites/{world.a2}/devices/{dev_id}",
+            json={"enabled": False},
+            headers=_headers(csrf_a),
+        )
+        assert moved.status_code == 404
+        add_to_foreign = a.post(
+            f"/api/sites/{world.a2}/connections/{conn_id}/devices",
+            json=NEW_DEVICE,
+            headers=_headers(csrf_a),
+        )
+        assert add_to_foreign.status_code == 404
+        b, csrf_b = as_user("owner_b")
+        foreign = b.delete(f"/api/sites/{world.b1}/devices/{dev_id}", headers=_headers(csrf_b))
+        assert foreign.status_code == 404
+
+    def test_profiles_catalog(self, world: World, as_user: AsUser) -> None:
+        v, _ = as_user("scoped_viewer_a")
+        resp = v.get("/api/profiles")
+        assert resp.status_code == 200
+        [profile] = resp.json()
+        assert profile["id"] == "simulated.hybrid-inverter"
+        assert profile["origin"] == "SIMULATED"
+        assert "points" not in profile

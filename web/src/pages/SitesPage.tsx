@@ -58,6 +58,9 @@ export function SitesPage({
                   <th scope="col">Nazwa</th>
                   <th scope="col">Strefa czasowa</th>
                   <th scope="col">Twoja rola</th>
+                  <th scope="col">
+                    <span className="visually-hidden">Akcje</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -66,6 +69,11 @@ export function SitesPage({
                     <td>{s.name}</td>
                     <td>{s.timezone}</td>
                     <td>{ROLE_LABEL[s.role]}</td>
+                    <td>
+                      <a href={`/instalacje/${encodeURIComponent(s.id)}/urzadzenia`}>
+                        Urządzenia<span className="visually-hidden"> instalacji {s.name}</span>
+                      </a>
+                    </td>
                   </tr>
                 ))}
               </tbody>

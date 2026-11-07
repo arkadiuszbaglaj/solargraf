@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import URL
@@ -23,6 +25,8 @@ class Settings(BaseSettings):
     session_cookie_secure: bool = True
     session_idle_hours: float = Field(default=24, gt=0, le=24 * 30)
     session_absolute_days: float = Field(default=14, gt=0, le=365)
+    # Katalog profili urządzeń (D44); w obrazie /app/profiles.
+    profiles_dir: Path = Path("profiles")
 
     def database_url(self) -> URL:
         """URL dla SQLAlchemy (asyncpg). Hasło nie pojawia się w ``repr``/logach URL."""
