@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -25,10 +26,17 @@ def ready_client() -> Iterator[TestClient]:
         yield client
 
 
-def test_liveness_ok(ready_client: TestClient) -> None:
+def test_liveness_ok_with_server_time(ready_client: TestClient) -> None:
+    before = datetime.now(UTC)
     resp = ready_client.get("/api/health")
+    after = datetime.now(UTC)
     assert resp.status_code == 200
-    assert resp.json() == {"status": "ok"}
+    body = resp.json()
+    assert set(body) == {"status", "server_time"}
+    assert body["status"] == "ok"
+    server_time = datetime.fromisoformat(body["server_time"])
+    assert server_time.utcoffset() == timedelta(0)
+    assert before <= server_time <= after
 
 
 def test_readiness_ok_when_database_ready(ready_client: TestClient) -> None:

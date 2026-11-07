@@ -3,6 +3,7 @@ import { WidgetState } from './components/WidgetState'
 import { useDataSource } from './data/DataSourceContext'
 import { useAsync } from './hooks/useAsync'
 import { useNow } from './hooks/useNow'
+import { ClockSkewBanner } from './layout/ClockSkewBanner'
 import { Sidebar } from './layout/Sidebar'
 import { Topbar } from './layout/Topbar'
 import type { Page } from './layout/Sidebar'
@@ -53,6 +54,7 @@ export function App({
           onToggleMenu={() => setMenuOpen((o) => !o)}
           menuId={menuId}
         />
+        {source.origin === 'DEMO' ? null : <ClockSkewBanner />}
         <main id="main" className={styles.main} tabIndex={-1}>
           {page === 'sites' ? (
             <SitesPage />
