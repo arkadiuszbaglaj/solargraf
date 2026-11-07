@@ -211,4 +211,4 @@ async def memberships_of(
         .where(Membership.user_id == user_id)
         .order_by(Organization.name)
     )
-    return [(m, o) for m, o in rows.tuples()]
+    return [(m, o) for m, o in rows]
