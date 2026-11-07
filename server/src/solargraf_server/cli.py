@@ -2,6 +2,7 @@
 
 solargraf-admin setup-token            — jednorazowy token pierwszej konfiguracji, ważny 1 h (D31)
 solargraf-admin agent create --name N  — nowy agent; token wypisany raz na stdout (D42)
+solargraf-admin agent rotate --name N  — nowy token agenta (stary przestaje działać), wypisany raz
 solargraf-admin agent disable --name N — wyłączenie agenta (token przestaje działać)
 solargraf-admin agent list             — lista agentów bez tokenów
 """
@@ -70,6 +71,21 @@ async def agent_create(db: AsyncSession, name: str, mode: AgentMode) -> int:
     return 0
 
 
+async def agent_rotate(db: AsyncSession, name: str) -> int:
+    agent = await db.scalar(select(Agent).where(Agent.name == name))
+    if agent is None:
+        print(f"Brak agenta {name!r}.", file=sys.stderr)
+        return 1
+    token = new_token()
+    agent.token_hash = token_hash(token)
+    agent.enabled = True
+    await service.audit(db, "AGENT_TOKEN_ROTATED", target=f"agent:{agent.id}")
+    await db.commit()
+    print(token)
+    print(f"Nowy token agenta {name!r}; poprzedni przestał działać.", file=sys.stderr)
+    return 0
+
+
 async def agent_disable(db: AsyncSession, name: str) -> int:
     agent = await db.scalar(select(Agent).where(Agent.name == name))
     if agent is None:
@@ -100,6 +116,8 @@ def main(argv: list[str] | None = None) -> int:
     create = agent.add_parser("create", help="utwórz agenta i wypisz jego token")
     create.add_argument("--name", required=True)
     create.add_argument("--mode", choices=[m.value for m in AgentMode], default="LOCAL")
+    rotate = agent.add_parser("rotate", help="wydaj nowy token agenta (unieważnia poprzedni)")
+    rotate.add_argument("--name", required=True)
     disable = agent.add_parser("disable", help="wyłącz agenta")
     disable.add_argument("--name", required=True)
     agent.add_parser("list", help="lista agentów")
@@ -113,6 +131,7 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         actions: dict[str, Callable[[AsyncSession], Awaitable[int]]] = {
             "create": lambda db: agent_create(db, name, AgentMode(args.mode)),
+            "rotate": lambda db: agent_rotate(db, name),
             "disable": lambda db: agent_disable(db, name),
             "list": agent_list,
         }

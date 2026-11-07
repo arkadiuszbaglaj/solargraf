@@ -20,6 +20,8 @@ readonly MIN_RAM_MB=1024
 readonly RECOMMENDED_RAM_MB=2048
 readonly MIN_DISK_MB=5120
 readonly HEALTH_TIMEOUT_S=300
+readonly AGENT_NAME="lokalny"
+readonly CORE_SERVICES=(db migrate api proxy)
 # Źródło kodu w trybie `curl | bash` (D35). Docelowo domena producenta (O13, P7).
 readonly GITHUB_REPO="arkadiuszbaglaj/solargraf"
 readonly SCRIPT_URL="https://raw.githubusercontent.com/$GITHUB_REPO/main/deploy/install.sh"
@@ -438,6 +440,34 @@ export_ca() {
 	say "Certyfikat CA: $target (zaimportuj go w przeglądarce jako zaufany urząd, aby usunąć ostrzeżenie)."
 }
 
+# Token agenta (D43): tworzony raz i zapisany tylko w .env (600) — nigdy na ekranie ani w logu.
+# Gdy .env go nie ma, a agent już istnieje (np. odtworzony .env), wydajemy nowy token (rotate).
+ensure_agent_token() {
+	local env="$INSTALL_DIR/.env" token
+	if grep -q '^SOLARGRAF_AGENT_TOKEN=.' "$env"; then
+		say "Token agenta: zachowany w $env."
+		return 0
+	fi
+	if ! token="$(compose exec -T api solargraf-admin agent create --name "$AGENT_NAME" 2>/dev/null)"; then
+		token="$(compose exec -T api solargraf-admin agent rotate --name "$AGENT_NAME" 2>/dev/null)" ||
+			die "Nie udało się utworzyć tokenu agenta. Logi: docker compose -p $PRODUCT logs api"
+		say "Agent $AGENT_NAME istniał — wydano nowy token (poprzedni przestał działać)."
+	fi
+	[[ "$token" =~ ^[A-Za-z0-9_-]+$ ]] || die "Nieoczekiwana odpowiedź przy tworzeniu tokenu agenta."
+	(
+		umask 077
+		# Token przed adresami, które write_env dopisuje zawsze na końcu — układ pliku stały.
+		grep -v -e '^SOLARGRAF_AGENT_TOKEN=' -e '^SOLARGRAF_SITE_ADDRESSES=' -e '^SOLARGRAF_PUBLIC_ADDRESS=' \
+			"$env" >"$env.tmp" || true
+		printf 'SOLARGRAF_AGENT_TOKEN=%s\n' "$token" >>"$env.tmp"
+		grep -e '^SOLARGRAF_SITE_ADDRESSES=' -e '^SOLARGRAF_PUBLIC_ADDRESS=' "$env" >>"$env.tmp" || true
+	)
+	mv "$env.tmp" "$env"
+	chmod 600 "$env"
+	log_line "zapisano token agenta $AGENT_NAME w .env (treść pominięta)"
+	say "Token agenta $AGENT_NAME zapisany w $env."
+}
+
 print_setup_link() {
 	local token host="${ADDRESS:-localhost}"
 	if token="$(compose exec -T api solargraf-admin setup-token 2>/dev/null)" && [ -n "$token" ]; then
@@ -460,7 +490,8 @@ show_plan() {
 	fi
 	say "- źródła z $SRC_LABEL → $INSTALL_DIR/src"
 	say "- sekrety w $INSTALL_DIR/.env (600), adresy: $(site_addresses)"
-	say "- budowa obrazów i start: db, migrate, api, proxy (porty 80 i 443)"
+	say "- budowa obrazów i start: db, migrate, api, proxy (porty 80 i 443), agent"
+	say "- lokalny agent \"$AGENT_NAME\" z tokenem w $INSTALL_DIR/.env"
 	say "- polecenie $CLI_LINK"
 	say "- jednorazowy link do pierwszego konta"
 }
@@ -498,8 +529,11 @@ cmd_install() {
 	copy_sources
 	write_env
 	say "== Budowa obrazów i uruchomienie (pierwsza budowa może potrwać kilka–kilkanaście minut)"
-	compose up -d --build --remove-orphans
+	compose up -d --build --remove-orphans "${CORE_SERVICES[@]}"
 	wait_healthy
+	ensure_agent_token
+	say "== Uruchamiam agenta"
+	compose up -d --build agent
 	export_ca
 	ln -sf "$INSTALL_DIR/src/deploy/install.sh" "$CLI_LINK"
 	say "Polecenie: $CLI_LINK (status, uninstall, setup-link)."
@@ -551,7 +585,7 @@ cmd_uninstall() {
 		confirm "Usunąć aplikację RAZEM Z DANYMI (baza, certyfikaty, $INSTALL_DIR)? Tej operacji nie da się cofnąć." ||
 			die "Przerwano."
 		compose down --volumes --remove-orphans
-		docker image rm -f solargraf-api:local solargraf-proxy:local >/dev/null 2>&1 || true
+		docker image rm -f solargraf-api:local solargraf-proxy:local solargraf-agent:local >/dev/null 2>&1 || true
 		rm -f "$CLI_LINK"
 		LOG_FILE=""
 		rm -rf "$INSTALL_DIR"

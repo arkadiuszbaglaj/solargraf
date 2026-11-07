@@ -211,11 +211,27 @@ jobs:
           test "$(curl -s -o /dev/null -w '%{http_code}' --cacert "$ca" -X POST -H 'Authorization: Bearer x' https://localhost/api/agent/batches)" = "404"
       - name: Tylko proxy wystawia porty
         run: |
-          for svc in db api; do
+          for svc in db api agent; do
             id="$(docker ps -q --filter label=com.docker.compose.project=solargraf --filter "label=com.docker.compose.service=$svc")"
             test -n "$id"
             test -z "$(docker port "$id")"
           done
+      - name: Lokalny agent działa bez ręcznej konfiguracji (D43), token tylko w .env
+        run: |
+          compose() { sudo docker compose -p solargraf -f "$DIR/src/deploy/compose.yaml" --env-file "$DIR/.env" "$@"; }
+          agent_token="$(sudo sed -n 's/^SOLARGRAF_AGENT_TOKEN=//p' "$DIR/.env")"
+          test -n "$agent_token"
+          for i in $(seq 1 30); do
+            line="$(compose exec -T api solargraf-admin agent list | grep '^lokalny |' || true)"
+            echo "$line"
+            if [ -n "$line" ] && ! echo "$line" | grep -q 'heartbeat: nigdy'; then break; fi
+            if [ "$i" -eq 30 ]; then compose logs --no-color agent; exit 1; fi
+            sleep 2
+          done
+          test "$(compose exec -T agent id -u)" = "10001"
+          compose logs --no-color agent > agent-logs.txt 2>&1
+          if grep -qF "$agent_token" agent-logs.txt install-out.txt; then echo 'Niespełniony warunek'; exit 1; fi
+          if sudo grep -qF "$agent_token" "$DIR/install.log"; then echo 'Niespełniony warunek'; exit 1; fi
       - name: Pierwsze konto przez link, logowanie z cookie Secure, lista instalacji
         run: |
           ca="$DIR/solargraf-ca.crt"

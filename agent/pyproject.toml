@@ -7,6 +7,7 @@ license = "LicenseRef-Proprietary"
 dependencies = [
     "solargraf-profiles",
     "pymodbus==3.16.2",
+    "httpx2>=2.16.0",
 ]
 
 [tool.uv.sources]

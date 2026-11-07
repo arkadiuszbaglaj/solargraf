@@ -1019,12 +1019,14 @@ name = "solargraf-agent"
 version = "0.0.0"
 source = { editable = "agent" }
 dependencies = [
+    { name = "httpx2" },
     { name = "pymodbus" },
     { name = "solargraf-profiles" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "httpx2", specifier = ">=2.16.0" },
     { name = "pymodbus", specifier = "==3.16.2" },
     { name = "solargraf-profiles", editable = "profiles-schema" },
 ]

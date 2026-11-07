@@ -40,3 +40,4 @@ Thumbs.db
 # Artefakty CI
 sbom-*.cdx.json
 requirements-prod.txt
+.agent/

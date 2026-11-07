@@ -13,5 +13,10 @@
     "PostgreSQL",
     "Zlib"
   ],
-  "exceptions": {}
+  "exceptions": {
+    "httpx2-jsfetch": {
+      "license": "BSD-3-Clause",
+      "source": "PyPI httpx2-jsfetch 1.0: license_expression BSD-3-Clause (sprawdzone 2026-11-07). Zależność httpx2 tylko dla sys_platform == 'emscripten' — nie trafia do obrazów Linux."
+    }
+  }
 }
