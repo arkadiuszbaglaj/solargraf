@@ -2,11 +2,16 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import type { Role, Session } from '../api/auth'
-import { getSystemHealth, parseSystemHealth } from '../api/system'
+import { getSystemHealth, getSystemMetrics, parseSystemHealth, parseSystemMetrics } from '../api/system'
 import { SessionProvider } from '../auth/SessionContext'
 import { Sidebar } from '../layout/Sidebar'
 import { SERVER_HEALTH_PATH, routeFor } from '../Root'
 import { ServerHealthPage } from './ServerHealthPage'
+import { forecastText, toHistory } from './ServerHistory'
+
+vi.mock('../components/HistoryChartView', () => ({
+  HistoryChartView: ({ label }: { label: string }) => <div role="img" aria-label={label} />,
+}))
 
 const GIB = 1024 ** 3
 
@@ -62,7 +67,32 @@ const HEALTH = {
   server_time: '2026-11-07T12:00:30Z',
 }
 
+const points = (values: Array<number | null>) =>
+  values.map((v, i) => ({ t: `2026-11-07T${String(10 + i).padStart(2, '0')}:00:00Z`, avg: v, max: v === null ? null : v + 5 }))
+
+const METRICS = {
+  range: '24h',
+  step_s: 300,
+  start: '2026-11-06T12:00:30Z',
+  end: '2026-11-07T12:00:30Z',
+  series: {
+    cpu_percent: { unit: '%', points: points([10, null, 30]) },
+    memory_percent: { unit: '%', points: points([25, 26, null]) },
+    disk_percent: { unit: '%', points: points([88, 88, 89]) },
+    cpu_temp_c: { unit: '°C', points: points([null, null, null]) },
+  },
+  disk_forecast: { status: 'OK', full_at: '2026-12-23T12:00:30Z', growth_bytes_per_day: GIB },
+  server_time: '2026-11-07T12:00:30Z',
+}
+
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status })
+
+/** Atrapa API: odpowiedź zależna od adresu (stan albo historia). */
+const routes = (health: [number, unknown], metrics: [number, unknown] = [200, METRICS]) =>
+  vi.fn<typeof fetch>((input) => {
+    const [status, body] = String(input).startsWith('/api/system/metrics') ? metrics : health
+    return Promise.resolve(json(status, body))
+  })
 const fetchReturning = (status: number, body: unknown = {}) =>
   vi.fn<typeof fetch>(() => Promise.resolve(json(status, body)))
 
@@ -116,7 +146,7 @@ describe('getSystemHealth', () => {
 
 describe('ServerHealthPage', () => {
   it('pokazuje ocenę, przyczyny, metryki i składniki', async () => {
-    renderPage(fetchReturning(200, HEALTH))
+    renderPage(routes([200, HEALTH]))
     expect(await screen.findByText('Ostrzeżenie')).toBeTruthy()
     expect(screen.getByText(/Dysk zajęty powyżej 85%/)).toBeTruthy()
     expect(dd('Rdzenie')).toBe('4')
@@ -128,26 +158,26 @@ describe('ServerHealthPage', () => {
   })
 
   it('brak pomiaru pokazuje jako „niedostępne”, nigdy 0', async () => {
-    renderPage(fetchReturning(200, HEALTH))
+    renderPage(routes([200, HEALTH]))
     await screen.findByText('Ostrzeżenie')
     expect(dd('Temperatura procesora')).toBe('niedostępne')
     expect(dd('Niedobór napięcia')).toBe('niedostępne')
   })
 
   it('ostrzega o nieaktualnej ocenie', async () => {
-    renderPage(fetchReturning(200, { ...HEALTH, level: 'CRITICAL', stale: true }))
+    renderPage(routes([200, { ...HEALTH, level: 'CRITICAL', stale: true }]))
     expect(await screen.findByText(/Ocena jest nieaktualna/)).toBeTruthy()
     expect(screen.getByText('Krytyczny')).toBeTruthy()
   })
 
   it('403 — komunikat o braku uprawnień bez danych', async () => {
-    renderPage(fetchReturning(403))
+    renderPage(routes([403, {}]))
     expect(await screen.findByText(/tylko dla właściciela/)).toBeTruthy()
     expect(screen.queryByText('Procesor')).toBeNull()
   })
 
   it('401 — przekierowanie do logowania', async () => {
-    const navigate = renderPage(fetchReturning(401))
+    const navigate = renderPage(routes([401, {}]))
     await screen.findByRole('alert')
     expect(navigate).toHaveBeenCalledWith('/login?reason=expired')
   })
@@ -160,6 +190,74 @@ describe('ServerHealthPage', () => {
     renderPage(fetchFn)
     await userEvent.click(await screen.findByRole('button', { name: 'Spróbuj ponownie' }))
     expect(await screen.findByText('Ostrzeżenie')).toBeTruthy()
+  })
+})
+
+describe('historia serwera', () => {
+  it('parser przyjmuje serie z lukami i odrzuca nieznany zakres', () => {
+    const parsed = parseSystemMetrics(METRICS)
+    expect(parsed?.series.cpu_percent.points[1]?.avg).toBeNull()
+    expect(parsed?.diskForecast.status).toBe('OK')
+    expect(parseSystemMetrics({ ...METRICS, range: '1y' })).toBeNull()
+    expect(parseSystemMetrics({ ...METRICS, disk_forecast: { status: 'MAYBE' } })).toBeNull()
+    const { cpu_temp_c: _omit, ...series } = METRICS.series
+    expect(parseSystemMetrics({ ...METRICS, series })).toBeNull()
+  })
+
+  it('wysyła wybrany zakres i rozróżnia 403', async () => {
+    const fetchFn = fetchReturning(403)
+    expect((await getSystemMetrics('7d', fetchFn)).kind).toBe('forbidden')
+    expect(String(vi.mocked(fetchFn).mock.calls[0]?.[0])).toBe('/api/system/metrics?range=7d')
+  })
+
+  it('luka zostaje null, maksimum trafia do podpowiedzi', () => {
+    const parsed = parseSystemMetrics(METRICS)
+    if (!parsed) throw new Error('parse')
+    const history = toHistory(parsed, 'cpu_percent', 'Europe/Warsaw')
+    expect(history.points.map((p) => p.value)).toEqual([10, null, 30])
+    expect(history.points[0]?.max).toBe(15)
+    expect(history.cumulative).toBe(false)
+  })
+
+  it('tekst prognozy dla każdego statusu', () => {
+    const now = new Date('2026-11-07T12:00:30Z')
+    const ok = forecastText({ status: 'OK', fullAt: '2026-12-23T12:00:30Z', growthBytesPerDay: GIB }, now, 'UTC')
+    expect(ok).toMatch(/^Szacunek: dysk zapełni się za ok\. 46 dni/)
+    expect(ok).toMatch(/1,0 GiB na dobę/)
+    const soon = forecastText({ status: 'OK', fullAt: '2026-11-07T20:00:00Z', growthBytesPerDay: GIB }, now, 'UTC')
+    expect(soon).toMatch(/w ciągu doby/)
+    expect(forecastText({ status: 'OVER_YEAR', fullAt: null, growthBytesPerDay: 1 }, now, 'UTC')).toMatch(/ponad rok/)
+    expect(forecastText({ status: 'NOT_GROWING', fullAt: null, growthBytesPerDay: -5 }, now, 'UTC')).toMatch(
+      /nie rośnie/,
+    )
+    expect(
+      forecastText({ status: 'INSUFFICIENT_DATA', fullAt: null, growthBytesPerDay: null }, now, 'UTC'),
+    ).toMatch(/co najmniej 3 dni/)
+  })
+
+  it('strona pokazuje wykresy, prognozę i brak temperatury', async () => {
+    renderPage(routes([200, HEALTH]))
+    expect(await screen.findByRole('img', { name: /Użycie procesora w %, ostatnie 24 h/ })).toBeTruthy()
+    expect(screen.getByText(/za ok\. 46 dni/)).toBeTruthy()
+    expect(screen.getByText('Parametr niedostępny na tym serwerze.')).toBeTruthy()
+    expect(screen.queryByRole('img', { name: /Temperatura/ })).toBeNull()
+  })
+
+  it('przełącza zakres', async () => {
+    const fetchFn = routes([200, HEALTH], [200, { ...METRICS, range: '7d' }])
+    renderPage(fetchFn)
+    const week = await screen.findByRole('button', { name: '7 dni' })
+    expect(screen.getByRole('button', { name: '24 h' }).getAttribute('aria-pressed')).toBe('true')
+    await userEvent.click(week)
+    expect(week.getAttribute('aria-pressed')).toBe('true')
+    expect(await screen.findByRole('img', { name: /Zajętość dysku w %, ostatnie 7 dni/ })).toBeTruthy()
+    expect(fetchFn.mock.calls.map((c) => String(c[0]))).toContain('/api/system/metrics?range=7d')
+  })
+
+  it('błąd historii nie ukrywa stanu serwera', async () => {
+    renderPage(routes([200, HEALTH], [500, {}]))
+    expect(await screen.findByRole('button', { name: 'Spróbuj ponownie' })).toBeTruthy()
+    expect(screen.getByText('Ostrzeżenie')).toBeTruthy()
   })
 })
 

@@ -61,6 +61,8 @@ export function tooltipLines(history: History, index: number, timeZone: string):
   const lines = [when, `${history.cumulative ? 'Stan licznika' : 'Średnia'}: ${formatValue(p.value, history.unit)}`]
   if (p.value !== null && p.min !== null && p.max !== null && !history.cumulative) {
     lines.push(`Min: ${formatValue(p.min, history.unit)}, max: ${formatValue(p.max, history.unit)}`)
+  } else if (p.value !== null && p.max !== null && !history.cumulative) {
+    lines.push(`Maks.: ${formatValue(p.max, history.unit)}`)
   }
   if (p.coverage !== null) lines.push(`Pokrycie danymi: ${Math.round(p.coverage * 100)}%`)
   return lines
