@@ -23,8 +23,8 @@ pytestmark = pytest.mark.skipif(
 
 SERVER_DIR = Path(__file__).resolve().parent.parent
 TABLES = (
-    "membership_sites, sites, audit_events, auth_sessions, setup_tokens, memberships, users, "
-    "organizations"
+    "devices, connections, agents, membership_sites, sites, audit_events, auth_sessions, "
+    "setup_tokens, memberships, users, organizations"
 )
 PASSWORD = "bardzo-dlugie-haslo-1"
 

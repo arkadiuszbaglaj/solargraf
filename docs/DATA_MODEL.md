@@ -25,15 +25,15 @@ Każde zapytanie o dane instalacji sprawdza członkostwo i rolę po stronie serw
 - dane opcjonalne bez ujawniania dokładnego adresu, jeśli nie jest potrzebny
 
 ### Agent
-- `id`, `organization_id`, `name`, `mode` (`LOCAL` / `REMOTE`)
+- `id`, `name`, `mode` (`LOCAL` / `REMOTE`) — komponent serwera, nie organizacji (D38, D14)
 - `version`, `last_heartbeat_at`, `enabled`
-- poświadczenie przechowywane jako skrót, z datą wydania i odwołania
+- poświadczenie przechowywane jako skrót, z datą wydania i odwołania (P3)
 
 ### Connection
 Fizyczny punkt dostępu, z którym rozmawia agent (np. logger Wi-Fi, port Modbus TCP falownika, bramka RS485).
-- `id`, `site_id`, `agent_id`
-- `transport` (`MODBUS_TCP`, `MODBUS_RTU`, `SOLARMAN_V5`, `HTTP`, `MQTT`, …)
-- parametry połączenia (host, port, unit id, numer seryjny loggera) — walidowane; sekrety oddzielnie
+- `id`, `site_id`, `agent_id` (nullable — połączenie bez przypisanego agenta nie jest odczytywane)
+- `name`, `transport` (`MODBUS_TCP`, `MODBUS_RTU`, `SOLARMAN_V5`, `HTTP`, `MQTT`)
+- parametry połączenia: `host`, `port`, `unit_id` — walidowane; sekrety (np. numer seryjny loggera Solarman) oddzielnie (P3)
 - `poll_interval_seconds`, `timeout_seconds` (domyślne z profilu)
 
 ### Device
@@ -42,7 +42,8 @@ Fizyczny punkt dostępu, z którym rozmawia agent (np. logger Wi-Fi, port Modbus
 - `manufacturer`, `model`, `firmware_version`, `serial_number` — nullable, dopóki nieznane
 - `profile_id`, `profile_version`
 - `enabled`, `last_attempt_at`, `last_success_at`, `freshness_threshold_seconds`
-- status wyliczany, a nie ręcznie ustawiany
+- status wyliczany, a nie ręcznie ustawiany (D38): `DISABLED`, `UNKNOWN`, `ERROR`, `STALE`, `OK`; bez `OFFLINE`
+- `site_id` urządzenia jest zawsze równy `site_id` jego połączenia (klucz złożony)
 
 **Urządzenie fizyczne a podurządzenie logiczne.** MPPT, BMS czy licznik podłączony do falownika po RS485 zwykle nie mają własnego połączenia w LAN — ich dane przychodzą przez to samo połączenie co falownik. Modelujemy je jako `Device` z `parent_device_id` i tym samym `connection_id`. Makieta „Urządzenia” pokazuje każde z nich z osobnym adresem IP i firmware — to nie odpowiada typowej instalacji i nie jest wymaganiem.
 
