@@ -117,6 +117,13 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: brak endpointu tworzenia urządzeń (P3 z profilami), więc w UI lista będzie pusta do czasu agenta; próg heartbeatu do potwierdzenia przy protokole agenta.
 - Następne małe zadanie: P3 — format profilu urządzenia i walidator albo widok urządzeń w UI.
 
+- Etap: P3.1 — format profilu urządzenia i walidator.
+- Zmiany: pakiet `solargraf-profiles` (`profiles-schema/`): katalog metryk kanonicznych z jednostkami i konwencją znaków, model profilu (Pydantic, ścisłe typy), wczytywanie YAML (`safe_load`, zduplikowane klucze odrzucane), CLI `solargraf-profiles validate`; serwer bierze `DeviceKind`/`Transport` z katalogu; profil testowy `simulated.hybrid-inverter` (SIMULATED, EXPERIMENTAL).
+- Testy uruchomione i wyniki: lokalnie pytest 138 passed (testy z bazą w CI), ruff, mypy --strict, kontrola licencji (PyYAML MIT).
+- Decyzje zatwierdzone: D39.
+- Ryzyka / rzeczy nieweryfikowane: brak prawdziwego profilu sprzętowego — czeka na O2 i dokumentację Modbus producenta; reguły poziomu COMMUNITY doprecyzujemy przy symulatorze.
+- Następne małe zadanie: symulator Modbus generowany z profilu albo pierwszy profil sprzętowy (po O2).
+
 ## Szablon kolejnego wpisu
 
 - Data:

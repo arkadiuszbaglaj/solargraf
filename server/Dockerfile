@@ -13,6 +13,7 @@ WORKDIR /src
 COPY pyproject.toml uv.lock .python-version ./
 COPY server ./server
 COPY agent ./agent
+COPY profiles-schema ./profiles-schema
 RUN uv sync --locked --no-dev --no-editable --package solargraf-server
 
 FROM python:3.12-slim-trixie AS runtime
