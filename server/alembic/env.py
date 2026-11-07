@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from logging.config import fileConfig
 
 from alembic import context
@@ -20,8 +21,18 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+# Partycje tabeli measurements (D42) tworzy migracja; nie są modelami ORM.
+_PARTITION = re.compile(r"^measurements_(y\d{4}m\d{2}|default)$")
+
+
+def _include_name(name: str | None, type_: str, parent_names: object) -> bool:
+    return not (type_ == "table" and name is not None and _PARTITION.match(name))
+
+
 def _run(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection, target_metadata=target_metadata, include_name=_include_name
+    )
     with context.begin_transaction():
         context.run_migrations()
 

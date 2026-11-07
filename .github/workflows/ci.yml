@@ -206,6 +206,9 @@ jobs:
           curl -fsS --cacert "$ca" "https://$addr/" | grep -q '<div id="root">'
           test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost/)" = "308"
           test "$(curl -s -o /dev/null -w '%{http_code}' --cacert "$ca" https://localhost/api/docs)" = "404"
+          # Endpointy agenta niedostępne przez proxy (D42) — także z poprawnym kształtem żądania.
+          test "$(curl -s -o /dev/null -w '%{http_code}' --cacert "$ca" https://localhost/api/agent/config)" = "404"
+          test "$(curl -s -o /dev/null -w '%{http_code}' --cacert "$ca" -X POST -H 'Authorization: Bearer x' https://localhost/api/agent/batches)" = "404"
       - name: Tylko proxy wystawia porty
         run: |
           for svc in db api; do

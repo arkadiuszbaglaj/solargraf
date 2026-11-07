@@ -14,21 +14,39 @@ from solargraf_server.models.devices import (
 )
 from solargraf_server.models.orgs import Membership, Organization, Role, User
 from solargraf_server.models.sites import DEFAULT_TIMEZONE, MembershipSite, Site
+from solargraf_server.models.telemetry import (
+    NO_CHANNEL,
+    AgentBatch,
+    Measurement,
+    MeasurementOrigin,
+    PollErrorCode,
+    PollingRun,
+    Quality,
+    RunResult,
+)
 
 __all__ = [
     "DEFAULT_FRESHNESS_THRESHOLD_S",
     "DEFAULT_TIMEZONE",
+    "NO_CHANNEL",
     "Agent",
+    "AgentBatch",
     "AgentMode",
     "AuditEvent",
     "Base",
     "Connection",
     "Device",
     "DeviceKind",
+    "Measurement",
+    "MeasurementOrigin",
     "Membership",
     "MembershipSite",
     "Organization",
+    "PollErrorCode",
+    "PollingRun",
+    "Quality",
     "Role",
+    "RunResult",
     "SetupToken",
     "Site",
     "Transport",

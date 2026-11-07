@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from solargraf_server import __version__
+from solargraf_server.agent_api import router as agent_router
 from solargraf_server.auth.router import router as auth_router
 from solargraf_server.config import Settings
 from solargraf_server.db import create_engine, create_sessionmaker, database_ready
@@ -56,6 +57,7 @@ def create_app(settings: Settings, readiness_check: ReadinessCheck | None = None
     app.include_router(auth_router)
     app.include_router(sites_router)
     app.include_router(devices_router)
+    app.include_router(agent_router)
     return app
 
 

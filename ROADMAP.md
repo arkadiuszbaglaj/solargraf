@@ -32,7 +32,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 ## P2 — Model domenowy, wiele instalacji i API
 
 - [ ] Encje z `docs/DATA_MODEL.md`: Organization, User, Membership, Site, Agent, Connection, Device, DeviceProfile, MetricDefinition, Measurement, PollingRun, Alarm, AuditEvent.
-- [ ] Partycjonowanie tabeli pomiarów po czasie.
+- [x] Partycjonowanie tabeli pomiarów po czasie — miesięczne partycje na 24 miesiące + domyślna (D42); kolejne partycje i retencja w P4.
 - [x] Uwierzytelnianie, sesje i role (O6 → D29–D32) — P2.1; autoryzacja per instalacja (D33) — P2.2.
 - [x] Testy izolacji danych między organizacjami (instalacje; kolejne zasoby dopisują własne przypadki).
 - [ ] Endpointy odczytu dashboardu, urządzeń, pomiarów i alarmów; OpenAPI i typy dla frontendu. Zrobione: Agent, Connection, Device i `GET /api/sites/{id}/devices` ze statusem wyliczanym (D38) — P2.3.
@@ -44,7 +44,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 
 - [x] Format profilu urządzenia i jego walidator (źródło dowodu, status, poziom wsparcia) — P3.1, D39.
 - [ ] Agent w trybie lokalnym: harmonogram, jedno połączenie na urządzenie, timeouty, retry z backoff, bufor offline. Zrobione: odczyt Modbus TCP z blokami, timeoutami, ponawianiem i `PollingRun` (D41) — P3.3; bufor offline z komunikacją w P3.4.
-- [ ] Protokół agent ↔ serwer: partie z identyfikatorem, heartbeat, poświadczenie agenta.
+- [ ] Protokół agent ↔ serwer: partie z identyfikatorem, heartbeat, poświadczenie agenta. Zrobione: strona serwera (D42) — P3.4; pętla agenta i bufor offline — P3.5.
 - [ ] Sterowniki: Modbus TCP, SunSpec, Solarman V5.
 - [ ] Generator symulatora z profilu + profile czasowe PVGIS; wstrzykiwanie błędów. Zrobione: symulator Modbus TCP z profilu, prosty model wartości i wstrzykiwanie błędów (D40) — P3.2; PVGIS później.
 - [ ] Pierwsze profile: ogólny SunSpec oraz pierwszy sprzęt z O2.

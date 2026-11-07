@@ -27,8 +27,9 @@ pytestmark = pytest.mark.skipif(
 SERVER_DIR = Path(__file__).resolve().parent.parent
 PASSWORD = "haslo-testowe-izolacji"
 TABLES = (
-    "devices, connections, agents, membership_sites, sites, audit_events, auth_sessions, "
-    "setup_tokens, memberships, users, organizations"
+    "measurements, polling_runs, agent_batches, devices, connections, agents, "
+    "membership_sites, sites, audit_events, auth_sessions, setup_tokens, memberships, users, "
+    "organizations"
 )
 
 type AsUser = Callable[[str], tuple[TestClient, str]]
@@ -237,9 +238,10 @@ def _seed_devices(world: World) -> None:
     """Agent z świeżym heartbeatem, po jednym połączeniu i urządzeniu w A1 i B1."""
     agent = uuid.uuid4()
     _sql(
-        "INSERT INTO agents (id, name, mode, enabled, last_heartbeat_at) "
-        "VALUES (:id, 'agent', 'LOCAL', true, now())",
+        "INSERT INTO agents (id, name, mode, token_hash, enabled, last_heartbeat_at) "
+        "VALUES (:id, 'agent', 'LOCAL', :h, true, now())",
         id=agent,
+        h="0" * 64,
     )
     for site, name in ((world.a1, "Falownik A1"), (world.b1, "Falownik B1")):
         conn = uuid.uuid4()
