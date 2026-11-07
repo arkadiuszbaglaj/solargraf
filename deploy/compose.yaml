@@ -2,6 +2,7 @@
 # deploy/install.sh, który tworzy plik .env (sekrety, uprawnienia 600) w katalogu instalacji.
 # Na hosta wystawione tylko proxy (80 → przekierowanie, 443). Baza, API i agent tylko w sieci
 # Compose; agent łączy się z urządzeniami w LAN przez sieć mostkową Dockera.
+# Opcjonalny symulator (D45, profil `symulator`) włącza `sudo solargraf simulator on`.
 name: solargraf
 
 x-db-env: &db-env
@@ -99,6 +100,17 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    restart: unless-stopped
+
+  # Tylko do testów — dane SIMULATED (D45). Bez portu na hoście; agent: simulator:5020.
+  simulator:
+    profiles: [symulator]
+    build:
+      context: ..
+      dockerfile: simulator/Dockerfile
+    image: solargraf-simulator:local
+    labels: *labels
+    <<: *hardening
     restart: unless-stopped
 
 volumes:

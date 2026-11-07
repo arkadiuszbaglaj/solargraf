@@ -241,6 +241,43 @@ jobs:
             -d '{"email":"ci@example.pl","password":"ci-instalator-haslo-1"}' https://localhost/api/auth/login >/dev/null
           grep -q 'sg_session' jar.txt
           test "$(curl -fsS --cacert "$ca" -b jar.txt https://localhost/api/sites)" = "[]"
+      - name: Symulator (D45) — symulator → agent → API → baza → status OK, potem off
+        run: |
+          ca="$DIR/solargraf-ca.crt"
+          compose() { sudo docker compose -p solargraf -f "$DIR/src/deploy/compose.yaml" --env-file "$DIR/.env" --profile symulator "$@"; }
+          sudo solargraf simulator on | tee sim-on.txt
+          grep -q 'adres: simulator, port: 5020' sim-on.txt
+          id="$(docker ps -q --filter label=com.docker.compose.project=solargraf --filter label=com.docker.compose.service=simulator)"
+          test -n "$id"
+          test -z "$(docker port "$id")"
+          test "$(compose exec -T simulator id -u)" = "10001"
+          csrf="$(curl -fsS --cacert "$ca" -c sim-jar.txt -H 'Content-Type: application/json' \
+            -d '{"email":"ci@example.pl","password":"ci-instalator-haslo-1"}' https://localhost/api/auth/login | jq -r .csrf_token)"
+          org="$(curl -fsS --cacert "$ca" -b sim-jar.txt https://localhost/api/auth/me | jq -r '.memberships[0].organization_id')"
+          site="$(curl -fsS --cacert "$ca" -b sim-jar.txt -H "X-CSRF-Token: $csrf" -H 'Content-Type: application/json' \
+            -d "$(jq -n --arg o "$org" '{organization_id:$o, name:"Test symulatora"}')" https://localhost/api/sites | jq -r .id)"
+          body='{"name":"Symulator","host":"simulator","port":5020,"device":{"name":"Falownik (SIMULATED)","profile_id":"simulated.hybrid-inverter","profile_version":"0.1.0"}}'
+          test "$(curl -s -o /dev/null -w '%{http_code}' --cacert "$ca" -b sim-jar.txt -H "X-CSRF-Token: $csrf" \
+            -H 'Content-Type: application/json' -d "$body" "https://localhost/api/sites/$site/connections")" = "201"
+          # Agent pobiera konfigurację co 60 s, odczyt co 10 s.
+          for i in $(seq 1 36); do
+            status="$(curl -fsS --cacert "$ca" -b sim-jar.txt "https://localhost/api/sites/$site/devices" | jq -r '.[0].status')"
+            echo "status: $status"
+            [ "$status" = "OK" ] && break
+            if [ "$i" -eq 36 ]; then compose logs --no-color agent simulator; exit 1; fi
+            sleep 5
+          done
+          simulated="$(compose exec -T db psql -U solargraf -d solargraf -tAc "SELECT count(*) FROM measurements WHERE origin = 'SIMULATED'")"
+          other="$(compose exec -T db psql -U solargraf -d solargraf -tAc "SELECT count(*) FROM measurements WHERE origin <> 'SIMULATED'")"
+          echo "pomiary SIMULATED: $simulated, inne: $other"
+          test "$simulated" -gt 0
+          test "$other" = "0"
+          sudo solargraf status > sim-status.txt
+          grep -q 'Symulator (SIMULATED): włączony' sim-status.txt
+          sudo solargraf simulator off
+          test -z "$(docker ps -aq --filter label=com.docker.compose.project=solargraf --filter label=com.docker.compose.service=simulator)"
+          if sudo grep -q '^SOLARGRAF_SIMULATOR=' "$DIR/.env"; then echo 'Niespełniony warunek'; exit 1; fi
+          if sudo solargraf simulator start; then echo 'Niespełniony warunek'; exit 1; fi
       - name: Ponowna instalacja zachowuje sekrety i dane
         run: |
           before="$(sudo sha256sum "$DIR/.env" | cut -d' ' -f1)"

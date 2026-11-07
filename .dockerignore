@@ -5,13 +5,14 @@
 !server/
 !agent/
 !profiles-schema/
-!simulator/pyproject.toml
+!simulator/
 !profiles/
 !web/
 !deploy/proxy/
 server/tests/
 agent/tests/
 profiles-schema/tests/
+simulator/tests/
 **/__pycache__/
 **/.venv/
 web/node_modules/
