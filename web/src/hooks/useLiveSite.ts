@@ -20,6 +20,11 @@ export type LiveState =
       readings: ReadingMap
     }
 
+export interface LiveSite {
+  state: LiveState
+  retry: () => void
+}
+
 /** Po zamknięciu strumienia (np. API niedostępne, 502 z proxy) nowa próba po tym czasie. */
 export const RECONNECT_MS = 10_000
 
@@ -32,7 +37,7 @@ export const RECONNECT_MS = 10_000
 export function useLiveSite(
   siteId: string,
   factory: LiveSourceFactory = browserLiveSource,
-): { state: LiveState; retry: () => void } {
+): LiveSite {
   const [attempt, setAttempt] = useState(0)
   // Stan należy do konkretnego połączenia; nowa instalacja albo ponowienie zaczyna od „connecting”.
   const key = `${siteId}#${attempt}`

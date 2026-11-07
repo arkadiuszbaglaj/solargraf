@@ -11,6 +11,7 @@
   align-items: start;
 }
 
+.flow,
 .chart,
 .side {
   display: flex;
@@ -19,8 +20,43 @@
   min-width: 0;
 }
 
+/* Z diagramem przepływu (D54): przepływ | wykres | urządzenia i alarmy, jak na makiecie. */
+.withFlow {
+  grid-template-columns: minmax(18rem, 1fr) minmax(0, 2fr) minmax(16rem, 1fr);
+  grid-template-areas: 'flow chart side';
+}
+
+.withFlow .flow {
+  grid-area: flow;
+}
+
+.withFlow .chart {
+  grid-area: chart;
+}
+
+.withFlow .side {
+  grid-area: side;
+}
+
+@media (max-width: 1499px) {
+  .withFlow {
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 1fr);
+    grid-template-areas:
+      'flow side'
+      'chart chart';
+  }
+}
+
 @media (max-width: 1099px) {
-  .grid {
+  .grid,
+  .withFlow {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: none;
+  }
+
+  .withFlow .flow,
+  .withFlow .chart,
+  .withFlow .side {
+    grid-area: auto;
   }
 }
