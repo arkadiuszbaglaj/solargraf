@@ -1,17 +1,10 @@
-import { AlertTriangle, Info, OctagonAlert, type LucideIcon } from 'lucide-react'
 import { Panel } from '../components/Panel'
 import { WidgetState, type WidgetStatus } from '../components/WidgetState'
 import { useDataSource } from '../data/DataSourceContext'
-import type { AlarmSeverity } from '../data/types'
 import { useAsync } from '../hooks/useAsync'
 import { formatDateTime } from '../lib/format'
+import { SEVERITY } from './alarmSeverity'
 import styles from './List.module.css'
-
-const SEVERITY: Record<AlarmSeverity, { label: string; icon: LucideIcon; className: string }> = {
-  CRITICAL: { label: 'Krytyczny', icon: OctagonAlert, className: styles.critical ?? '' },
-  WARNING: { label: 'Ostrzeżenie', icon: AlertTriangle, className: styles.warning ?? '' },
-  INFO: { label: 'Informacja', icon: Info, className: styles.info ?? '' },
-}
 
 export function AlarmsWidget({ siteId, timeZone }: { siteId: string; timeZone: string }) {
   const source = useDataSource()

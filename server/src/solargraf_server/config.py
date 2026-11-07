@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     retention_raw_days: int = Field(default=90, ge=30, le=3650)
     retention_m5_days: int = Field(default=730, ge=90, le=3650)
     retention_runs_days: int = Field(default=90, ge=30, le=3650)
+    # Alarmy zamknięte dawniej niż tyle dni są usuwane; otwarte nigdy (D55).
+    retention_alarms_days: int = Field(default=365, ge=30, le=3650)
     partition_months_ahead: int = Field(default=12, ge=2, le=36)
 
     def database_url(self) -> URL:

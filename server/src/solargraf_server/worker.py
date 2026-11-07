@@ -1,4 +1,4 @@
-"""Usługa ``solargraf-worker`` — przeliczanie agregatów (D46).
+"""Usługa ``solargraf-worker`` — przeliczanie agregatów (D46) i reguły alarmów (D55).
 
 Worker nie łączy się z urządzeniami; czyta tylko bazę. Co ``INTERVAL_S`` sekund pobiera godziny
 oznaczone przy przyjęciu partii (``aggregate_dirty``), przelicza dla nich agregaty 5 min i 1 h
@@ -20,6 +20,7 @@ from sqlalchemy import delete, insert, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from solargraf_server import alarm_rules
 from solargraf_server.aggregation import (
     H1,
     M5,
@@ -248,6 +249,7 @@ async def run(settings: Settings, interval_s: float = INTERVAL_S) -> None:
         m5_days=settings.retention_m5_days,
         runs_days=settings.retention_runs_days,
         months_ahead=settings.partition_months_ahead,
+        alarms_days=settings.retention_alarms_days,
     )
     log.info("Worker agregatów uruchomiony (co %ss)", interval_s)
     maintenance_at = datetime.now(UTC)  # przy starcie, potem codziennie o 03:00 UTC
@@ -268,6 +270,13 @@ async def run(settings: Settings, interval_s: float = INTERVAL_S) -> None:
             except (SQLAlchemyError, OSError) as exc:
                 # Szczegóły połączenia nie trafiają do logu; ponowienie w kolejnym cyklu.
                 log.warning("Cykl agregatów nieudany: %s", type(exc).__name__)
+            try:
+                async with maker() as db:
+                    changes = await alarm_rules.evaluate(db, datetime.now(UTC))
+                if changes.opened or changes.closed:
+                    log.info("Alarmy: otwarte %d, zamknięte %d", changes.opened, changes.closed)
+            except (SQLAlchemyError, OSError) as exc:
+                log.warning("Sprawdzenie alarmów nieudane: %s", type(exc).__name__)
             await asyncio.sleep(interval_s)
     finally:
         await engine.dispose()

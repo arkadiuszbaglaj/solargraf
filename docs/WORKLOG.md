@@ -237,6 +237,13 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: na serwerze z symulatorem bilans domyka się z definicji (sieć = dom − PV − bateria); prawdziwy sprzęt może częściej pokazywać „bilans się nie domyka”.
 - Następne małe zadanie: P5 — alarmy.
 
+- Etap: P5.5 — alarmy instalacji.
+- Zmiany: model `Alarm` i migracja 0007; `alarm_rules.py` (warunki ze statusów, histereza, wywołanie w `worker`); `alarms_api.py` (lista, potwierdzanie z audytem); retencja zamkniętych alarmów w `maintenance.py` i `SOLARGRAF_RETENTION_ALARMS_DAYS` w Compose; UI: `api/alarms.ts`, `widgets/SiteAlarmsPanel.tsx` zamiast „dostępne wkrótce”, wspólne `widgets/alarmSeverity.ts`.
+- Testy uruchomione i wyniki: lokalnie pytest server 151 passed (testy z bazą — reguły w bazie, uprawnienia, CSRF, audyt, histereza, retencja, `alembic check` — w CI), ruff, mypy --strict; web: tsc, oxlint, vitest 217 passed. Przeglądarka: atrapa API (SIMULATED) — lista, czasy w strefie instalacji, potwierdzenie, telefon bez poziomego przewijania.
+- Decyzje zatwierdzone: D55.
+- Ryzyka / rzeczy nieweryfikowane: na serwerze testowym — wyłączenie symulatora powinno otworzyć „Dane nieaktualne” po progu świeżości (300 s) + do 60 s; zamknięcie ok. 2 min po powrocie danych.
+- Następne małe zadanie: test alarmów na serwerze, potem szczegóły PV/baterii/sieci albo eksport CSV.
+
 ## Szablon kolejnego wpisu
 
 - Data:

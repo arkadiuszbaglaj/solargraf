@@ -1,5 +1,6 @@
 """Modele ORM. Import tego pakietu rejestruje wszystkie tabele w ``Base.metadata``."""
 
+from solargraf_server.models.alarms import Alarm, AlarmCode, AlarmSeverity
 from solargraf_server.models.audit import AuditEvent
 from solargraf_server.models.auth import SetupToken, UserSession
 from solargraf_server.models.base import Base
@@ -37,6 +38,9 @@ __all__ = [
     "AgentMode",
     "Aggregate",
     "AggregateDirty",
+    "Alarm",
+    "AlarmCode",
+    "AlarmSeverity",
     "AuditEvent",
     "Base",
     "Connection",

@@ -7,6 +7,7 @@ import sys
 import uuid
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -14,10 +15,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
+from solargraf_server import alarm_rules
 from solargraf_server.auth.passwords import hash_password
 from solargraf_server.config import Settings
 from solargraf_server.db import create_engine, create_sessionmaker
 from solargraf_server.main import create_app
+from solargraf_server.maintenance import Retention, apply_retention
 from solargraf_server.models import Membership, MembershipSite, Organization, Role, Site, User
 
 pytestmark = pytest.mark.skipif(
@@ -27,7 +30,7 @@ pytestmark = pytest.mark.skipif(
 SERVER_DIR = Path(__file__).resolve().parent.parent
 PASSWORD = "haslo-testowe-izolacji"
 TABLES = (
-    "aggregates, aggregate_dirty, measurements, polling_runs, agent_batches, devices, "
+    "alarms, aggregates, aggregate_dirty, measurements, polling_runs, agent_batches, devices, "
     "connections, agents, "
     "membership_sites, sites, audit_events, auth_sessions, setup_tokens, memberships, users, "
     "organizations"
@@ -566,3 +569,152 @@ class TestDeviceWrites:
         assert profile["id"] == "simulated.hybrid-inverter"
         assert profile["origin"] == "SIMULATED"
         assert "points" not in profile
+
+
+# --- alarmy (D55) ---
+
+
+def _evaluate_alarms() -> tuple[int, int]:
+    async def go() -> tuple[int, int]:
+        engine = create_engine(Settings())  # type: ignore[call-arg]
+        try:
+            async with create_sessionmaker(engine)() as db:
+                changes = await alarm_rules.evaluate(db, datetime.now(UTC))
+                return changes.opened, changes.closed
+        finally:
+            await engine.dispose()
+
+    return asyncio.run(go())
+
+
+def _retention(now: datetime) -> dict[str, int]:
+    async def go() -> dict[str, int]:
+        engine = create_engine(Settings())  # type: ignore[call-arg]
+        try:
+            async with create_sessionmaker(engine)() as db:
+                policy = Retention(raw_days=90, m5_days=730, runs_days=90, months_ahead=2)
+                return (await apply_retention(db, now, policy)).deleted
+        finally:
+            await engine.dispose()
+
+    return asyncio.run(go())
+
+
+def _stale(world: World) -> None:
+    _sql(
+        "UPDATE devices SET last_attempt_at = now() - interval '1 hour', "
+        "last_success_at = now() - interval '1 hour' WHERE site_id = :s",
+        s=world.a1,
+    )
+
+
+class TestAlarms:
+    def test_stale_device_opens_alarm_visible_only_in_its_site(
+        self, world: World, as_user: AsUser
+    ) -> None:
+        _seed_devices(world)
+        assert _evaluate_alarms() == (0, 0)
+        _stale(world)
+        assert _evaluate_alarms() == (1, 0)
+        assert _evaluate_alarms() == (0, 0)  # kolejne wykrycie tylko odświeża
+        c, _ = as_user("owner_a")
+        body = c.get(f"/api/sites/{world.a1}/alarms").json()
+        assert body["can_acknowledge"] is True
+        [alarm] = body["alarms"]
+        assert (alarm["code"], alarm["severity"], alarm["title"]) == (
+            "DEVICE_STALE",
+            "WARNING",
+            "Dane nieaktualne: Falownik A1",
+        )
+        assert alarm["closed_at"] is None
+        assert alarm["last_ok_at"] is not None  # czas ostatniego odczytu jako pole, nie tekst
+        assert alarm["acknowledged_at"] is None
+        assert "logger.lan" not in str(body)  # bez adresów urządzeń
+        v, _ = as_user("scoped_viewer_a")
+        seen = v.get(f"/api/sites/{world.a1}/alarms").json()
+        assert (len(seen["alarms"]), seen["can_acknowledge"]) == (1, False)
+        b, _ = as_user("owner_b")
+        assert b.get(f"/api/sites/{world.a1}/alarms").status_code == 404
+        assert b.get(f"/api/sites/{world.b1}/alarms").json()["alarms"] == []
+
+    def test_acknowledge_by_role_with_csrf_and_audit(self, world: World, as_user: AsUser) -> None:
+        _seed_devices(world)
+        _stale(world)
+        _evaluate_alarms()
+        [(alarm_id,)] = _sql("SELECT id FROM alarms")
+        url = f"/api/sites/{world.a1}/alarms/{alarm_id}/acknowledge"
+        v, v_csrf = as_user("scoped_viewer_a")
+        assert v.post(url, headers=_headers(v_csrf)).status_code == 403
+        o, o_csrf = as_user("owner_a")
+        assert o.post(url).status_code == 403  # bez CSRF
+        resp = o.post(url, headers=_headers(o_csrf))
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["acknowledged_by"] == "owner_a"
+        assert resp.json()["closed_at"] is None  # potwierdzenie nie zamyka
+        a, a_csrf = as_user("admin_a")
+        again = a.post(url, headers=_headers(a_csrf)).json()
+        assert (again["acknowledged_by"], again["acknowledged_at"]) == (
+            "owner_a",
+            resp.json()["acknowledged_at"],
+        )
+        assert _sql("SELECT count(*) FROM audit_events WHERE action = 'ALARM_ACKNOWLEDGED'") == [
+            (1,)
+        ]
+        b, b_csrf = as_user("owner_b")
+        foreign = b.post(url, headers=_headers(b_csrf))
+        other_site = o.post(
+            f"/api/sites/{world.a2}/alarms/{alarm_id}/acknowledge", headers=_headers(o_csrf)
+        )
+        assert foreign.status_code == other_site.status_code == 404
+
+    def test_alarm_closes_after_two_clear_checks_and_stays_listed(
+        self, world: World, as_user: AsUser
+    ) -> None:
+        _seed_devices(world)
+        _stale(world)
+        _evaluate_alarms()
+        _sql("UPDATE devices SET last_attempt_at = now(), last_success_at = now()")
+        assert _evaluate_alarms() == (0, 0)  # histereza: jeszcze otwarty
+        assert _evaluate_alarms() == (0, 1)
+        c, _ = as_user("owner_a")
+        [alarm] = c.get(f"/api/sites/{world.a1}/alarms").json()["alarms"]
+        assert alarm["closed_at"] is not None
+        _stale(world)
+        assert _evaluate_alarms() == (1, 0)  # nowy alarm, zamknięty zostaje w historii
+        listed = c.get(f"/api/sites/{world.a1}/alarms").json()["alarms"]
+        assert [a["closed_at"] is None for a in listed] == [True, False]  # otwarte najpierw
+
+    def test_unreachable_agent_replaces_device_alarms_per_site(
+        self, world: World, as_user: AsUser
+    ) -> None:
+        _seed_devices(world)
+        _stale(world)
+        _sql("UPDATE agents SET last_heartbeat_at = now() - interval '1 hour'")
+        assert _evaluate_alarms() == (2, 0)  # po jednym w A1 i B1, bez alarmów urządzeń
+        c, _ = as_user("owner_a")
+        [alarm] = c.get(f"/api/sites/{world.a1}/alarms").json()["alarms"]
+        assert (alarm["code"], alarm["severity"], alarm["device_id"]) == (
+            "AGENT_UNREACHABLE",
+            "CRITICAL",
+            None,
+        )
+
+    def test_retention_removes_only_old_closed_alarms(self, world: World) -> None:
+        _seed_devices(world)
+        for days in (400, 10, None):
+            _sql(
+                "INSERT INTO alarms (id, site_id, subject, code, severity, title, rule_version, "
+                "opened_at, last_seen_at, closed_at, clear_count) VALUES (:id, :s, :subj, "
+                "'DEVICE_STALE', 'WARNING', 't', 1, now() - interval '500 days', "
+                "now() - interval '500 days', now() - make_interval(days => :d), 0)",
+                id=uuid.uuid4(),
+                s=world.a1,
+                subj=f"device:{uuid.uuid4()}",
+                d=days,
+            )
+        assert _retention(datetime.now(UTC))["alarms"] == 1
+        assert _sql("SELECT count(*) FROM alarms") == [(2,)]
+
+    def test_requires_login(self, world: World) -> None:
+        with TestClient(create_app(Settings()), base_url="https://testserver") as c:  # type: ignore[call-arg]
+            assert c.get(f"/api/sites/{world.a1}/alarms").status_code == 401

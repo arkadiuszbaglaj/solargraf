@@ -132,9 +132,12 @@ def test_schema_compiles_for_postgresql_with_conventional_names() -> None:
         "measurements",
         "aggregates",
         "aggregate_dirty",
+        "alarms",
     }
     assert "CONSTRAINT uq_users_email UNIQUE (email)" in ddl["users"]
     assert "CONSTRAINT ck_memberships_role CHECK" in ddl["memberships"]
+    assert "CONSTRAINT ck_alarms_severity CHECK" in ddl["alarms"]
+    assert "CONSTRAINT fk_alarms_site_id_sites FOREIGN KEY" in ddl["alarms"]
     assert "TIMESTAMP WITH TIME ZONE" in ddl["auth_sessions"]
     # Sesja nie przechowuje samego tokenu — tylko skrót.
     assert "token_hash" in ddl["auth_sessions"]

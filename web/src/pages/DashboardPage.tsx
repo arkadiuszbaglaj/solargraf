@@ -1,6 +1,4 @@
 import { getSiteEnergy, type SiteEnergy } from '../api/energy'
-import { Panel } from '../components/Panel'
-import { WidgetState } from '../components/WidgetState'
 import { useDataSource } from '../data/DataSourceContext'
 import type { Site } from '../data/types'
 import { useLiveSite } from '../hooks/useLiveSite'
@@ -13,11 +11,10 @@ import { EnergyChartWidget } from '../widgets/EnergyChartWidget'
 import { EnergyFlowPanel } from '../widgets/EnergyFlowPanel'
 import { KpiRow } from '../widgets/KpiRow'
 import { LiveKpiRow } from '../widgets/LiveKpiRow'
+import { SiteAlarmsPanel } from '../widgets/SiteAlarmsPanel'
 import { SiteDevicesPanel } from '../widgets/SiteDevicesPanel'
 import { TodayPowerChart } from '../widgets/TodayPowerChart'
 import styles from './DashboardPage.module.css'
-
-const SOON = { kind: 'empty', message: 'Dostępne wkrótce.' } as const
 
 async function loadToday(site: Site, now: Date, signal: AbortSignal): Promise<SiteEnergy> {
   const range = { from: startOfLocalDay(now, site.timezone), to: now }
@@ -28,7 +25,7 @@ async function loadToday(site: Site, now: Date, signal: AbortSignal): Promise<Si
 
 /**
  * Dashboard z API: wartości na żywo (D50), energia dziś (D51), urządzenia i agenci (D52),
- * przepływ energii (D54). Jeden strumień SSE dla kart i diagramu.
+ * przepływ energii (D54), alarmy (D55). Jeden strumień SSE dla kart i diagramu.
  */
 function LiveDashboard({ site }: { site: Site }) {
   const live = useLiveSite(site.id)
@@ -47,9 +44,7 @@ function LiveDashboard({ site }: { site: Site }) {
         </div>
         <div className={styles.side}>
           <SiteDevicesPanel siteId={site.id} />
-          <Panel title="Alarmy">
-            <WidgetState status={SOON} />
-          </Panel>
+          <SiteAlarmsPanel siteId={site.id} timeZone={site.timezone} />
         </div>
       </div>
     </div>
