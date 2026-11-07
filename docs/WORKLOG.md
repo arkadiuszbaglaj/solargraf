@@ -260,7 +260,9 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Zmiany: `server/.../export.py` (endpoint strumieniowany, limity, audyt `DATA_EXPORTED`, ochrona przed formułami), `web/src/api/export.ts`, `pages/DeviceCsvExport.tsx` na stronie historii.
 - Testy uruchomione i wyniki: ruff, mypy --strict, pytest 157 (bez bazy; testy integracyjne eksportu w CI), oxlint, tsc, Vitest 235; podgląd na mocku: pobranie pliku, komunikat limitu, blokada surowych dla roku, wąski ekran.
 - Ryzyka / rzeczy nieweryfikowane: duży eksport (500 000 wierszy) nie mierzony pod kątem czasu i pamięci na RPi; plik trzymany w pamięci przeglądarki przed zapisem.
-- Następne małe zadanie: test eksportu na serwerze, potem P6 albo eksport energii.
+- Serwer testowy: plik 5 min za dobę zgodny z D57 (BOM, CRLF, `;`, przecinek dziesiętny, 10 metryk × 288 przedziałów, puste pola tylko przy pokryciu 0, zmierzone zera z pokryciem > 0, SIMULATED). Wpis audytu nie sprawdzony (wymaga sudo).
+- Decyzja właściciela: liczby w CSV z pełną precyzją, bez zaokrąglania.
+- Następne małe zadanie: P6 albo eksport energii i KPI.
 
 ## Szablon kolejnego wpisu
 
