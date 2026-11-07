@@ -4,7 +4,12 @@
 !.python-version
 !server/
 !agent/
+!web/
+!deploy/proxy/
 server/tests/
 agent/tests/
 **/__pycache__/
 **/.venv/
+web/node_modules/
+web/dist/
+web/coverage/

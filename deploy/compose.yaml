@@ -1,0 +1,90 @@
+# Produkcja (D34): db + migrate + api + proxy. Uruchamia instalator deploy/install.sh,
+# który tworzy plik .env (sekrety, uprawnienia 600) w katalogu instalacji.
+# Na hosta wystawione tylko proxy (80 → przekierowanie, 443). Baza i API tylko w sieci Compose.
+name: solargraf
+
+x-db-env: &db-env
+  SOLARGRAF_DB_HOST: db
+  SOLARGRAF_DB_PORT: "5432"
+  SOLARGRAF_DB_NAME: solargraf
+  SOLARGRAF_DB_USER: solargraf
+  SOLARGRAF_DB_PASSWORD: ${SOLARGRAF_DB_PASSWORD:?Brak SOLARGRAF_DB_PASSWORD w .env}
+
+x-hardening: &hardening
+  read_only: true
+  tmpfs: [/tmp]
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+
+x-labels: &labels
+  com.solargraf.product: solargraf
+
+services:
+  db:
+    image: postgres:18-trixie
+    labels: *labels
+    environment:
+      POSTGRES_DB: solargraf
+      POSTGRES_USER: solargraf
+      POSTGRES_PASSWORD: ${SOLARGRAF_DB_PASSWORD:?Brak SOLARGRAF_DB_PASSWORD w .env}
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U solargraf -d solargraf"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    image: solargraf-api:local
+    labels: *labels
+    command: ["alembic", "upgrade", "head"]
+    environment: *db-env
+    <<: *hardening
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    image: solargraf-api:local
+    labels: *labels
+    environment: *db-env
+    <<: *hardening
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  proxy:
+    build:
+      context: ..
+      dockerfile: deploy/proxy/Dockerfile
+    image: solargraf-proxy:local
+    labels: *labels
+    environment:
+      SOLARGRAF_SITE_ADDRESSES: ${SOLARGRAF_SITE_ADDRESSES:?Brak SOLARGRAF_SITE_ADDRESSES w .env}
+    <<: *hardening
+    cap_add: [NET_BIND_SERVICE]
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  db-data:
+    labels: *labels
+  caddy-data:
+    labels: *labels
+  caddy-config:
+    labels: *labels

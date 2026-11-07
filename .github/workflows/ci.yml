@@ -130,3 +130,92 @@ jobs:
       - name: Sprzątanie
         if: always()
         run: docker compose -f deploy/compose.dev.yaml down -v
+
+  installer:
+    name: Instalator — ShellCheck, dry-run, instalacja, link konfiguracji
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash # -eo pipefail
+    env:
+      DIR: /opt/solargraf
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: ShellCheck (narzędzie tylko w CI, GPL-3.0 — patrz COMPLIANCE.md)
+        run: shellcheck deploy/install.sh tools/make-bundle.sh
+      - name: Paczka z git archive
+        run: |
+          ./tools/make-bundle.sh
+          mkdir -p /tmp/bundle && tar -xzf dist/solargraf-*.tar.gz -C /tmp/bundle
+          test -x /tmp/bundle/solargraf/deploy/install.sh
+          test -s /tmp/bundle/solargraf/VERSION
+          if grep -rl $'\r' /tmp/bundle/solargraf/deploy; then echo 'Niespełniony warunek'; exit 1; fi
+      - name: --dry-run na czystych systemach (Debian 12/13, Ubuntu 24.04)
+        run: |
+          for img in debian:12 debian:13 ubuntu:24.04; do
+            echo "::group::$img"
+            docker run --rm -v /tmp/bundle/solargraf:/src:ro "$img" bash /src/deploy/install.sh install --dry-run
+            echo "::endgroup::"
+          done
+      - name: --dry-run niczego nie zmienia
+        run: |
+          sudo /tmp/bundle/solargraf/deploy/install.sh install --dry-run
+          test ! -e "$DIR"
+      - name: Instalacja z paczki
+        run: sudo /tmp/bundle/solargraf/deploy/install.sh install --yes | tee install-out.txt
+      - name: Sekrety i log
+        run: |
+          test "$(sudo stat -c %a "$DIR/.env")" = "600"
+          token="$(grep -o 'setup?token=[A-Za-z0-9_-]*' install-out.txt | cut -d= -f2)"
+          test -n "$token"
+          echo "token=$token" >> "$GITHUB_ENV"
+          if sudo grep -qF "$token" "$DIR/install.log"; then echo 'Niespełniony warunek'; exit 1; fi
+          if sudo grep -q "$(sudo sed -n 's/^SOLARGRAF_DB_PASSWORD=//p' "$DIR/.env")" "$DIR/install.log" install-out.txt; then echo 'Niespełniony warunek'; exit 1; fi
+      - name: HTTPS z lokalnego CA, nagłówki, frontend, przekierowanie
+        run: |
+          ca="$DIR/solargraf-ca.crt"
+          curl -fsS --cacert "$ca" https://localhost/api/health/ready
+          headers="$(curl -fsS -D - -o /dev/null --cacert "$ca" https://localhost/)"
+          echo "$headers" | grep -qi '^content-security-policy:.*frame-ancestors'
+          echo "$headers" | grep -qi '^x-content-type-options: nosniff'
+          if echo "$headers" | grep -qi '^server:'; then echo 'Niespełniony warunek'; exit 1; fi
+          curl -fsS --cacert "$ca" https://localhost/setup | grep -q '<div id="root">'
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost/)" = "308"
+          test "$(curl -s -o /dev/null -w '%{http_code}' --cacert "$ca" https://localhost/api/docs)" = "404"
+      - name: Tylko proxy wystawia porty
+        run: |
+          for svc in db api; do
+            id="$(docker ps -q --filter label=com.docker.compose.project=solargraf --filter "label=com.docker.compose.service=$svc")"
+            test -n "$id"
+            test -z "$(docker port "$id")"
+          done
+      - name: Pierwsze konto przez link, logowanie z cookie Secure, lista instalacji
+        run: |
+          ca="$DIR/solargraf-ca.crt"
+          body="$(jq -n --arg t "$token" '{token:$t, organization_name:"CI", email:"ci@example.pl", display_name:"CI", password:"ci-instalator-haslo-1"}')"
+          test "$(curl -s -o /dev/null -w '%{http_code}' --cacert "$ca" -H 'Content-Type: application/json' -d "$body" https://localhost/api/setup)" = "201"
+          curl -fsS --cacert "$ca" -c jar.txt -H 'Content-Type: application/json' \
+            -d '{"email":"ci@example.pl","password":"ci-instalator-haslo-1"}' https://localhost/api/auth/login >/dev/null
+          grep -q 'sg_session' jar.txt
+          test "$(curl -fsS --cacert "$ca" -b jar.txt https://localhost/api/sites)" = "[]"
+      - name: Ponowna instalacja zachowuje sekrety i dane
+        run: |
+          before="$(sudo sha256sum "$DIR/.env" | cut -d' ' -f1)"
+          sudo "$DIR/src/deploy/install.sh" install --yes | tee reinstall-out.txt
+          test "$(sudo sha256sum "$DIR/.env" | cut -d' ' -f1)" = "$before"
+          grep -q 'już skonfigurowany' reinstall-out.txt
+          sudo solargraf status
+      - name: uninstall zostawia dane, --purge je usuwa
+        run: |
+          sudo solargraf uninstall --yes
+          test -z "$(docker ps -aq --filter label=com.docker.compose.project=solargraf)"
+          docker volume inspect solargraf_db-data >/dev/null
+          sudo test -f "$DIR/.env"
+          test ! -e /usr/local/bin/solargraf
+          sudo "$DIR/src/deploy/install.sh" uninstall --purge --yes
+          if docker volume inspect solargraf_db-data >/dev/null 2>&1; then echo 'Niespełniony warunek'; exit 1; fi
+          test ! -e "$DIR"
+      - name: Logi
+        if: failure()
+        run: sudo docker compose -p solargraf -f "$DIR/src/deploy/compose.yaml" --env-file "$DIR/.env" logs --no-color || true
