@@ -194,6 +194,13 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: panel z prawdziwym backendem nie sprawdzony w przeglądarce; na symulatorze wskaźniki niedostępne (brak liczników sieci w profilu).
 - Następne małe zadanie: P4.4 — retencja (O8) i tworzenie kolejnych partycji; ewentualnie liczniki sieci i baterii w profilu symulatora.
 
+- Etap: P4.4 — retencja i kolejne partycje.
+- Zmiany: `maintenance.py` (partycje na 12 miesięcy do przodu z przeniesieniem wierszy z partycji domyślnej; usuwanie całych przeterminowanych partycji z blokadą przy oczekujących agregatach; `DELETE` porcjami dla partycji domyślnej, agregatów 5 min, `polling_runs`, `agent_batches`); worker uruchamia utrzymanie przy starcie i codziennie o 03:00 UTC; ustawienia retencji z minimami w konfiguracji i Compose.
+- Testy uruchomione i wyniki: lokalnie pytest server 138 passed (z bazą w CI), ruff, mypy --strict; z bazą: tworzenie i przeniesienie, usunięcie partycji i starych wierszy, blokada przy `aggregate_dirty`.
+- Decyzje zatwierdzone: D49 (O8).
+- Ryzyka / rzeczy nieweryfikowane: pierwsze usunięcie partycji na prawdziwym serwerze nastąpi dopiero po ~3 miesiącach; test `test_measurements_land_in_monthly_partition` ma na sztywno listopad 2026.
+- Następne małe zadanie: P5 — dashboard z danymi na żywo (SSE) albo liczniki sieci i baterii w profilu symulatora.
+
 ## Szablon kolejnego wpisu
 
 - Data:

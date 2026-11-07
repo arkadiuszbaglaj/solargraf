@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     session_absolute_days: float = Field(default=14, gt=0, le=365)
     # Katalog profili urządzeń (D44); w obrazie /app/profiles.
     profiles_dir: Path = Path("profiles")
+    # Retencja (D49, O8). Minimum chroni przed skasowaniem danych literówką w .env.
+    retention_raw_days: int = Field(default=90, ge=30, le=3650)
+    retention_m5_days: int = Field(default=730, ge=90, le=3650)
+    retention_runs_days: int = Field(default=90, ge=30, le=3650)
+    partition_months_ahead: int = Field(default=12, ge=2, le=36)
 
     def database_url(self) -> URL:
         """URL dla SQLAlchemy (asyncpg). Hasło nie pojawia się w ``repr``/logach URL."""

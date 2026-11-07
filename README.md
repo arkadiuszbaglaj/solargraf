@@ -156,7 +156,7 @@ Urządzenia (D44): w UI „Instalacje” → „Urządzenia” (`/instalacje/{id
 
 Agent lokalnie (D43) poza Dockerem: `SOLARGRAF_AGENT_TOKEN=… SOLARGRAF_API_URL=http://127.0.0.1:8000 SOLARGRAF_PROFILES_DIR=profiles SOLARGRAF_AGENT_BUFFER=.agent/buffer.sqlite3 uv run solargraf-agent run`. Na serwerze instalator sam tworzy agenta `lokalny`, zapisuje jego token w `.env` (600) i uruchamia usługę `agent`.
 
-Usługi: `db` (PostgreSQL 18, bez portu na hoście), `migrate` (jednorazowo `alembic upgrade head`), `api` (FastAPI na `127.0.0.1:8000`), `worker` (agregaty co 60 s, D46; ten sam obraz, bez portu). W dev działa Swagger UI pod `/api/docs`. Testy integracyjne z bazą: `SOLARGRAF_TEST_DB=1` oraz zmienne `SOLARGRAF_DB_*` wskazujące na działającego PostgreSQL.
+Usługi: `db` (PostgreSQL 18, bez portu na hoście), `migrate` (jednorazowo `alembic upgrade head`), `api` (FastAPI na `127.0.0.1:8000`), `worker` (agregaty co 60 s, D46; codziennie o 03:00 UTC partycje i retencja, D49; ten sam obraz, bez portu). Retencję zmienia się w `.env`: `SOLARGRAF_RETENTION_RAW_DAYS` (domyślnie 90, min. 30), `SOLARGRAF_RETENTION_M5_DAYS` (730, min. 90), `SOLARGRAF_RETENTION_RUNS_DAYS` (90, min. 30). W dev działa Swagger UI pod `/api/docs`. Testy integracyjne z bazą: `SOLARGRAF_TEST_DB=1` oraz zmienne `SOLARGRAF_DB_*` wskazujące na działającego PostgreSQL.
 
 ### Instalacja na serwerze (wersja dev, D34, D35)
 

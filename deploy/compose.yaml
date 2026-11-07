@@ -67,7 +67,12 @@ services:
     image: solargraf-api:local
     labels: *labels
     command: ["solargraf-worker"]
-    environment: *db-env
+    environment:
+      <<: *db-env
+      # Retencja (D49); puste = domyślne 90 dni / 2 lata / 90 dni.
+      SOLARGRAF_RETENTION_RAW_DAYS: ${SOLARGRAF_RETENTION_RAW_DAYS:-90}
+      SOLARGRAF_RETENTION_M5_DAYS: ${SOLARGRAF_RETENTION_M5_DAYS:-730}
+      SOLARGRAF_RETENTION_RUNS_DAYS: ${SOLARGRAF_RETENTION_RUNS_DAYS:-90}
     <<: *hardening
     healthcheck:
       disable: true

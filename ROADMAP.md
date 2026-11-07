@@ -32,7 +32,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 ## P2 — Model domenowy, wiele instalacji i API
 
 - [ ] Encje z `docs/DATA_MODEL.md`: Organization, User, Membership, Site, Agent, Connection, Device, DeviceProfile, MetricDefinition, Measurement, PollingRun, Alarm, AuditEvent.
-- [x] Partycjonowanie tabeli pomiarów po czasie — miesięczne partycje na 24 miesiące + domyślna (D42); kolejne partycje i retencja w P4.
+- [x] Partycjonowanie tabeli pomiarów po czasie — miesięczne partycje na 24 miesiące + domyślna (D42); kolejne partycje i retencja — P4.4 (D49).
 - [x] Uwierzytelnianie, sesje i role (O6 → D29–D32) — P2.1; autoryzacja per instalacja (D33) — P2.2.
 - [x] Testy izolacji danych między organizacjami (instalacje; kolejne zasoby dopisują własne przypadki).
 - [ ] Endpointy odczytu dashboardu, urządzeń, pomiarów i alarmów; OpenAPI i typy dla frontendu. Zrobione: Agent, Connection, Device i `GET /api/sites/{id}/devices` ze statusem wyliczanym (D38) — P2.3.
@@ -60,7 +60,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 - [x] Wykresy dzień/tydzień/miesiąc/rok — historia urządzenia w UI (P4.2, D47).
 - [ ] Zatwierdzone wzory KPI (O3) i bilansu energii — KPI D27 i energia za okres w API i UI (P4.3, D48); bilans instalacji (suma po urządzeniach) do zrobienia.
 - [x] Obsługa luk, zmian czasu, strefy czasowej i resetów liczników (D46, D48).
-- [ ] Retencja przez partycje (O8).
+- [x] Retencja przez partycje i tworzenie kolejnych partycji (P4.4, D49).
 
 **Akceptacja:** obliczenia mają testy przypadków brzegowych (w tym niespójności z makiet); wykres odróżnia brak danych od wartości 0.
 
