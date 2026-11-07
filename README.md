@@ -84,7 +84,7 @@ Licencje należy potwierdzić ponownie w momencie dodawania zależności. Node.j
 
 Wymagania: Git, [uv](https://docs.astral.sh/uv/) 0.13.x (instaluje Pythona 3.12 z `.python-version`), Node.js 26 (`.nvmrc`) z npm.
 
-Struktura: `server/` (API, pakiet `solargraf_server`), `agent/` (kolektor, `solargraf_agent`), `profiles-schema/` (format i walidator profili, `solargraf_profiles`; `uv run solargraf-profiles validate profiles/`), `agent/`: `uv run solargraf-agent poll <profil> --port 5020 --once` czyta urządzenie lub symulator i wypisuje wynik; `simulator/` (symulator urządzeń dla testów, dane SIMULATED; `uv run solargraf-sim profiles/simulated.hybrid-inverter.yaml --port 5020`), `web/` (React + Vite), `profiles/` (profile urządzeń), `deploy/` (Compose, instalator), `tools/` (kontrola licencji), `docs/`.
+Struktura: `server/` (API, pakiet `solargraf_server`), `agent/` (kolektor, `solargraf_agent`), `profiles-schema/` (format i walidator profili, `solargraf_profiles`; `uv run solargraf-profiles validate profiles/`), `agent/`: `uv run solargraf-agent poll <profil> --port 5020 --once` czyta urządzenie lub symulator i wypisuje wynik; `simulator/` (symulator urządzeń dla testów, dane SIMULATED; `uv run solargraf-sim profiles/simulated.hybrid-inverter.yaml --port 5020`; mapa SunSpec z kilku profili: `uv run solargraf-sim profiles/sunspec.pv-inverter-3ph.yaml profiles/sunspec.grid-meter-3ph.yaml --port 5020`), `web/` (React + Vite), `profiles/` (profile urządzeń), `deploy/` (Compose, instalator), `tools/` (kontrola licencji), `docs/`.
 
 ```bash
 uv sync --locked                       # środowisko Python (workspace server + agent + narzędzia dev)

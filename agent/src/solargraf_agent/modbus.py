@@ -92,6 +92,7 @@ class ModbusPoller:
         self.origin = (
             Origin.SIMULATED if profile.origin is ProfileOrigin.SIMULATED else Origin.DEVICE
         )
+        self._profile_origin = self.origin
         self._owns_client = client is None
         self.client = client or new_client(
             target, timeout_seconds or profile.polling.timeout_seconds
@@ -205,6 +206,8 @@ class ModbusPoller:
         if absent:
             log.warning("Profil %s: urządzenie nie ma modeli SunSpec %s", self.profile.id, absent)
         self.device_map = found
+        # Symulator SunSpec przedstawia się w modelu 1 — jego dane nigdy nie są DEVICE.
+        self.origin = Origin.SIMULATED if found.simulated else self._profile_origin
         return found
 
     async def _read_or_reject(self, address: int, count: int) -> list[int] | None:

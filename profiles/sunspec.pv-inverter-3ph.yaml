@@ -1,0 +1,58 @@
+# Ogólny profil SunSpec (D59): falownik PV trójfazowy bez magazynu energii.
+# Punkty wskazują model i punkt SunSpec; adresy, typy, skale i jednostki pochodzą z definicji
+# modeli SunSpec Alliance dołączonych do pakietu profili (sunspec_models/, Apache-2.0).
+# Poziom COMMUNITY: zgodny ze standardem i przetestowany na symulatorze, bez testu na sprzęcie.
+# Wszystkie punkty UNVERIFIED — producenci różnie wypełniają modele (np. temperatura, MPPT).
+schema_version: 1
+id: sunspec.pv-inverter-3ph
+version: "1.0.0"
+name: Falownik PV SunSpec (trójfazowy, bez magazynu)
+manufacturer: Dowolny producent zgodny z SunSpec
+device_kind: INVERTER
+origin: DEVICE
+support_level: COMMUNITY
+# Ogólny profil nie potwierdza konkretnych modeli sprzętu — tylko wymagane modele SunSpec.
+models: ["Urządzenia udostępniające modele SunSpec 1 i 103 (opcjonalnie 160)"]
+transports: [MODBUS_TCP]
+addressing: sunspec
+sources:
+  - id: sunspec-models
+    title: SunSpec Information Model — definicje modeli (JSON)
+    version: v2026-04-20
+    reference: https://github.com/sunspec/models
+polling:
+  interval_seconds: 10
+  timeout_seconds: 3
+  retries: 2
+  max_block_registers: 60
+points:
+  # Model 103 (Inverter, Three Phase).
+  - {metric: pv_power, status: UNVERIFIED, source: sunspec-models,
+     source_ref: "model 103, DCW (moc DC)", sunspec: {model: 103, point: DCW}, unit: W}
+  # Energia AC oddana przez falownik; bez magazynu odpowiada produkcji PV.
+  - {metric: pv_energy_total, status: UNVERIFIED, source: sunspec-models,
+     source_ref: "model 103, WH (energia AC)", sunspec: {model: 103, point: WH}, unit: Wh}
+  - {metric: grid_voltage, channel: 1, status: UNVERIFIED, source: sunspec-models,
+     source_ref: "model 103, PhVphA", sunspec: {model: 103, point: PhVphA}, unit: V}
+  - {metric: grid_voltage, channel: 2, status: UNVERIFIED, source: sunspec-models,
+     source_ref: "model 103, PhVphB", sunspec: {model: 103, point: PhVphB}, unit: V}
+  - {metric: grid_voltage, channel: 3, status: UNVERIFIED, source: sunspec-models,
+     source_ref: "model 103, PhVphC", sunspec: {model: 103, point: PhVphC}, unit: V}
+  - {metric: grid_frequency, status: UNVERIFIED, source: sunspec-models,
+     source_ref: "model 103, Hz", sunspec: {model: 103, point: Hz}, unit: Hz}
+  - {metric: inverter_temperature, status: UNVERIFIED, source: sunspec-models,
+     source_ref: "model 103, TmpCab", sunspec: {model: 103, point: TmpCab}, unit: degC}
+  # Model 160 (Multiple MPPT): moduł i = kanał i+1. Dwa wejścia MPPT; urządzenie z jednym
+  # wejściem zgłosi brak danych dla kanału 2, nigdy zero.
+  - {metric: pv_string_power, channel: 1, status: UNVERIFIED, source: sunspec-models,
+     source_ref: "model 160, module[0].DCW", sunspec: {model: 160, group: module, point: DCW}, unit: W}
+  - {metric: pv_string_voltage, channel: 1, status: UNVERIFIED, source: sunspec-models,
+     source_ref: "model 160, module[0].DCV", sunspec: {model: 160, group: module, point: DCV}, unit: V}
+  - {metric: pv_string_current, channel: 1, status: UNVERIFIED, source: sunspec-models,
+     source_ref: "model 160, module[0].DCA", sunspec: {model: 160, group: module, point: DCA}, unit: A}
+  - {metric: pv_string_power, channel: 2, status: UNVERIFIED, source: sunspec-models,
+     source_ref: "model 160, module[1].DCW", sunspec: {model: 160, group: module, point: DCW}, unit: W}
+  - {metric: pv_string_voltage, channel: 2, status: UNVERIFIED, source: sunspec-models,
+     source_ref: "model 160, module[1].DCV", sunspec: {model: 160, group: module, point: DCV}, unit: V}
+  - {metric: pv_string_current, channel: 2, status: UNVERIFIED, source: sunspec-models,
+     source_ref: "model 160, module[1].DCA", sunspec: {model: 160, group: module, point: DCA}, unit: A}
