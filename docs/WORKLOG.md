@@ -101,6 +101,15 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: logowania w przeglądarce z prawdziwym backendem nie sprawdzono lokalnie (brak Dockera); dashboard po zalogowaniu nadal na DEMO.
 - Następne małe zadanie: ekran „Instalacje” (lista i dodawanie przez `/api/sites`) albo P2.3.
 
+## 2026-11-07 (UI, wycinek: instalacje)
+
+- Etap: P2 — ekran „Instalacje”.
+- Zmiany: `/instalacje` z tabelą instalacji i formularzem dodawania (OWNER/ADMIN, CSRF, walidacja nazwy i strefy IANA), stany ładowania/pusty/błąd/wygasła sesja; menu boczne z linkami i `aria-current`; topbar z tytułem strony, bez przełącznika DEMO na tej stronie.
+- Testy uruchomione i wyniki: Vitest 110/110, oxlint, tsc; ręcznie w przeglądarce (tryb bez backendu): układ strony, aktywne menu, stan błędu.
+- Decyzje zatwierdzone: D37.
+- Ryzyka / rzeczy nieweryfikowane: dodawanie przez przeglądarkę z prawdziwym backendem — do sprawdzenia na serwerze; lista stref zależy od przeglądarki (serwer i tak waliduje).
+- Następne małe zadanie: P2.3 — agenci i urządzenia (modele) oraz `GET /api/sites/{id}/devices`.
+
 ## Szablon kolejnego wpisu
 
 - Data:

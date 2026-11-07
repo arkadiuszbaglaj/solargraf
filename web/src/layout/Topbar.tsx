@@ -7,6 +7,9 @@ import { formatDateTime } from '../lib/format'
 import styles from './Topbar.module.css'
 
 export function Topbar({
+  title = 'Dashboard',
+  subtitle = 'Podgląd bieżących parametrów instalacji',
+  showSiteSwitcher = true,
   sites,
   siteId,
   onSiteChange,
@@ -16,6 +19,9 @@ export function Topbar({
   onToggleMenu,
   menuId,
 }: {
+  title?: string
+  subtitle?: string
+  showSiteSwitcher?: boolean
   sites: Site[]
   siteId: string
   onSiteChange: (id: string) => void
@@ -41,27 +47,31 @@ export function Topbar({
         <span className="visually-hidden">Menu</span>
       </button>
       <div className={styles.heading}>
-        <h1 className={styles.title}>Dashboard</h1>
-        <p className={styles.subtitle}>Podgląd bieżących parametrów instalacji</p>
+        <h1 className={styles.title}>{title}</h1>
+        <p className={styles.subtitle}>{subtitle}</p>
       </div>
       <div className={styles.controls}>
-        <DemoBadge origin={origin} />
-        <label htmlFor={selectId} className="visually-hidden">
-          Instalacja
-        </label>
-        <select
-          id={selectId}
-          className={styles.select}
-          value={siteId}
-          onChange={(e) => onSiteChange(e.target.value)}
-        >
-          {sites.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-        {site ? (
+        {showSiteSwitcher ? (
+          <>
+            <DemoBadge origin={origin} />
+            <label htmlFor={selectId} className="visually-hidden">
+              Instalacja
+            </label>
+            <select
+              id={selectId}
+              className={styles.select}
+              value={siteId}
+              onChange={(e) => onSiteChange(e.target.value)}
+            >
+              {sites.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </>
+        ) : null}
+        {showSiteSwitcher && site ? (
           <time className={styles.clock} dateTime={now.toISOString()}>
             {formatDateTime(now.toISOString(), site.timezone)}
             <span className="visually-hidden"> (strefa {site.timezone})</span>

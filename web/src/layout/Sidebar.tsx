@@ -11,23 +11,26 @@ import {
 import { branding } from '../branding'
 import styles from './Sidebar.module.css'
 
+export type Page = 'dashboard' | 'sites'
+
 interface NavItem {
   label: string
   icon: LucideIcon
-  available: boolean
+  page?: Page
+  href?: string
 }
 
 const NAV: NavItem[] = [
-  { label: 'Dashboard', icon: LayoutDashboard, available: true },
-  { label: 'Instalacja', icon: SolarPanel, available: false },
-  { label: 'Wykresy i historia', icon: ChartColumn, available: false },
-  { label: 'Urządzenia', icon: Cpu, available: false },
-  { label: 'Alarmy', icon: Bell, available: false },
-  { label: 'Raporty', icon: FileText, available: false },
-  { label: 'Ustawienia', icon: Settings, available: false },
+  { label: 'Dashboard', icon: LayoutDashboard, page: 'dashboard', href: '/' },
+  { label: 'Instalacje', icon: SolarPanel, page: 'sites', href: '/instalacje' },
+  { label: 'Wykresy i historia', icon: ChartColumn },
+  { label: 'Urządzenia', icon: Cpu },
+  { label: 'Alarmy', icon: Bell },
+  { label: 'Raporty', icon: FileText },
+  { label: 'Ustawienia', icon: Settings },
 ]
 
-export function Sidebar({ open, id }: { open: boolean; id: string }) {
+export function Sidebar({ open, id, current = 'dashboard' }: { open: boolean; id: string; current?: Page }) {
   return (
     <aside id={id} className={`${styles.sidebar} ${open ? styles.open : ''}`}>
       <div className={styles.brand}>
@@ -36,10 +39,14 @@ export function Sidebar({ open, id }: { open: boolean; id: string }) {
       </div>
       <nav aria-label="Główna nawigacja">
         <ul className={styles.nav}>
-          {NAV.map(({ label, icon: Icon, available }) => (
+          {NAV.map(({ label, icon: Icon, page, href }) => (
             <li key={label}>
-              {available ? (
-                <a href="#main" className={`${styles.link} ${styles.active}`} aria-current="page">
+              {href ? (
+                <a
+                  href={href}
+                  className={page === current ? `${styles.link} ${styles.active}` : styles.link}
+                  aria-current={page === current ? 'page' : undefined}
+                >
                   <Icon size={18} aria-hidden="true" />
                   {label}
                 </a>

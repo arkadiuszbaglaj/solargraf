@@ -5,10 +5,12 @@ import { useAsync } from './hooks/useAsync'
 import { useNow } from './hooks/useNow'
 import { Sidebar } from './layout/Sidebar'
 import { Topbar } from './layout/Topbar'
+import type { Page } from './layout/Sidebar'
 import { DashboardPage } from './pages/DashboardPage'
+import { SitesPage } from './pages/SitesPage'
 import styles from './App.module.css'
 
-export function App({ now: fixedNow }: { now?: Date } = {}) {
+export function App({ now: fixedNow, page = 'dashboard' }: { now?: Date; page?: Page } = {}) {
   const source = useDataSource()
   const tickingNow = useNow()
   const now = fixedNow ?? tickingNow
@@ -25,9 +27,12 @@ export function App({ now: fixedNow }: { now?: Date } = {}) {
       <a className={styles.skip} href="#main">
         Przejdź do treści
       </a>
-      <Sidebar open={menuOpen} id={menuId} />
+      <Sidebar open={menuOpen} id={menuId} current={page} />
       <div className={styles.content}>
         <Topbar
+          {...(page === 'sites'
+            ? { title: 'Instalacje', subtitle: 'Instalacje dostępne dla Twojego konta', showSiteSwitcher: false }
+            : {})}
           sites={sites}
           siteId={site?.id ?? ''}
           onSiteChange={setSelected}
@@ -38,7 +43,9 @@ export function App({ now: fixedNow }: { now?: Date } = {}) {
           menuId={menuId}
         />
         <main id="main" className={styles.main} tabIndex={-1}>
-          {state.status !== 'ready' ? (
+          {page === 'sites' ? (
+            <SitesPage />
+          ) : state.status !== 'ready' ? (
             <WidgetState
               status={state.status === 'loading' ? { kind: 'loading' } : { kind: 'error', onRetry: reload }}
             />
