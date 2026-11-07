@@ -136,6 +136,12 @@ curl http://127.0.0.1:8000/api/health/ready
 docker compose -f deploy/compose.dev.yaml down
 ```
 
+Pierwsze konto (D31) — jednorazowy token ważny 1 h, potem `POST /api/setup`:
+
+```bash
+docker compose -f deploy/compose.dev.yaml exec api solargraf-admin setup-token
+```
+
 Usługi: `db` (PostgreSQL 18, bez portu na hoście), `migrate` (jednorazowo `alembic upgrade head`), `api` (FastAPI na `127.0.0.1:8000`). W dev działa Swagger UI pod `/api/docs`. Testy integracyjne z bazą: `SOLARGRAF_TEST_DB=1` oraz zmienne `SOLARGRAF_DB_*` wskazujące na działającego PostgreSQL.
 
 Lista dozwolonych licencji: `tools/license-policy.json` (zgodna z `docs/COMPLIANCE.md`). Kontrola obejmuje zależności produkcyjne wraz z przechodnimi; narzędzia deweloperskie nie trafiają do produktu. SBOM (CycloneDX) generuje CI jako artefakt.

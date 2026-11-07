@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     db_timeout_s: float = Field(default=2.0, gt=0, le=30)
     # Swagger UI i /api/openapi.json — tylko w środowisku deweloperskim.
     api_docs: bool = False
+    # Sesje (D30). `Secure` wyłączać wyłącznie w dev bez TLS.
+    session_cookie_secure: bool = True
+    session_idle_hours: float = Field(default=24, gt=0, le=24 * 30)
+    session_absolute_days: float = Field(default=14, gt=0, le=365)
 
     def database_url(self) -> URL:
         """URL dla SQLAlchemy (asyncpg). Hasło nie pojawia się w ``repr``/logach URL."""

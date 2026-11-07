@@ -11,8 +11,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from solargraf_server import __version__
+from solargraf_server.auth.router import router as auth_router
 from solargraf_server.config import Settings
-from solargraf_server.db import create_engine, database_ready
+from solargraf_server.db import create_engine, create_sessionmaker, database_ready
 from solargraf_server.health import ReadinessCheck
 from solargraf_server.health import router as health_router
 
@@ -22,11 +23,13 @@ def create_app(settings: Settings, readiness_check: ReadinessCheck | None = None
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        app.state.settings = settings
         if readiness_check is not None:
             app.state.readiness_check = readiness_check
             yield
             return
         engine = create_engine(settings)
+        app.state.sessionmaker = create_sessionmaker(engine)
 
         async def check() -> bool:
             return await database_ready(engine, settings.db_timeout_s)
@@ -48,6 +51,7 @@ def create_app(settings: Settings, readiness_check: ReadinessCheck | None = None
         openapi_url="/api/openapi.json" if docs else None,
     )
     app.include_router(health_router)
+    app.include_router(auth_router)
     return app
 
 
