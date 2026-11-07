@@ -187,6 +187,13 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: profil symulatora nie ma liczników sieci i baterii (symulator je liczy) — KPI na symulatorze „niedostępne”; energia przez przerwę nie jest doliczana.
 - Następne małe zadanie: P4.3b — panel „Energia i wskaźniki” na stronie historii.
 
+- Etap: P4.3b — panel „Energia i wskaźniki” w UI.
+- Zmiany: klient `GET …/energy` z walidacją; panel pod wykresem historii (ten sam okres): kafelki autokonsumpcji i samowystarczalności z definicją, okresem i ostrzeżeniem (niedostępny / niepełny / niespójny), tabela sum z pokryciem i uwagami (reset, wyliczone z mocy), słupki kWh (brak słupka = brak danych), znak SIMULATED; panel ukryty, gdy urządzenie nie ma źródeł energii. `KpiCard` dostał pole `notice` w kolorze ostrzeżenia; tokeny `--chart-export`, `--chart-battery`.
+- Testy uruchomione i wyniki: Vitest 152/152, oxlint, tsc, build; ręcznie w przeglądarce z podstawionymi odpowiedziami API (wąski ekran) — poprawiony kolor ostrzeżeń w kafelkach.
+- Decyzje zatwierdzone: D48 (pkt 1 — panel w UI).
+- Ryzyka / rzeczy nieweryfikowane: panel z prawdziwym backendem nie sprawdzony w przeglądarce; na symulatorze wskaźniki niedostępne (brak liczników sieci w profilu).
+- Następne małe zadanie: P4.4 — retencja (O8) i tworzenie kolejnych partycji; ewentualnie liczniki sieci i baterii w profilu symulatora.
+
 ## Szablon kolejnego wpisu
 
 - Data:

@@ -37,6 +37,8 @@
   --chart-pv: #2e9e5b;
   --chart-home: #3b4a42;
   --chart-grid: #2f80c7;
+  --chart-export: #b8681f;
+  --chart-battery: #7556c2;
 
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 6%);
   --sidebar-width: 15rem;
@@ -62,5 +64,7 @@
     --chart-pv: #4cc27f;
     --chart-home: #c9d4ce;
     --chart-grid: #6cb4f0;
+    --chart-export: #f0a35c;
+    --chart-battery: #b39cf0;
   }
 }
