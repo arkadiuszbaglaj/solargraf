@@ -110,6 +110,13 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: dodawanie przez przeglądarkę z prawdziwym backendem — do sprawdzenia na serwerze; lista stref zależy od przeglądarki (serwer i tak waliduje).
 - Następne małe zadanie: P2.3 — agenci i urządzenia (modele) oraz `GET /api/sites/{id}/devices`.
 
+- Etap: P2.3 — agenci, połączenia i urządzenia.
+- Zmiany: tabele `agents`, `connections`, `devices` (migracja 0004; klucz złożony wymusza wspólną instalację urządzenia i połączenia); czysta funkcja statusu (DISABLED/UNKNOWN/ERROR/STALE/OK, heartbeat agenta 120 s); `GET /api/sites/{id}/devices` przez `authz` — szczegóły techniczne i połączenie tylko dla OWNER/ADMIN.
+- Testy uruchomione i wyniki: lokalnie pytest 63 passed (testy z bazą tylko w CI), ruff, mypy --strict; testy izolacji urządzeń i klucza złożonego w CI.
+- Decyzje zatwierdzone: D38.
+- Ryzyka / rzeczy nieweryfikowane: brak endpointu tworzenia urządzeń (P3 z profilami), więc w UI lista będzie pusta do czasu agenta; próg heartbeatu do potwierdzenia przy protokole agenta.
+- Następne małe zadanie: P3 — format profilu urządzenia i walidator albo widok urządzeń w UI.
+
 ## Szablon kolejnego wpisu
 
 - Data:

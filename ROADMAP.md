@@ -35,7 +35,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 - [ ] Partycjonowanie tabeli pomiarów po czasie.
 - [x] Uwierzytelnianie, sesje i role (O6 → D29–D32) — P2.1; autoryzacja per instalacja (D33) — P2.2.
 - [x] Testy izolacji danych między organizacjami (instalacje; kolejne zasoby dopisują własne przypadki).
-- [ ] Endpointy odczytu dashboardu, urządzeń, pomiarów i alarmów; OpenAPI i typy dla frontendu.
+- [ ] Endpointy odczytu dashboardu, urządzeń, pomiarów i alarmów; OpenAPI i typy dla frontendu. Zrobione: Agent, Connection, Device i `GET /api/sites/{id}/devices` ze statusem wyliczanym (D38) — P2.3.
 - [ ] Paginacja historii, filtrowanie zakresem czasu i limitami.
 
 **Akceptacja:** API zwraca schematowane dane; walidacja i autoryzacja są testowane; brak wartości zastępczych dla brakujących pomiarów.

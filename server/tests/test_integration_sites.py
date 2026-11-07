@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from solargraf_server.auth.passwords import hash_password
 from solargraf_server.config import Settings
@@ -26,8 +27,8 @@ pytestmark = pytest.mark.skipif(
 SERVER_DIR = Path(__file__).resolve().parent.parent
 PASSWORD = "haslo-testowe-izolacji"
 TABLES = (
-    "membership_sites, sites, audit_events, auth_sessions, setup_tokens, memberships, users, "
-    "organizations"
+    "devices, connections, agents, membership_sites, sites, audit_events, auth_sessions, "
+    "setup_tokens, memberships, users, organizations"
 )
 
 type AsUser = Callable[[str], tuple[TestClient, str]]
@@ -230,3 +231,85 @@ class TestCreate:
         assert c.post("/api/sites", json=self.body(world.org_a)).status_code == 403
         bad_tz = self.body(world.org_a, timezone="Mars/Olympus")
         assert c.post("/api/sites", json=bad_tz, headers={"X-CSRF-Token": csrf}).status_code == 422
+
+
+def _seed_devices(world: World) -> None:
+    """Agent z świeżym heartbeatem, po jednym połączeniu i urządzeniu w A1 i B1."""
+    agent = uuid.uuid4()
+    _sql(
+        "INSERT INTO agents (id, name, mode, enabled, last_heartbeat_at) "
+        "VALUES (:id, 'agent', 'LOCAL', true, now())",
+        id=agent,
+    )
+    for site, name in ((world.a1, "Falownik A1"), (world.b1, "Falownik B1")):
+        conn = uuid.uuid4()
+        _sql(
+            "INSERT INTO connections (id, site_id, agent_id, name, transport, host, port, unit_id) "
+            "VALUES (:id, :site, :agent, 'Logger', 'MODBUS_TCP', 'logger.lan', 502, 1)",
+            id=conn,
+            site=site,
+            agent=agent,
+        )
+        _sql(
+            "INSERT INTO devices (id, site_id, connection_id, name, kind, serial_number, "
+            "enabled, last_attempt_at, last_success_at, freshness_threshold_seconds) "
+            "VALUES (:id, :site, :conn, :name, 'INVERTER', 'SN-TEST', true, now(), now(), 300)",
+            id=uuid.uuid4(),
+            site=site,
+            conn=conn,
+            name=name,
+        )
+
+
+class TestDevices:
+    def test_owner_sees_own_devices_with_details(self, world: World, as_user: AsUser) -> None:
+        _seed_devices(world)
+        c, _ = as_user("owner_a")
+        resp = c.get(f"/api/sites/{world.a1}/devices")
+        assert resp.status_code == 200, resp.text
+        [device] = resp.json()
+        assert device["name"] == "Falownik A1"
+        assert device["status"] == "OK"
+        assert device["details"]["serial_number"] == "SN-TEST"
+        assert device["details"]["connection"]["port"] == 502
+
+    def test_viewer_sees_devices_without_details(self, world: World, as_user: AsUser) -> None:
+        _seed_devices(world)
+        c, _ = as_user("scoped_viewer_a")
+        [device] = c.get(f"/api/sites/{world.a1}/devices").json()
+        assert device["details"] is None
+        assert "SN-TEST" not in c.get(f"/api/sites/{world.a1}/devices").text
+
+    def test_foreign_scoped_and_missing_sites_are_404(self, world: World, as_user: AsUser) -> None:
+        _seed_devices(world)
+        c, _ = as_user("owner_b")
+        foreign = c.get(f"/api/sites/{world.a1}/devices")
+        missing = c.get(f"/api/sites/{uuid.uuid4()}/devices")
+        assert foreign.status_code == missing.status_code == 404
+        assert foreign.json() == missing.json()
+        v, _ = as_user("scoped_viewer_a")
+        assert v.get(f"/api/sites/{world.a2}/devices").status_code == 404
+
+    def test_lost_agent_gives_unknown(self, world: World, as_user: AsUser) -> None:
+        _seed_devices(world)
+        _sql("UPDATE agents SET last_heartbeat_at = now() - interval '1 hour'")
+        c, _ = as_user("owner_a")
+        [device] = c.get(f"/api/sites/{world.a1}/devices").json()
+        assert device["status"] == "UNKNOWN"
+
+    def test_requires_login(self, world: World) -> None:
+        with TestClient(create_app(Settings()), base_url="https://testserver") as c:  # type: ignore[call-arg]
+            assert c.get(f"/api/sites/{world.a1}/devices").status_code == 401
+
+    def test_device_cannot_use_connection_of_another_site(self, world: World) -> None:
+        _seed_devices(world)
+        [(conn_b,)] = _sql("SELECT id FROM connections WHERE site_id = :s", s=world.b1)
+        with pytest.raises(IntegrityError, match="fk_devices_connection_site_connections"):
+            _sql(
+                "INSERT INTO devices (id, site_id, connection_id, name, kind, enabled, "
+                "freshness_threshold_seconds) "
+                "VALUES (:id, :site, :conn, 'X', 'METER', true, 300)",
+                id=uuid.uuid4(),
+                site=world.a1,
+                conn=conn_b,
+            )
