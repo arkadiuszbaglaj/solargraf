@@ -1,8 +1,9 @@
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import { CLOSED, parseReadings, parseSnapshot, type LiveEventSource } from '../api/live'
-import { RECONNECT_MS } from '../hooks/useLiveSite'
+import { CLOSED, parseReadings, parseSnapshot, type LiveEventSource, type LiveSourceFactory } from '../api/live'
+import { RECONNECT_MS, useLiveSite } from '../hooks/useLiveSite'
+import type { TodayState } from '../lib/today'
 import { parseSiteEnergy } from '../api/energy'
 import { ENERGY_BODY, KPI } from '../test/energyFixture'
 import { LiveKpiRow } from './LiveKpiRow'
@@ -75,6 +76,11 @@ const SNAPSHOT = {
   ],
 }
 
+function Row({ factory, today }: { factory: LiveSourceFactory; today?: TodayState }) {
+  const live = useLiveSite(SITE, factory)
+  return <LiveKpiRow live={live} now={NOW} {...(today ? { today } : {})} />
+}
+
 function setup() {
   const sources: FakeSource[] = []
   const factory = (url: string) => {
@@ -82,7 +88,7 @@ function setup() {
     sources.push(s)
     return s
   }
-  const view = render(<LiveKpiRow siteId={SITE} now={NOW} sourceFactory={factory} />)
+  const view = render(<Row factory={factory} />)
   return { sources, view, current: () => sources[sources.length - 1] as FakeSource }
 }
 
@@ -165,7 +171,7 @@ describe('LiveKpiRow — energia dziś (D51)', () => {
     })
     if (!data) throw new Error('fixture')
     const source = new FakeSource('')
-    render(<LiveKpiRow siteId={SITE} now={NOW} sourceFactory={() => source} today={{ status: 'ready', data }} />)
+    render(<Row factory={() => source} today={{ status: 'ready', data }} />)
     source.emit('snapshot', SNAPSHOT)
     expect(card('Produkcja PV')).toContain('Dziś: 12,4 kWh')
     expect(card('Sieć')).toContain('Dziś: pobór niedostępne')

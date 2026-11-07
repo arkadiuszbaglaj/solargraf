@@ -230,6 +230,13 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: ShellCheck tylko w CI; baner w przeglądarce sprawdzony na atrapie API.
 - Następne małe zadanie: P5 — alarmy albo diagram przepływu energii (do wyboru).
 
+- Etap: P5.4 — diagram przepływu energii.
+- Zmiany: `lib/energyFlow.ts` (kierunki, próg 50 W, bilans z tolerancją, warunki rysowania strzałek), `widgets/EnergyFlowPanel.tsx` (SVG, lista wartości dla czytników); dashboard otwiera jeden strumień (`useLiveSite`) i przekazuje go kartom i diagramowi; układ trzech kolumn.
+- Testy uruchomione i wyniki: web: tsc, oxlint, vitest 212 passed (bilans, w tym niespójność z makiety; stany panelu). Przeglądarka: Vite + atrapa API (SIMULATED) — strzałki przy domkniętym bilansie, desktop i telefon.
+- Decyzje zatwierdzone: D54.
+- Ryzyka / rzeczy nieweryfikowane: na serwerze z symulatorem bilans domyka się z definicji (sieć = dom − PV − bateria); prawdziwy sprzęt może częściej pokazywać „bilans się nie domyka”.
+- Następne małe zadanie: P5 — alarmy.
+
 ## Szablon kolejnego wpisu
 
 - Data:

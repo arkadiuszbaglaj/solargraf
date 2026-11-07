@@ -1,9 +1,8 @@
 import { BatteryCharging, Home, Leaf, Sun, UtilityPole, type LucideIcon } from 'lucide-react'
-import type { LiveSourceFactory } from '../api/live'
 import { DemoBadge } from '../components/DemoBadge'
 import { KpiCard } from '../components/KpiCard'
 import { WidgetState } from '../components/WidgetState'
-import { useLiveSite } from '../hooks/useLiveSite'
+import type { LiveSite } from '../hooks/useLiveSite'
 import { useNow } from '../hooks/useNow'
 import { formatAge, formatDirectedPower, formatQuantity, MISSING } from '../lib/format'
 import { siteValue, type SiteValue } from '../lib/liveValues'
@@ -75,20 +74,21 @@ function SelfConsumptionCard({ today }: { today: TodayState | undefined }) {
   )
 }
 
-/** Karty bieżących wartości instalacji ze strumienia SSE (D50); wiek każdej wartości. */
+/**
+ * Karty bieżących wartości instalacji ze strumienia SSE (D50); wiek każdej wartości. Strumień
+ * otwiera dashboard (`useLiveSite`) i dzieli go z diagramem przepływu (D54) — jedno połączenie.
+ */
 export function LiveKpiRow({
-  siteId,
+  live,
   now: fixedNow,
-  sourceFactory,
   today,
 }: {
-  siteId: string
+  live: LiveSite
   now?: Date
-  sourceFactory?: LiveSourceFactory
   /** Energia instalacji od północy (D51); brak — karty bez wierszy „Dziś”. */
   today?: TodayState
 }) {
-  const { state, retry } = useLiveSite(siteId, sourceFactory)
+  const { state, retry } = live
   const tickingNow = useNow(1000)
   const now = fixedNow ?? tickingNow
 

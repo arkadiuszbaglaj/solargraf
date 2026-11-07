@@ -1,0 +1,120 @@
+.svg {
+  display: block;
+  width: 100%;
+  max-width: 28rem;
+  height: auto;
+  margin: 0 auto;
+}
+
+.svg text {
+  text-anchor: middle;
+  fill: var(--color-text);
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.value {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.sub {
+  font-size: 12px;
+}
+
+.svg .sub,
+.svg .hubLabel {
+  fill: var(--color-text-muted);
+}
+
+.hubLabel {
+  font-size: 12px;
+}
+
+.node {
+  fill: var(--color-surface-muted);
+  stroke-width: 2;
+}
+
+.hub {
+  fill: var(--color-surface-muted);
+  stroke: var(--color-border);
+  stroke-width: 2;
+}
+
+.hubIcon {
+  color: var(--color-text-muted);
+}
+
+.link {
+  stroke-width: 3;
+}
+
+.linkIdle {
+  stroke: var(--color-border);
+  stroke-width: 2;
+}
+
+.unavailable {
+  opacity: 0.55;
+}
+
+.unavailable .node {
+  stroke: var(--color-border);
+}
+
+.reason {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-warning);
+}
+
+.stroke_pv {
+  stroke: var(--chart-pv);
+}
+
+.stroke_grid {
+  stroke: var(--chart-grid);
+}
+
+.stroke_battery {
+  stroke: var(--chart-battery);
+}
+
+.stroke_home {
+  stroke: var(--chart-home);
+}
+
+.fill_pv,
+.icon_pv {
+  fill: var(--chart-pv);
+  color: var(--chart-pv);
+}
+
+.fill_grid,
+.icon_grid {
+  fill: var(--chart-grid);
+  color: var(--chart-grid);
+}
+
+.fill_battery,
+.icon_battery {
+  fill: var(--chart-battery);
+  color: var(--chart-battery);
+}
+
+.fill_home,
+.icon_home {
+  fill: var(--chart-home);
+  color: var(--chart-home);
+}
+
+.icon_pv,
+.icon_grid,
+.icon_battery,
+.icon_home {
+  fill: none;
+}

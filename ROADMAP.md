@@ -68,7 +68,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 
 - [x] Strumień SSE per instalacja; UI pokazuje wiek każdej wartości (P5.1, D50).
 - [x] Karty KPI i trendy — energia dziś, autokonsumpcja i wykres mocy od północy (P5.2, D51).
-- [ ] Diagram przepływu energii na podstawie spójnego bilansu pomiarów.
+- [x] Diagram przepływu energii na podstawie spójnego bilansu pomiarów. (P5.4, D54)
 - [ ] Szczegóły PV/MPPT, baterii/BMS i sieci/faz — tylko jeśli profil je udostępnia.
 - [x] Status urządzeń i agentów wyliczany z polityki świeżości. (P5.3, D52)
 - [ ] Alarmy z priorytetem, timestampem i potwierdzaniem.
