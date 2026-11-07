@@ -24,7 +24,6 @@ dev = [
     "httpx2>=2.16.0",
     "mypy>=2.4.1",
     "pre-commit>=4.7.0",
-    "pymodbus==3.16.2",
     "pytest>=9.2.0",
     "ruff>=0.17.4",
     "types-pyyaml>=6.0.12.20261103",

@@ -131,6 +131,13 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: symulator potwierdza tylko nasze odczytanie profilu, nie zgodność ze sprzętem; brak PVGIS.
 - Następne małe zadanie: agent w trybie lokalnym — odczyt urządzenia przez pymodbus, timeouty, retry, `PollingRun`, testy na symulatorze.
 
+- Etap: P3.3 — agent: odczyt urządzenia.
+- Zmiany: `solargraf_agent`: planowanie bloków (ciągłe rejestry, limit z profilu), `ModbusPoller` (pymodbus 3.16.2 jako zależność produkcyjna agenta, jedno połączenie, ponawianie TIMEOUT/CONNECTION_LOST z rosnącym odstępem, wyjątki Modbus bez ponawiania), odczyty z jakością GOOD/INVALID/MISSING, `PollingRun` OK/PARTIAL/FAILED, CLI `solargraf-agent poll`.
+- Testy uruchomione i wyniki: lokalnie pytest 190 passed (testy z bazą w CI), ruff, mypy --strict, licencje (29 zależności, 0 niezgodnych); ręcznie `solargraf-sim` + `solargraf-agent poll --once` → wynik OK, 10 punktów.
+- Decyzje zatwierdzone: D41.
+- Ryzyka / rzeczy nieweryfikowane: pymodbus wykrywa zerwane połączenie dopiero po timeoucie; test tylko na symulatorze, nie na sprzęcie.
+- Następne małe zadanie: P3.4 — protokół agent ↔ serwer (poświadczenie agenta, heartbeat, partie pomiarów, tabela pomiarów, bufor offline).
+
 ## Szablon kolejnego wpisu
 
 - Data:

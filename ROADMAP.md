@@ -43,7 +43,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 ## P3 — Agent, sterowniki, profile i symulatory
 
 - [x] Format profilu urządzenia i jego walidator (źródło dowodu, status, poziom wsparcia) — P3.1, D39.
-- [ ] Agent w trybie lokalnym: harmonogram, jedno połączenie na urządzenie, timeouty, retry z backoff, bufor offline.
+- [ ] Agent w trybie lokalnym: harmonogram, jedno połączenie na urządzenie, timeouty, retry z backoff, bufor offline. Zrobione: odczyt Modbus TCP z blokami, timeoutami, ponawianiem i `PollingRun` (D41) — P3.3; bufor offline z komunikacją w P3.4.
 - [ ] Protokół agent ↔ serwer: partie z identyfikatorem, heartbeat, poświadczenie agenta.
 - [ ] Sterowniki: Modbus TCP, SunSpec, Solarman V5.
 - [ ] Generator symulatora z profilu + profile czasowe PVGIS; wstrzykiwanie błędów. Zrobione: symulator Modbus TCP z profilu, prosty model wartości i wstrzykiwanie błędów (D40) — P3.2; PVGIS później.
