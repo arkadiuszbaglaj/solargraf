@@ -448,8 +448,9 @@ cmd_install() {
 # --- status, link, odinstalowanie ------------------------------------------------------------
 
 require_installation() {
-	[ -f "$INSTALL_DIR/.env" ] && [ -f "$INSTALL_DIR/src/deploy/compose.yaml" ] ||
+	if [ ! -f "$INSTALL_DIR/.env" ] || [ ! -f "$INSTALL_DIR/src/deploy/compose.yaml" ]; then
 		die "Brak instalacji w $INSTALL_DIR."
+	fi
 }
 
 cmd_status() {
@@ -530,7 +531,9 @@ main() {
 	*) die "--dir musi być ścieżką bezwzględną." ;;
 	esac
 	INSTALL_DIR="${INSTALL_DIR%/}"
-	[ -n "$INSTALL_DIR" ] && [ "$INSTALL_DIR" != "/" ] || die "Nieprawidłowy katalog instalacji."
+	if [ -z "$INSTALL_DIR" ] || [ "$INSTALL_DIR" = "/" ]; then
+		die "Nieprawidłowy katalog instalacji."
+	fi
 
 	case "$command" in
 	install) cmd_install ;;
