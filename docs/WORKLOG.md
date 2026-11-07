@@ -35,7 +35,8 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Decyzje zatwierdzone: D19–D23 (Python 3.12, uv, GitHub Actions w prywatnym repo, npm + Node 26, Docker bez Docker Desktop). Odstępstwo: oxlint zamiast ESLint — typescript-eslint nie wspiera TypeScript 7.
 - Ryzyka / rzeczy nieweryfikowane: nazwy pakietów `solargraf_*` zawierają nazwę roboczą; uv zainstalowany przez `pip --user` (poza PATH); Docker niezainstalowany (potrzebny w P1).
 - Później tego dnia: prywatne repozytorium `arkadiuszbaglaj/solargraf` utworzone przez właściciela; pierwszy przebieg CI zielony; akcje GitHub podniesione do wersji na Node.js 24 i przypięte do SHA.
-- Następne małe zadanie: reguły ochrony gałęzi `main`, potem P1 — Compose z FastAPI `/health`, PostgreSQL i Alembic.
+- Ochrona `main`: reguły GitHub wymagają planu Pro dla repozytoriów prywatnych — zamiast tego lokalny hook pre-push (`tools/hooks/no_push_to_main.py`: blokada pushu na `main`, pytest, Vitest, licencje). Od teraz zmiany przez gałąź i PR.
+- Następne małe zadanie: P1 — Compose z FastAPI `/health`, PostgreSQL i Alembic.
 
 ## Szablon kolejnego wpisu
 
