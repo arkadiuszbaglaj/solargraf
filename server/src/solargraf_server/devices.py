@@ -19,7 +19,7 @@ from sqlalchemy import exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from solargraf_profiles.catalog import METRICS
-from solargraf_profiles.model import PointStatus, Profile
+from solargraf_profiles.model import PointStatus, Profile, SupportLevel
 from solargraf_server import authz
 from solargraf_server.auth import service as auth_service
 from solargraf_server.auth.deps import AuthContext, DbSession, current_auth, require_csrf, utcnow
@@ -163,6 +163,8 @@ class DeviceOut(BaseModel):
     agent_id: uuid.UUID | None = None
     details: DeviceDetails | None
     metrics: list[DeviceMetric] = []
+    # Poziom wsparcia profilu (D58) dla wszystkich ról; None — profil spoza katalogu serwera.
+    support_level: SupportLevel | None = None
 
 
 class AgentOut(BaseModel):
@@ -255,6 +257,7 @@ def _device_out(
         freshness_threshold=timedelta(seconds=device.freshness_threshold_seconds),
     )
     agent_state = None if agent is None else AgentState(agent.enabled, agent.last_heartbeat_at)
+    profile = _device_profile(catalog, device)
     return DeviceOut(
         id=device.id,
         parent_device_id=device.parent_device_id,
@@ -275,7 +278,8 @@ def _device_out(
         )
         if details
         else None,
-        metrics=device_metrics(_device_profile(catalog, device)),
+        metrics=device_metrics(profile),
+        support_level=profile.support_level if profile is not None else None,
     )
 
 

@@ -23,6 +23,14 @@ export interface ApiDeviceMetric {
   cumulative: boolean
 }
 
+export type SupportLevel = 'VERIFIED' | 'COMMUNITY' | 'EXPERIMENTAL'
+
+const SUPPORT_LEVELS: ReadonlySet<string> = new Set(['VERIFIED', 'COMMUNITY', 'EXPERIMENTAL'])
+
+/** Znany poziom wsparcia albo null (brak, profil spoza katalogu albo nowa wartość serwera). */
+export const parseSupportLevel = (v: unknown): SupportLevel | null =>
+  typeof v === 'string' && SUPPORT_LEVELS.has(v) ? (v as SupportLevel) : null
+
 export interface ApiDevice {
   id: string
   name: string
@@ -36,6 +44,8 @@ export interface ApiDevice {
   agentId: string | null
   details: { profileId: string | null; profileVersion: string | null; connection: ApiConnection } | null
   metrics: ApiDeviceMetric[]
+  /** Poziom wsparcia profilu (D58); null — nieznany. */
+  supportLevel: SupportLevel | null
 }
 
 export interface ApiProfile {
@@ -45,7 +55,7 @@ export interface ApiProfile {
   manufacturer: string
   deviceKind: string
   simulated: boolean
-  supportLevel: string
+  supportLevel: SupportLevel | null
   modbusTcp: boolean
   pollIntervalSeconds: number
 }
@@ -135,6 +145,7 @@ export function parseDevice(v: unknown): ApiDevice | null {
     agentId,
     details,
     metrics,
+    supportLevel: parseSupportLevel(v.support_level),
   }
 }
 
@@ -162,7 +173,7 @@ export function parseProfile(v: unknown): ApiProfile | null {
     manufacturer,
     deviceKind: kind,
     simulated: origin === 'SIMULATED',
-    supportLevel: level,
+    supportLevel: parseSupportLevel(level),
     modbusTcp: v.transports.includes('MODBUS_TCP'),
     pollIntervalSeconds: interval as number,
   }

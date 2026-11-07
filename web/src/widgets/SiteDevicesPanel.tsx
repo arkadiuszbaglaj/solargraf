@@ -1,5 +1,6 @@
 import { listDevices, listSiteAgents, type ApiAgent, type ApiDevice, type DeviceStatus } from '../api/devices'
 import { Panel } from '../components/Panel'
+import { SupportLevelLabel } from '../components/SupportLevelLabel'
 import { WidgetState, type WidgetStatus } from '../components/WidgetState'
 import { useNow } from '../hooks/useNow'
 import { usePeriodic } from '../hooks/usePeriodic'
@@ -122,6 +123,9 @@ export function SiteDevicesPanel({
                       <span className={styles.meta}>
                         {KIND_LABEL[d.kind] ?? d.kind} · ostatni odczyt {ago(d.lastSuccessAt, now)}
                         {d.agentId === null ? ' · brak agenta' : agent ? '' : ' · agent nieznany'}
+                      </span>
+                      <span className={styles.meta}>
+                        Profil: <SupportLevelLabel level={d.supportLevel} />
                       </span>
                     </div>
                     <span className={`${styles.status} ${styles[d.status]}`}>

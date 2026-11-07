@@ -30,6 +30,7 @@ const DEVICE = {
   enabled: true,
   status: 'STALE',
   last_success_at: '2026-11-07T11:05:00Z',
+  support_level: 'EXPERIMENTAL',
   details: {
     firmware_version: null,
     serial_number: null,
@@ -105,6 +106,11 @@ describe('api/devices', () => {
     expect(parseDevice({ ...DEVICE, last_success_at: 5 })).toBeNull()
     expect(parseProfile(PROFILE)).toMatchObject({ simulated: true, modbusTcp: true, pollIntervalSeconds: 10 })
     expect(parseProfile({ ...PROFILE, origin: 'X' })).toBeNull()
+    // Poziom wsparcia (D58): znany albo null — nieznana wartość nie psuje odpowiedzi.
+    expect(parseDevice(DEVICE)?.supportLevel).toBe('EXPERIMENTAL')
+    expect(parseDevice({ ...DEVICE, support_level: null })?.supportLevel).toBeNull()
+    expect(parseDevice({ ...DEVICE, support_level: 'GOLD' })?.supportLevel).toBeNull()
+    expect(parseProfile(PROFILE)?.supportLevel).toBe('EXPERIMENTAL')
   })
 
   it('formularz: poprawne dane i pusty interwał = z profilu', () => {
@@ -162,6 +168,8 @@ describe('DevicesPage', () => {
     expect(cells.getByText(/SIMULATED/)).toBeTruthy()
     expect(cells.getByText('192.168.1.50:502')).toBeTruthy()
     expect(cells.getByText('07.11.2026, 12:05')).toBeTruthy()
+    const level = cells.getByText('Eksperymentalny')
+    expect(level.getAttribute('title')).toContain('Nie polegaj na odczytach')
     expect(await screen.findByRole('button', { name: 'Dodaj urządzenie' })).toBeTruthy()
   })
 
@@ -171,6 +179,7 @@ describe('DevicesPage', () => {
     expect(screen.queryByText('192.168.1.50:502')).toBeNull()
     expect(screen.queryByRole('button', { name: /Wyłącz/ })).toBeNull()
     expect(screen.queryByText('Dodaj urządzenie (Modbus TCP)')).toBeNull()
+    expect(screen.getByText('Eksperymentalny')).toBeTruthy() // poziom wsparcia widzi każda rola
   })
 
   it('nieznana lub cudza instalacja', async () => {
@@ -198,6 +207,7 @@ describe('DevicesPage', () => {
     renderPage(fetchFn)
     await user.selectOptions(await screen.findByLabelText('Profil urządzenia'), 'simulated.hybrid-inverter@0.1.0')
     expect(screen.getByText(/profil symulatora do testów/)).toBeTruthy()
+    expect(screen.getByText(/Wsparcie profilu: Eksperymentalny\. Profil niepełny/)).toBeTruthy()
     await user.type(screen.getByLabelText('Nazwa urządzenia'), 'Nowy')
     await user.type(screen.getByLabelText('Nazwa połączenia'), 'Logger')
     await user.type(screen.getByLabelText('Adres w sieci lokalnej'), '192.168.1.60')

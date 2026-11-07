@@ -264,6 +264,12 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Decyzja właściciela: liczby w CSV z pełną precyzją, bez zaokrąglania.
 - Następne małe zadanie: P6 albo eksport energii i KPI.
 
+- Etap: P6 — plan (D58) i P6.1 poziom wsparcia profilu w UI.
+- Zmiany: `support_level` w `DeviceOut`; `SupportLevelLabel` na liście urządzeń, w panelu „Urządzenia” i w formularzu dodawania.
+- Testy uruchomione i wyniki: ruff, mypy --strict, pytest 157 (bez bazy; asercja w teście integracyjnym w CI), oxlint, tsc, Vitest 235; podgląd na mocku (lista urządzeń, dashboard).
+- Ryzyka / rzeczy nieweryfikowane: O2 nadal otwarte — P6.3/P6.4 czekają na sprzęt i dokumentację producenta.
+- Następne małe zadanie: P6.2 ogólny SunSpec — najpierw sprawdzenie licencji definicji modeli.
+
 ## Szablon kolejnego wpisu
 
 - Data:

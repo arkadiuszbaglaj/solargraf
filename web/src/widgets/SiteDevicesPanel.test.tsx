@@ -7,7 +7,13 @@ const SITE = '11111111-1111-1111-1111-111111111111'
 const NOW = new Date('2026-11-07T12:00:00Z')
 const AGENT = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
 
-function device(name: string, status: string, agentId: string | null = AGENT, secondsAgo: number | null = 30) {
+function device(
+  name: string,
+  status: string,
+  agentId: string | null = AGENT,
+  secondsAgo: number | null = 30,
+  supportLevel: string | null = 'COMMUNITY',
+) {
   return {
     id: `id-${name}`,
     parent_device_id: null,
@@ -21,6 +27,7 @@ function device(name: string, status: string, agentId: string | null = AGENT, se
     agent_id: agentId,
     details: null,
     metrics: [],
+    support_level: supportLevel,
   }
 }
 
@@ -65,6 +72,7 @@ describe('SiteDevicesPanel', () => {
     expect(meter).toContain('Błąd odczytu')
     expect(meter).toContain('ostatni odczyt nigdy')
     expect(screen.getByText('Falownik').closest('li')?.textContent).toContain('Działa')
+    expect(screen.getAllByText('Z dokumentacji, test na symulatorze')).toHaveLength(2)
     expect(screen.getByRole('link', { name: 'Lista urządzeń' }).getAttribute('href')).toBe(`/instalacje/${SITE}/urzadzenia`)
   })
 

@@ -1,0 +1,17 @@
+.verified,
+.unverified,
+.unknown {
+  font-size: var(--font-size-sm);
+}
+
+.verified {
+  color: var(--color-ok);
+}
+
+.unverified {
+  color: var(--color-warning);
+}
+
+.unknown {
+  color: var(--color-text-muted);
+}

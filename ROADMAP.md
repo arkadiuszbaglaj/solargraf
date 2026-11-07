@@ -81,7 +81,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 - [ ] Kolejne sterowniki (Modbus RTU, HTTP/JSON, MQTT) i mostki do bramek (np. OpenDTU, Victron).
 - [ ] Profile kolejnych marek z dokumentacji producentów, każdy z symulatorem.
 - [ ] Beta-instalacje na rzeczywistym sprzęcie w celu nadania statusu `VERIFIED`.
-- [ ] Widoczny w UI poziom wsparcia profilu.
+- [x] Widoczny w UI poziom wsparcia profilu (D58).
 
 **Akceptacja:** dodanie marki obsługiwanej istniejącym sterownikiem nie wymaga zmian w kodzie — tylko profil i testy.
 

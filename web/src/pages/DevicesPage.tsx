@@ -7,9 +7,10 @@ import type { ApiSite } from '../api/sites'
 import { getSite } from '../api/sites'
 import { useOptionalSession } from '../auth/SessionContext'
 import { Panel } from '../components/Panel'
+import { SupportLevelLabel } from '../components/SupportLevelLabel'
 import { WidgetState } from '../components/WidgetState'
 import { useAsync } from '../hooks/useAsync'
-import { KIND_LABEL, STATUS_LABEL } from '../lib/deviceLabels'
+import { KIND_LABEL, STATUS_LABEL, SUPPORT_LEVEL } from '../lib/deviceLabels'
 import { MISSING, formatDateTime } from '../lib/format'
 import styles from './DevicesPage.module.css'
 
@@ -92,6 +93,7 @@ export function DevicesPage({
                   <th scope="col">Typ</th>
                   <th scope="col">Status</th>
                   <th scope="col">Ostatni odczyt</th>
+                  <th scope="col">Wsparcie profilu</th>
                   {canManage ? (
                     <>
                       <th scope="col">Profil</th>
@@ -122,6 +124,9 @@ export function DevicesPage({
                       </span>
                     </td>
                     <td>{d.lastSuccessAt ? formatDateTime(d.lastSuccessAt, site.timezone) : MISSING}</td>
+                    <td>
+                      <SupportLevelLabel level={d.supportLevel} />
+                    </td>
                     {canManage ? (
                       <>
                         <td>
@@ -298,12 +303,18 @@ function AddDeviceForm({
                 <option key={`${p.id}@${p.version}`} value={`${p.id}@${p.version}`}>
                   {p.simulated ? '[SIMULATED] ' : ''}
                   {p.manufacturer} — {p.name} ({p.version})
+                  {p.supportLevel ? ` — ${SUPPORT_LEVEL[p.supportLevel].label}` : ''}
                 </option>
               ))}
             </select>
             {selected?.simulated ? (
               <span className={styles.simulatedNote}>
                 SIMULATED — profil symulatora do testów, nie prawdziwego urządzenia.
+              </span>
+            ) : null}
+            {selected?.supportLevel ? (
+              <span className={styles.hint}>
+                Wsparcie profilu: {SUPPORT_LEVEL[selected.supportLevel].label}. {SUPPORT_LEVEL[selected.supportLevel].description}
               </span>
             ) : null}
             {errors.profile ? (
