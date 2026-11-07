@@ -123,7 +123,14 @@ export function DevicesPage({
               <tbody>
                 {devices.map((d) => (
                   <tr key={d.id}>
-                    <td>{d.name}</td>
+                    <td>
+                      <a
+                        href={`/instalacje/${encodeURIComponent(site.id)}/urzadzenia/${encodeURIComponent(d.id)}/historia`}
+                        title="Historia pomiarów"
+                      >
+                        {d.name}
+                      </a>
+                    </td>
                     <td>{KIND_LABEL[d.kind] ?? d.kind}</td>
                     <td>
                       <span className={`${styles.status} ${styles[d.status]}`}>

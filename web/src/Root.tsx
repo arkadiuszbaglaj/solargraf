@@ -6,7 +6,7 @@ import { DemoDataSource } from './data/demo/DemoDataSource'
 import { LoginPage } from './pages/LoginPage'
 import { SetupPage, takeTokenFromLocation } from './pages/SetupPage'
 
-export type Route = 'setup' | 'login' | 'sites' | 'devices' | 'app'
+export type Route = 'setup' | 'login' | 'sites' | 'devices' | 'history' | 'app'
 
 const DEVICES_PATH = /^\/instalacje\/([0-9a-f-]{36})\/urzadzenia\/?$/i
 
@@ -15,11 +15,20 @@ export function devicesSiteId(pathname: string): string | null {
   return DEVICES_PATH.exec(pathname)?.[1] ?? null
 }
 
+const HISTORY_PATH = /^\/instalacje\/([0-9a-f-]{36})\/urzadzenia\/([0-9a-f-]{36})\/historia\/?$/i
+
+/** Instalacja i urządzenie z adresu `/instalacje/{id}/urzadzenia/{did}/historia` (D47). */
+export function historyIds(pathname: string): { siteId: string; deviceId: string } | null {
+  const m = HISTORY_PATH.exec(pathname)
+  return m?.[1] && m[2] ? { siteId: m[1], deviceId: m[2] } : null
+}
+
 export function routeFor(pathname: string): Route {
   if (pathname === '/setup') return 'setup'
   if (pathname === '/login') return 'login'
   if (pathname === '/instalacje') return 'sites'
   if (devicesSiteId(pathname)) return 'devices'
+  if (historyIds(pathname)) return 'history'
   return 'app'
 }
 
@@ -47,6 +56,12 @@ export function Root() {
     <DataSourceProvider source={new DemoDataSource()}>
       {route === 'devices' ? (
         <App page="devices" siteId={devicesSiteId(window.location.pathname) ?? ''} />
+      ) : route === 'history' ? (
+        <App
+          page="history"
+          siteId={historyIds(window.location.pathname)?.siteId ?? ''}
+          deviceId={historyIds(window.location.pathname)?.deviceId ?? ''}
+        />
       ) : (
         <App page={route === 'sites' ? 'sites' : 'dashboard'} />
       )}

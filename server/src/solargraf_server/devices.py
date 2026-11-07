@@ -18,7 +18,8 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from solargraf_profiles.model import Profile
+from solargraf_profiles.catalog import METRICS
+from solargraf_profiles.model import PointStatus, Profile
 from solargraf_server import authz
 from solargraf_server.auth import service as auth_service
 from solargraf_server.auth.deps import AuthContext, DbSession, current_auth, require_csrf, utcnow
@@ -34,7 +35,7 @@ from solargraf_server.models import (
     PollingRun,
     Transport,
 )
-from solargraf_server.profiles import Catalog
+from solargraf_server.profiles import Catalog, ProfileCatalog
 from solargraf_server.sites import NOT_FOUND
 
 router = APIRouter(prefix="/api/sites", tags=["devices"])
@@ -109,6 +110,38 @@ class DeviceDetails(BaseModel):
     connection: ConnectionOut
 
 
+class DeviceMetric(BaseModel):
+    """Metryka z profilu urządzenia (D47) — bez rejestrów i innych szczegółów technicznych."""
+
+    key: str
+    channel: int | None
+    name: str
+    unit: str
+    cumulative: bool
+
+
+def device_metrics(profile: Profile | None) -> list[DeviceMetric]:
+    """Metryki, które profil udostępnia (bez UNSUPPORTED), w kolejności katalogu."""
+    if profile is None:
+        return []
+    order = {key: i for i, key in enumerate(METRICS)}
+    keys = sorted(
+        {(p.metric, p.channel) for p in profile.points if p.status is not PointStatus.UNSUPPORTED},
+        key=lambda k: (order.get(k[0], len(order)), k[1] or 0),
+    )
+    return [
+        DeviceMetric(
+            key=key,
+            channel=channel,
+            name=METRICS[key].display_name,
+            unit=METRICS[key].canonical_unit.value,
+            cumulative=METRICS[key].cumulative,
+        )
+        for key, channel in keys
+        if key in METRICS
+    ]
+
+
 class DeviceOut(BaseModel):
     id: uuid.UUID
     parent_device_id: uuid.UUID | None
@@ -120,6 +153,7 @@ class DeviceOut(BaseModel):
     status: DeviceStatus
     last_success_at: datetime | None
     details: DeviceDetails | None
+    metrics: list[DeviceMetric] = []
 
 
 Name = Annotated[str, Field(min_length=1, max_length=200)]
@@ -188,7 +222,13 @@ def _connection_out(conn: Connection) -> ConnectionOut:
 
 
 def _device_out(
-    device: Device, conn: Connection, agent: Agent | None, *, details: bool, now: datetime
+    device: Device,
+    conn: Connection,
+    agent: Agent | None,
+    *,
+    details: bool,
+    now: datetime,
+    catalog: ProfileCatalog | None = None,
 ) -> DeviceOut:
     state = DeviceState(
         enabled=device.enabled,
@@ -216,7 +256,14 @@ def _device_out(
         )
         if details
         else None,
+        metrics=device_metrics(_device_profile(catalog, device)),
     )
+
+
+def _device_profile(catalog: ProfileCatalog | None, device: Device) -> Profile | None:
+    if catalog is None or device.profile_id is None or device.profile_version is None:
+        return None
+    return catalog.get(device.profile_id, device.profile_version)
 
 
 async def _authorize(
@@ -322,7 +369,10 @@ async def _audit(
 
 @router.get("/{site_id}/devices", response_model=list[DeviceOut])
 async def list_devices(
-    site_id: uuid.UUID, db: DbSession, auth: Annotated[AuthContext, Depends(current_auth)]
+    site_id: uuid.UUID,
+    db: DbSession,
+    catalog: Catalog,
+    auth: Annotated[AuthContext, Depends(current_auth)],
 ) -> list[DeviceOut]:
     access = await _authorize(db, auth, site_id, authz.SiteAction.READ)
     show_details = authz.role_allows(access.role, authz.SiteAction.MANAGE)
@@ -337,7 +387,9 @@ async def list_devices(
         .order_by(Device.name, Device.id)
     )
     now = utcnow()
-    return [_device_out(d, c, a, details=show_details, now=now) for d, c, a in rows]
+    return [
+        _device_out(d, c, a, details=show_details, now=now, catalog=catalog) for d, c, a in rows
+    ]
 
 
 # --- zapis (D44) ---

@@ -373,6 +373,17 @@ class TestDeviceWrites:
         assert {"CONNECTION_CREATED", "DEVICE_CREATED"} <= actions
         listed = c.get(f"/api/sites/{world.a1}/devices").json()
         assert [d["id"] for d in listed] == [device["id"]]
+        # Metryki z profilu (D47) — także dla VIEWER, bez szczegółów technicznych.
+        viewer, _ = as_user("scoped_viewer_a")
+        [seen] = viewer.get(f"/api/sites/{world.a1}/devices").json()
+        assert seen["details"] is None
+        assert {
+            "key": "pv_power",
+            "channel": None,
+            "name": "Moc PV",
+            "unit": "W",
+            "cumulative": False,
+        } in seen["metrics"]
 
     def test_viewer_forbidden_foreign_and_missing_404(self, world: World, as_user: AsUser) -> None:
         _local_agent()
