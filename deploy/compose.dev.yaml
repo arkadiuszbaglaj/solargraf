@@ -1,0 +1,62 @@
+# Środowisko deweloperskie: db + migrate + api.
+# Uruchomienie (z katalogu głównego): docker compose -f deploy/compose.dev.yaml up -d --build
+# Wymaga deploy/.env (wzór: deploy/.env.example). Baza nie wystawia portu na hosta.
+name: solargraf-dev
+
+x-db-env: &db-env
+  SOLARGRAF_DB_HOST: db
+  SOLARGRAF_DB_PORT: "5432"
+  SOLARGRAF_DB_NAME: solargraf
+  SOLARGRAF_DB_USER: solargraf
+  SOLARGRAF_DB_PASSWORD: ${SOLARGRAF_DB_PASSWORD:?Ustaw SOLARGRAF_DB_PASSWORD w deploy/.env}
+
+x-hardening: &hardening
+  read_only: true
+  tmpfs: [/tmp]
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+
+services:
+  db:
+    image: postgres:18-trixie
+    environment:
+      POSTGRES_DB: solargraf
+      POSTGRES_USER: solargraf
+      POSTGRES_PASSWORD: ${SOLARGRAF_DB_PASSWORD:?Ustaw SOLARGRAF_DB_PASSWORD w deploy/.env}
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U solargraf -d solargraf"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    image: solargraf-api:dev
+    command: ["alembic", "upgrade", "head"]
+    environment: *db-env
+    <<: *hardening
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    image: solargraf-api:dev
+    environment:
+      <<: *db-env
+      SOLARGRAF_API_DOCS: "true"
+    <<: *hardening
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  db-data:

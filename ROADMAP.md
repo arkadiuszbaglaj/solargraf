@@ -18,7 +18,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 
 ## P1 — Szkielet aplikacji i design system
 
-- [ ] FastAPI z endpointem health, PostgreSQL i Alembic w Docker Compose.
+- [x] FastAPI z endpointem health, PostgreSQL i Alembic w Docker Compose (weryfikacja w CI; lokalnie po instalacji Dockera).
 - [ ] **Instalator jedną komendą, wersja 1** (D18): sprawdzenie wymagań, instalacja Dockera, generowanie sekretów, uruchomienie Compose, health checks, adres i jednorazowy link do pierwszego konta; polecenia `install`, `status`, `uninstall`. Testowany na Debianie, Ubuntu i Raspberry Pi OS 64-bit.
 - [ ] React + Vite: layout (sidebar, topbar, siatka), responsywność, przełącznik instalacji.
 - [ ] Tokeny designu, komponenty KPI, status badge, panel, wykres ECharts, tabela, alarm.

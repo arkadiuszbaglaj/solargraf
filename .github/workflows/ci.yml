@@ -18,6 +18,21 @@ jobs:
     name: Python — lint, typy, testy, licencje, SBOM
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18-trixie
+        env:
+          POSTGRES_DB: solargraf
+          POSTGRES_USER: solargraf
+          POSTGRES_PASSWORD: ci-only-password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U solargraf -d solargraf"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      SOLARGRAF_TEST_DB: "1"
+      SOLARGRAF_DB_HOST: localhost
+      SOLARGRAF_DB_PASSWORD: ci-only-password
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
@@ -31,7 +46,7 @@ jobs:
         run: uv run --frozen ruff check .
       - name: mypy --strict
         run: uv run --frozen mypy
-      - name: pytest
+      - name: pytest (w tym testy z PostgreSQL)
         run: uv run --frozen pytest
       - name: Kontrola licencji (zależności produkcyjne)
         run: uv run --frozen python tools/check_licenses.py python
@@ -75,3 +90,43 @@ jobs:
         with:
           name: sbom-web
           path: web/sbom-web.cdx.json
+
+  compose:
+    name: Compose — db, migrate, api, health
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Hasło bazy tylko dla tego przebiegu
+        run: echo "SOLARGRAF_DB_PASSWORD=$(openssl rand -hex 24)" > deploy/.env
+      - name: Start
+        run: docker compose -f deploy/compose.dev.yaml up -d --build
+      - name: Gotowość API (200)
+        run: |
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/api/health/ready || true)
+            [ "$code" = "200" ] && exit 0
+            sleep 2
+          done
+          echo "API nie osiągnęło gotowości (ostatni kod: $code)"; exit 1
+      - name: Migracja zakończona sukcesem
+        run: |
+          test "$(docker inspect -f '{{.State.ExitCode}}' "$(docker compose -f deploy/compose.dev.yaml ps -a -q migrate)")" = "0"
+      - name: Baza bez portu na hoście
+        run: |
+          published="$(docker port "$(docker compose -f deploy/compose.dev.yaml ps -q db)")"
+          echo "Opublikowane porty db: '${published}'"
+          test -z "$published"
+      - name: Bez bazy — 503, liveness nadal 200
+        run: |
+          docker compose -f deploy/compose.dev.yaml stop db
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/api/health/ready)" = "503"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/api/health)" = "200"
+      - name: Kontener API jako użytkownik nieuprzywilejowany
+        run: test "$(docker compose -f deploy/compose.dev.yaml exec -T api id -u)" = "10001"
+      - name: Logi
+        if: always()
+        run: docker compose -f deploy/compose.dev.yaml logs --no-color
+      - name: Sprzątanie
+        if: always()
+        run: docker compose -f deploy/compose.dev.yaml down -v

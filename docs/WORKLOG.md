@@ -38,6 +38,15 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ochrona `main`: reguły GitHub wymagają planu Pro dla repozytoriów prywatnych — zamiast tego lokalny hook pre-push (`tools/hooks/no_push_to_main.py`: blokada pushu na `main`, pytest, Vitest, licencje). Od teraz zmiany przez gałąź i PR.
 - Następne małe zadanie: P1 — Compose z FastAPI `/health`, PostgreSQL i Alembic.
 
+## 2026-11-07 (P1, wycinek 1)
+
+- Etap: P1 — backend w Compose.
+- Zmiany: FastAPI (`create_app`, konfiguracja `SOLARGRAF_*` przez pydantic-settings, `/api/health`, `/api/health/ready` z timeoutem bazy), SQLAlchemy async + asyncpg, Alembic z pustą migracją `0001`, `server/Dockerfile` (użytkownik 10001, bez narzędzi budowania w obrazie), `deploy/compose.dev.yaml` (db/migrate/api, kontenery read-only, `cap_drop: ALL`, baza bez portu), CI: testy z PostgreSQL 18 i job Compose. Swagger tylko przy `SOLARGRAF_API_DOCS=true`.
+- Testy uruchomione i wyniki: lokalnie (Windows, bez Dockera) ruff, mypy, pytest 50 OK + 2 integracyjne pominięte, licencje 22/22 OK. Compose i testy z bazą — w CI.
+- Decyzje zatwierdzone: D24 (PostgreSQL 18, asyncpg), D25 (health bez uwierzytelnienia, tylko status), D26 (usługa `migrate`).
+- Ryzyka / rzeczy nieweryfikowane: obrazy przypięte tagami, nie digestami (P7); stałe hasło `ci-only-password` dla efemerycznej bazy w CI; brak Dockera lokalnie (WSL niezainstalowany).
+- Następne małe zadanie: P1 wycinek 2 — layout UI z danymi DEMO.
+
 ## Szablon kolejnego wpisu
 
 - Data:

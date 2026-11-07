@@ -1,0 +1,10 @@
+**
+!pyproject.toml
+!uv.lock
+!.python-version
+!server/
+!agent/
+server/tests/
+agent/tests/
+**/__pycache__/
+**/.venv/
