@@ -12,6 +12,7 @@ import { WidgetState } from '../components/WidgetState'
 import { displayUnit, hasValues, RESOLUTION_LABEL } from '../components/historyChartOption'
 import { useAsync } from '../hooks/useAsync'
 import { type Period, rangeFor, shiftAnchor, today } from '../lib/historyRange'
+import { DeviceCsvExport } from './DeviceCsvExport'
 import { DeviceEnergyPanel, hasEnergySources } from './DeviceEnergyPanel'
 import styles from './DeviceHistoryPage.module.css'
 
@@ -239,6 +240,14 @@ function HistoryPanel({
           </>
         ) : null}
       </WidgetState>
+      <DeviceCsvExport
+        siteId={site.id}
+        deviceId={device.id}
+        range={range}
+        period={period}
+        fetchFn={fetchFn}
+        onExpired={onExpired}
+      />
     </Panel>
     {hasEnergySources(device) ? (
       <DeviceEnergyPanel

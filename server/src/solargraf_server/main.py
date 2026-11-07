@@ -18,6 +18,7 @@ from solargraf_server.config import Settings
 from solargraf_server.db import create_engine, create_sessionmaker, database_ready
 from solargraf_server.devices import router as devices_router
 from solargraf_server.energy_api import router as energy_router
+from solargraf_server.export import router as export_router
 from solargraf_server.health import ReadinessCheck
 from solargraf_server.health import router as health_router
 from solargraf_server.history import router as history_router
@@ -68,6 +69,7 @@ def create_app(settings: Settings, readiness_check: ReadinessCheck | None = None
     app.include_router(devices_router)
     app.include_router(history_router)
     app.include_router(energy_router)
+    app.include_router(export_router)
     app.include_router(live_router)
     app.include_router(alarms_router)
     app.include_router(profiles_router)
