@@ -74,6 +74,37 @@ function describe(key: FlowNodeKey, v: SiteValue): string | null {
   }
 }
 
+/** Moc, od której animacja ma największą prędkość i grubość. */
+export const MOTION_MAX_W = 10_000
+/** Czas przejścia jednego okresu kropek: przy IDLE_W (wolno) i przy MOTION_MAX_W (szybko). */
+export const MOTION_SLOW_S = 3
+export const MOTION_FAST_S = 0.6
+/** Średnica kropek w jednostkach SVG: przy IDLE_W i przy MOTION_MAX_W. */
+export const MOTION_THIN = 4
+export const MOTION_THICK = 8
+
+export interface FlowMotion {
+  /** Czas jednego okresu animacji w sekundach (krótszy = szybszy ruch). */
+  durationS: number
+  /** Grubość (średnica kropek) w jednostkach SVG. */
+  width: number
+}
+
+/**
+ * Prędkość i grubość animacji przepływu z mocy w W (D64). Skala logarytmiczna od IDLE_W do
+ * MOTION_MAX_W, powyżej — nasycenie. Poniżej IDLE_W albo dla wartości nieskończonej — null (bez
+ * ruchu). Wynik zaokrąglony, żeby drobne wahania mocy nie zmieniały animacji co sekundę.
+ */
+export function flowMotion(watts: number): FlowMotion | null {
+  const w = Math.abs(watts)
+  if (!Number.isFinite(w) || w < IDLE_W) return null
+  const t = Math.min(1, Math.log(w / IDLE_W) / Math.log(MOTION_MAX_W / IDLE_W))
+  return {
+    durationS: Math.round((MOTION_SLOW_S + (MOTION_FAST_S - MOTION_SLOW_S) * t) * 10) / 10,
+    width: Math.round((MOTION_THIN + (MOTION_THICK - MOTION_THIN) * t) * 2) / 2,
+  }
+}
+
 /**
  * Bilans mocy: suma dopływów do instalacji (dodatnia oznacza nadwyżkę źródeł nad odbiorami).
  * Zwraca różnicę i tolerancję w W.

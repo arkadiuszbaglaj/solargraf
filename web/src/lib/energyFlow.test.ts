@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { balance, flowDirection, flowView, type FlowInputs } from './energyFlow'
+import {
+  balance,
+  flowDirection,
+  flowMotion,
+  flowView,
+  IDLE_W,
+  MOTION_FAST_S,
+  MOTION_MAX_W,
+  MOTION_SLOW_S,
+  MOTION_THICK,
+  MOTION_THIN,
+  type FlowInputs,
+} from './energyFlow'
 import type { SiteValue } from './liveValues'
 
 const v = (value: number, ageSeconds = 5, stale = false): SiteValue => ({
@@ -28,6 +40,33 @@ describe('flowDirection (znak D39, względem instalacji)', () => {
     ['pv', 50, 'in'],
   ] as const)('%s %d W → %s', (key, watts, dir) => {
     expect(flowDirection(key, watts)).toBe(dir)
+  })
+})
+
+describe('flowMotion (prędkość i grubość animacji, D64)', () => {
+  it.each([0, 49.9, -49.9, Number.NaN, Number.POSITIVE_INFINITY])('%d W → bez ruchu', (watts) => {
+    expect(flowMotion(watts)).toBeNull()
+  })
+
+  it('na progu najwolniej i najciensze, od MOTION_MAX_W najszybciej i najgrubsze', () => {
+    expect(flowMotion(IDLE_W)).toEqual({ durationS: MOTION_SLOW_S, width: MOTION_THIN })
+    expect(flowMotion(MOTION_MAX_W)).toEqual({ durationS: MOTION_FAST_S, width: MOTION_THICK })
+    expect(flowMotion(50_000)).toEqual({ durationS: MOTION_FAST_S, width: MOTION_THICK })
+  })
+
+  it('znak nie zmienia animacji (kierunek daje flowDirection)', () => {
+    expect(flowMotion(-2000)).toEqual(flowMotion(2000))
+  })
+
+  it('skala logarytmiczna: większa moc — szybciej i grubiej', () => {
+    // 50 W → 10 kW to 200×; 1 kW (20×) leży w ok. 57% skali.
+    expect(flowMotion(1000)).toEqual({ durationS: 1.6, width: 6.5 })
+    const powers = [100, 500, 2000, 5000]
+    const motions = powers.map((w) => flowMotion(w))
+    for (let i = 1; i < motions.length; i++) {
+      expect(motions[i]!.durationS).toBeLessThan(motions[i - 1]!.durationS)
+      expect(motions[i]!.width).toBeGreaterThanOrEqual(motions[i - 1]!.width)
+    }
   })
 })
 

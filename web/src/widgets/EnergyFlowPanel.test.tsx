@@ -63,6 +63,51 @@ describe('EnergyFlowPanel', () => {
     expect(screen.getByText('SIMULATED')).toBeTruthy()
     expect(container.querySelectorAll('line[marker-end]')).toHaveLength(4)
     expect(screen.queryByText(/nie są pokazywane/)).toBeNull()
+    // Animacja na każdej linii w kierunku przepływu; większa moc — szybciej i grubiej (D64).
+    const flows = [...container.querySelectorAll<SVGLineElement>('line[data-flow]')]
+    expect(flows.map((l) => l.dataset.flow)).toEqual(['in', 'out', 'out', 'out'])
+    const pv = flows[0]
+    const home = flows[3]
+    expect(pv?.style.animationDuration).toBe('1s')
+    expect(home?.style.animationDuration).toBe('1.6s')
+    expect(Number(pv?.getAttribute('stroke-width'))).toBeGreaterThan(Number(home?.getAttribute('stroke-width')))
+  })
+
+  it('moc poniżej progu szumu: bez strzałki i bez ruchu na tej linii', () => {
+    const { container } = render(
+      <EnergyFlowPanel
+        now={NOW}
+        live={ready(ALL, [
+          reading('pv_power', 3000),
+          reading('grid_power', -1000),
+          reading('battery_power', 20),
+          reading('load_power', 2000),
+        ])}
+      />,
+    )
+    expect(container.querySelectorAll('line[marker-end]')).toHaveLength(3)
+    expect([...container.querySelectorAll<SVGLineElement>('line[data-flow]')].map((l) => l.dataset.flow)).toEqual([
+      'in',
+      'out',
+      'out',
+    ])
+  })
+
+  it('nieaktualna wartość: bez strzałek i bez animacji', () => {
+    const { container } = render(
+      <EnergyFlowPanel
+        now={NOW}
+        live={ready(ALL, [
+          reading('pv_power', 4000, 400),
+          reading('grid_power', -1000),
+          reading('battery_power', -2000),
+          reading('load_power', 1000),
+        ])}
+      />,
+    )
+    expect(screen.getByText(/brak świeżych danych: Produkcja PV/)).toBeTruthy()
+    expect(container.querySelectorAll('line[marker-end]')).toHaveLength(0)
+    expect(container.querySelectorAll('line[data-flow]')).toHaveLength(0)
   })
 
   it('niedomknięty bilans: wartości bez strzałek i powód', () => {
@@ -78,6 +123,7 @@ describe('EnergyFlowPanel', () => {
     )
     expect(screen.getByText(/Bilans się nie domyka \(różnica 2,38 kW\)/)).toBeTruthy()
     expect(container.querySelectorAll('line[marker-end]')).toHaveLength(0)
+    expect(container.querySelectorAll('line[data-flow]')).toHaveLength(0)
     // Bez źródła baterii węzeł jest ukryty.
     expect(values()).toHaveLength(3)
   })
