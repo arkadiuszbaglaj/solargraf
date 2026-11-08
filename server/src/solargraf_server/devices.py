@@ -300,8 +300,8 @@ async def _authorize(
         raise HTTPException(status.HTTP_403_FORBIDDEN, FORBIDDEN) from None
 
 
-def _profile(catalog: Catalog, body: DeviceIn) -> Profile:
-    profile = catalog.get(body.profile_id, body.profile_version)
+def _profile(catalog: Catalog, profile_id: str, profile_version: str) -> Profile:
+    profile = catalog.get(profile_id, profile_version)
     if profile is None:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Nieznany profil urządzenia.")
     if Transport.MODBUS_TCP not in profile.transports:
@@ -458,7 +458,7 @@ async def create_connection(
     auth: Annotated[AuthContext, Depends(require_csrf)],
 ) -> CreatedOut:
     access = await _authorize(db, auth, site_id, authz.SiteAction.MANAGE)
-    profile = _profile(catalog, body.device)
+    profile = _profile(catalog, body.device.profile_id, body.device.profile_version)
     agent = await _local_agent(db)
     conn = Connection(
         site_id=access.site.id,
@@ -500,7 +500,7 @@ async def add_device(
 ) -> DeviceOut:
     access = await _authorize(db, auth, site_id, authz.SiteAction.MANAGE)
     conn = await _connection(db, access.site.id, conn_id)
-    profile = _profile(catalog, body)
+    profile = _profile(catalog, body.profile_id, body.profile_version)
     device = _new_device(access.site.id, conn, body, profile)
     db.add(device)
     await db.flush()

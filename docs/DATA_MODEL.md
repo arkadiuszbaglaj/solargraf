@@ -63,6 +63,10 @@ Fizyczny punkt dostępu, z którym rozmawia agent (np. logger Wi-Fi, port Modbus
 - `source_device_kind`
 - definicja/wersja obliczenia, jeśli jest metryką pochodną
 
+### ConnectionTest (`connection_tests`, D72)
+
+Zlecenie testu komunikacji z kreatora: instalacja, agent, zlecający, adres, port, Unit ID, profil, stan (PENDING/RUNNING/DONE; EXPIRED wyliczany), czasy zlecenia/odbioru/zakończenia, wynik, kod błędu, pochodzenie i odczyty (JSONB, wartości w jednostkach kanonicznych, brak = `null`). Dane tymczasowe — usuwane po dobie; nie trafiają do `measurements`.
+
 ### Measurement
 - `site_id`, `device_id`, `metric_definition_id`
 - `observed_at` — czas pomiaru, jeśli źródło go wiarygodnie podaje

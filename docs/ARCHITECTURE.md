@@ -120,11 +120,13 @@ UI:
 - `GET /api/sites/{site_id}/alarms`
 - `POST /api/sites/{site_id}/alarms/{alarm_id}/acknowledge`
 - `GET /api/sites/{site_id}/live` — strumień SSE z ostatnimi wartościami
+- `POST /api/sites/{site_id}/connection-tests`, `GET …/connection-tests/{test_id}` — test komunikacji w kreatorze (D72)
 
 Agent:
 - `POST /api/agent/v1/measurements` — partia pomiarów
 - `POST /api/agent/v1/heartbeat`
 - `GET /api/agent/v1/config`
+- `GET /api/agent/connection-tests`, `POST /api/agent/connection-tests/{test_id}/result` — jednorazowe testy komunikacji (D72); API nadal nie łączy się z urządzeniem
 
 Wszystkie endpointy wymagają uwierzytelnienia; endpointy instalacji sprawdzają uprawnienia do `site_id` po stronie serwera. Zakres czasu jest walidowany i ograniczony, odpowiedzi paginowane. Kontrakt publikowany jako OpenAPI, z którego frontend generuje typy.
 

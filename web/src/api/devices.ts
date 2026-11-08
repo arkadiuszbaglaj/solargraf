@@ -394,17 +394,15 @@ function intIn(value: string, min: number, max: number): number | null {
   return n >= min && n <= max ? n : null
 }
 
-/** Wstępna kontrola w przeglądarce (te same reguły co serwer, D44); ostatecznie decyduje serwer. */
-export function validateConnection(
-  form: ConnectionForm,
+export type TargetFieldErrors = Pick<ConnectionFieldErrors, 'host' | 'port' | 'unitId' | 'profile'>
+
+/** Adres, port, Unit ID i profil — wspólne dla testu połączenia (D72) i dodania urządzenia. */
+export function validateTarget(
+  form: Pick<ConnectionForm, 'host' | 'port' | 'unitId' | 'profile'>,
   profiles: readonly ApiProfile[],
-): { errors: ConnectionFieldErrors; input: NewConnection | null } {
-  const errors: ConnectionFieldErrors = {}
-  const name = form.name.trim()
-  const deviceName = form.deviceName.trim()
+): { errors: TargetFieldErrors; target: TestTarget | null } {
+  const errors: TargetFieldErrors = {}
   const host = form.host.trim()
-  if (!name) errors.name = 'Podaj nazwę połączenia, np. „Logger w garażu”.'
-  if (!deviceName) errors.deviceName = 'Podaj nazwę urządzenia.'
   if (!host) errors.host = 'Podaj adres urządzenia w sieci lokalnej.'
   else if (IPV4.test(host) ? !PRIVATE_V4.test(host) : !HOST.test(host) || /\.\d+\.?$|^\d+$/.test(host))
     errors.host = 'Dozwolony prywatny adres IPv4 (10.x, 172.16–31.x, 192.168.x) albo nazwa hosta.'
@@ -413,25 +411,136 @@ export function validateConnection(
   if (port === null) errors.port = 'Port od 1 do 65535 (Modbus TCP zwykle 502).'
   const unitId = intIn(form.unitId, 0, 255)
   if (unitId === null) errors.unitId = 'Unit ID od 0 do 255.'
+  const profile = profiles.find((p) => `${p.id}@${p.version}` === form.profile)
+  if (!profile) errors.profile = 'Wybierz profil urządzenia.'
+  if (Object.keys(errors).length > 0 || !profile || port === null || unitId === null) return { errors, target: null }
+  return { errors, target: { host, port, unitId, profileId: profile.id, profileVersion: profile.version } }
+}
+
+/** Wstępna kontrola w przeglądarce (te same reguły co serwer, D44); ostatecznie decyduje serwer. */
+export function validateConnection(
+  form: ConnectionForm,
+  profiles: readonly ApiProfile[],
+): { errors: ConnectionFieldErrors; input: NewConnection | null } {
+  const { errors: targetErrors, target } = validateTarget(form, profiles)
+  const errors: ConnectionFieldErrors = { ...targetErrors }
+  const name = form.name.trim()
+  const deviceName = form.deviceName.trim()
+  if (!name) errors.name = 'Podaj nazwę połączenia, np. „Logger w garażu”.'
+  if (!deviceName) errors.deviceName = 'Podaj nazwę urządzenia.'
   let interval: number | null = null
   if (form.pollIntervalSeconds.trim()) {
     interval = intIn(form.pollIntervalSeconds, 1, 3600)
     if (interval === null) errors.pollIntervalSeconds = 'Interwał od 1 do 3600 s albo puste (z profilu).'
   }
-  const profile = profiles.find((p) => `${p.id}@${p.version}` === form.profile)
-  if (!profile) errors.profile = 'Wybierz profil urządzenia.'
-  if (Object.keys(errors).length > 0 || !profile || port === null || unitId === null) return { errors, input: null }
-  return {
-    errors,
-    input: {
-      name,
-      host,
-      port,
-      unitId,
-      pollIntervalSeconds: interval,
-      deviceName,
-      profileId: profile.id,
-      profileVersion: profile.version,
-    },
-  }
+  if (Object.keys(errors).length > 0 || !target) return { errors, input: null }
+  return { errors, input: { ...target, name, pollIntervalSeconds: interval, deviceName } }
 }
+
+// --- test połączenia (D72) ---
+
+export interface TestTarget {
+  host: string
+  port: number
+  unitId: number
+  profileId: string
+  profileVersion: string
+}
+
+export type TestState = 'PENDING' | 'RUNNING' | 'DONE' | 'EXPIRED'
+export type TestResult = 'OK' | 'PARTIAL' | 'FAILED'
+export type TestErrorCode =
+  | 'TIMEOUT'
+  | 'CONNECTION_REFUSED'
+  | 'CONNECTION_LOST'
+  | 'MODBUS_EXCEPTION'
+  | 'INVALID_RESPONSE'
+  | 'UNKNOWN_PROFILE'
+  | 'TARGET_IN_USE'
+
+export interface TestReading {
+  metric: string
+  channel: number | null
+  name: string
+  unit: string
+  /** `null` — brak odczytu (nie zero). */
+  value: number | null
+  quality: 'GOOD' | 'INVALID' | 'MISSING'
+}
+
+export interface ConnectionTest {
+  id: string
+  state: TestState
+  result: TestResult | null
+  errorCode: TestErrorCode | null
+  origin: 'DEVICE' | 'SIMULATED' | null
+  readings: TestReading[]
+}
+
+const TEST_STATES: ReadonlySet<string> = new Set(['PENDING', 'RUNNING', 'DONE', 'EXPIRED'])
+const TEST_RESULTS: ReadonlySet<string> = new Set(['OK', 'PARTIAL', 'FAILED'])
+const TEST_ERRORS: ReadonlySet<string> = new Set([
+  'TIMEOUT',
+  'CONNECTION_REFUSED',
+  'CONNECTION_LOST',
+  'MODBUS_EXCEPTION',
+  'INVALID_RESPONSE',
+  'UNKNOWN_PROFILE',
+  'TARGET_IN_USE',
+])
+const QUALITIES: ReadonlySet<string> = new Set(['GOOD', 'INVALID', 'MISSING'])
+
+const oneOf = <T extends string>(set: ReadonlySet<string>, v: unknown): T | null | undefined =>
+  v === null ? null : typeof v === 'string' && set.has(v) ? (v as T) : undefined
+
+function parseTestReading(v: unknown): TestReading | null {
+  if (!isRecord(v) || typeof v.metric !== 'string' || typeof v.name !== 'string' || typeof v.unit !== 'string')
+    return null
+  const channel = intOrNull(v.channel ?? null)
+  const value = v.value === null ? null : typeof v.value === 'number' && Number.isFinite(v.value) ? v.value : undefined
+  const quality = oneOf<TestReading['quality']>(QUALITIES, v.quality)
+  if (channel === undefined || value === undefined || !quality) return null
+  return { metric: v.metric, channel, name: v.name, unit: v.unit, value, quality }
+}
+
+export function parseConnectionTest(v: unknown): ConnectionTest | null {
+  if (!isRecord(v) || typeof v.id !== 'string') return null
+  const state = oneOf<TestState>(TEST_STATES, v.state)
+  const result = oneOf<TestResult>(TEST_RESULTS, v.result ?? null)
+  const errorCode = oneOf<TestErrorCode>(TEST_ERRORS, v.error_code ?? null)
+  const origin = oneOf<'DEVICE' | 'SIMULATED'>(new Set(['DEVICE', 'SIMULATED']), v.origin ?? null)
+  const readings = parseList(v.readings ?? [], parseTestReading)
+  if (!state || result === undefined || errorCode === undefined || origin === undefined || readings === null)
+    return null
+  return { id: v.id, state, result, errorCode, origin, readings }
+}
+
+export function requestConnectionTest(
+  siteId: string,
+  target: TestTarget,
+  csrfToken: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<Written<ConnectionTest>> {
+  return write(
+    `${site(siteId)}/connection-tests`,
+    'POST',
+    csrfToken,
+    {
+      host: target.host,
+      port: target.port,
+      unit_id: target.unitId,
+      profile_id: target.profileId,
+      profile_version: target.profileVersion,
+    },
+    parseConnectionTest,
+    'Nie udało się zlecić testu połączenia.',
+    fetchFn,
+  )
+}
+
+export const getConnectionTest = (
+  siteId: string,
+  testId: string,
+  fetchFn: typeof fetch = fetch,
+  signal?: AbortSignal,
+) => load(`${site(siteId)}/connection-tests/${encodeURIComponent(testId)}`, parseConnectionTest, fetchFn, signal)

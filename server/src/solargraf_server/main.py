@@ -15,6 +15,8 @@ from solargraf_server.agent_api import router as agent_router
 from solargraf_server.alarms_api import router as alarms_router
 from solargraf_server.auth.router import router as auth_router
 from solargraf_server.config import Settings
+from solargraf_server.connection_tests import agent_router as tests_agent_router
+from solargraf_server.connection_tests import router as tests_router
 from solargraf_server.db import create_engine, create_sessionmaker, database_ready
 from solargraf_server.devices import router as devices_router
 from solargraf_server.energy_api import router as energy_router
@@ -79,6 +81,8 @@ def create_app(settings: Settings, readiness_check: ReadinessCheck | None = None
     app.include_router(alarms_router)
     app.include_router(profiles_router)
     app.include_router(agent_router)
+    app.include_router(tests_router)
+    app.include_router(tests_agent_router)
     app.include_router(system_router)
     app.include_router(updates_router)
     # Podmieniane w testach (bez sieci i z kluczem testowym).

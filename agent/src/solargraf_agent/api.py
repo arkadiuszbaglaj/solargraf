@@ -6,7 +6,7 @@ import uuid
 from typing import Any
 
 import httpx2
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 
 from solargraf_profiles.catalog import DeviceKind, Transport
 
@@ -42,6 +42,20 @@ class AgentConfig(BaseModel):
 
     agent_id: uuid.UUID
     connections: tuple[ConnectionConfig, ...]
+
+
+class TestJob(BaseModel):
+    """Zlecenie testu połączenia z kreatora (D72): jeden odczyt profilu pod wskazanym adresem."""
+
+    __test__ = False
+    model_config = ConfigDict(frozen=True)
+
+    id: uuid.UUID
+    host: str
+    port: int
+    unit_id: int
+    profile_id: str
+    profile_version: str
 
 
 class ApiUnavailable(Exception):
@@ -111,4 +125,24 @@ class ApiClient:
         if response.status_code in (413, 422):
             raise BatchRejected(f"HTTP {response.status_code}")
         if response.status_code != 200:
+            raise ApiUnavailable(f"HTTP {response.status_code}")
+
+    async def connection_tests(self) -> list[TestJob]:
+        """Odbiera oczekujące zlecenia testu połączenia (serwer oznacza je jako odebrane)."""
+        response = await self._request("GET", "/api/agent/connection-tests")
+        if response.status_code != 200:
+            raise ApiUnavailable(f"HTTP {response.status_code}")
+        try:
+            return TypeAdapter(list[TestJob]).validate_json(response.content)
+        except ValidationError:
+            raise ApiUnavailable("niepoprawne zlecenia testu z serwera") from None
+
+    async def report_test(self, test_id: uuid.UUID, result: dict[str, Any]) -> None:
+        """Wynik testu; 404/409/422 (zlecenie wygasło albo wynik odrzucony) — bez ponawiania."""
+        response = await self._request(
+            "POST", f"/api/agent/connection-tests/{test_id}/result", json=result
+        )
+        if response.status_code in (404, 409, 422):
+            raise BatchRejected(f"HTTP {response.status_code}")
+        if response.status_code != 204:
             raise ApiUnavailable(f"HTTP {response.status_code}")

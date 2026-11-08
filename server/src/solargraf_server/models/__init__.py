@@ -4,6 +4,7 @@ from solargraf_server.models.alarms import Alarm, AlarmCode, AlarmSeverity
 from solargraf_server.models.audit import AuditEvent
 from solargraf_server.models.auth import SetupToken, UserSession
 from solargraf_server.models.base import Base
+from solargraf_server.models.connection_tests import ConnectionTest, TestError, TestState
 from solargraf_server.models.devices import (
     DEFAULT_FRESHNESS_THRESHOLD_S,
     Agent,
@@ -51,6 +52,7 @@ __all__ = [
     "AuditEvent",
     "Base",
     "Connection",
+    "ConnectionTest",
     "Device",
     "DeviceKind",
     "Measurement",
@@ -70,6 +72,8 @@ __all__ = [
     "SystemComponent",
     "SystemMetricSample",
     "SystemStatus",
+    "TestError",
+    "TestState",
     "Transport",
     "UpdateStatus",
     "User",
