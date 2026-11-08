@@ -141,6 +141,12 @@ function dd(label: string): string {
   return term.nextElementSibling?.textContent ?? ''
 }
 
+/** Treść kafla zużycia (nagłówek + wartość + opis). */
+function tile(label: string): string {
+  const tiles = screen.getByRole('region', { name: 'Bieżące zużycie zasobów' })
+  return within(tiles).getByRole('heading', { name: label }).closest('article')?.textContent ?? ''
+}
+
 describe('parseSystemHealth', () => {
   it('przyjmuje poprawną odpowiedź i zachowuje null', () => {
     const parsed = parseSystemHealth(HEALTH)
@@ -177,17 +183,19 @@ describe('ServerHealthPage', () => {
     expect(await screen.findByText('Ostrzeżenie')).toBeTruthy()
     expect(screen.getByText(/Dysk zajęty powyżej 85%/)).toBeTruthy()
     expect(dd('Rdzenie')).toBe('4')
-    expect(dd('Zajętość')).toBe('90%')
+    expect(tile('Dysk')).toContain('90%')
     expect(dd('Swap')).toBe('wyłączony')
     expect(dd('Czas pracy hosta')).toBe('3 d 4 h')
-    const proxy = screen.getByRole('row', { name: /Serwer WWW/ })
-    expect(within(proxy).getByText('Niedostępny')).toBeTruthy()
+    const components = screen.getByRole('list', { name: 'Stan składników' })
+    const proxy = within(components).getByText('Serwer WWW (proxy)').closest('li')
+    expect(proxy?.textContent).toContain('Niedostępny')
   })
 
   it('brak pomiaru pokazuje jako „niedostępne”, nigdy 0', async () => {
     renderPage(routes([200, HEALTH]))
     await screen.findByText('Ostrzeżenie')
-    expect(dd('Temperatura procesora')).toBe('niedostępne')
+    expect(tile('Temperatura procesora')).toContain('niedostępne')
+    expect(tile('Temperatura procesora')).not.toContain('°C')
     expect(dd('Niedobór napięcia')).toBe('niedostępne')
   })
 

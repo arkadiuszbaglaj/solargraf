@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { assignLocation, loginUrl } from '../api/auth'
 import type { ComponentState, HealthLevel, SystemHealth } from '../api/system'
 import { getSystemHealth } from '../api/system'
@@ -38,7 +39,9 @@ export function browserTimeZone(): string {
 
 /** Brak pomiaru pokazujemy słowem, żeby nie wyglądał jak wartość. */
 const shown = (text: string): string => (text === MISSING ? UNAVAILABLE : text)
-const percent = (value: number | null): string => shown(value === null ? MISSING : formatQuantity(value, '%'))
+
+const ofTotal = (used: number | null, total: number | null): string =>
+  total === null ? 'rozmiar niedostępny' : `${formatBytes(used)} z ${formatBytes(total)}`
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -54,7 +57,55 @@ function undervoltageText(flag: number | null): string {
   return flag > 0 ? 'wykryty' : 'nie wykryto'
 }
 
-function HealthView({ health, failed, timeZone }: { health: SystemHealth; failed: boolean; timeZone: string }) {
+/** Progi ostrzeżenia i stanu krytycznego z D60 — kolor paska jest tylko dodatkiem do liczby. */
+type Tone = 'ok' | 'warning' | 'critical' | 'none'
+
+function tone(value: number | null, warning: number, critical?: number): Tone {
+  if (value === null) return 'none'
+  if (critical !== undefined && value > critical) return 'critical'
+  return value > warning ? 'warning' : 'ok'
+}
+
+/** Kafel zużycia: duża wartość, pasek (dekoracyjny) i opis. Brak pomiaru — „niedostępne”. */
+function UsageTile({
+  label,
+  value,
+  unit,
+  state,
+  detail,
+}: {
+  label: string
+  value: number | null
+  unit: '%' | '°C'
+  state: Tone
+  detail: string
+}) {
+  const text = value === null ? UNAVAILABLE : formatQuantity(value, unit)
+  const fill = value === null ? null : Math.min(100, Math.max(0, value))
+  return (
+    <article className={styles.tile}>
+      <h3 className={styles.tileLabel}>{label}</h3>
+      <p className={`${styles.tileValue} ${value === null ? styles.unavailable : ''}`}>{text}</p>
+      <div className={styles.bar} aria-hidden="true">
+        {fill === null ? null : <span className={`${styles.barFill} ${styles[`tone_${state}`]}`} style={{ width: `${fill}%` }} />}
+      </div>
+      <p className={styles.tileDetail}>{detail}</p>
+    </article>
+  )
+}
+
+function HealthView({
+  health,
+  failed,
+  timeZone,
+  alarms,
+}: {
+  health: SystemHealth
+  failed: boolean
+  timeZone: string
+  /** Panel alarmów serwera — obok oceny (na wąskim ekranie pod nią). */
+  alarms: ReactNode
+}) {
   const m = health.metrics
   const time = (iso: string | null): string => (iso === null ? MISSING : formatDateTime(iso, timeZone))
   const staleNotice = health.stale
@@ -62,60 +113,96 @@ function HealthView({ health, failed, timeZone }: { health: SystemHealth; failed
     : failed
       ? 'Nie udało się odświeżyć danych. Pokazujemy ostatnie pobrane wartości.'
       : null
+  const load =
+    m.load_1m === null && m.load_5m === null && m.load_15m === null
+      ? UNAVAILABLE
+      : [m.load_1m, m.load_5m, m.load_15m].map((v) => formatNumber(v, 2)).join(' / ')
 
   return (
     <WidgetState status={{ kind: 'ready' }} staleNotice={staleNotice}>
-      <Panel title="Ocena stabilności">
-        <p className={styles.level}>
-          <span className={`${styles.badge} ${styles[health.level]}`}>
-            <span className={styles.dot} aria-hidden="true" />
-            {LEVEL_LABEL[health.level]}
-          </span>
-          <span className={styles.muted}>
-            Ocena: {time(health.evaluatedAt)} · pomiar: {time(health.sampledAt)}
-          </span>
-        </p>
-        {health.reasons.length === 0 ? (
-          <p className={styles.muted}>
-            {health.level === 'STABLE' ? 'Wszystkie wartości w normie.' : 'Brak szczegółów oceny.'}
+      <div className={styles.columns}>
+        <Panel title="Ocena stabilności">
+          <p className={styles.level}>
+            <span className={`${styles.badge} ${styles[health.level]}`}>
+              <span className={styles.dot} aria-hidden="true" />
+              {LEVEL_LABEL[health.level]}
+            </span>
+            <span className={styles.muted}>
+              Ocena: {time(health.evaluatedAt)} · pomiar: {time(health.sampledAt)} · wersja {health.appVersion}
+            </span>
           </p>
-        ) : (
-          <ul className={styles.reasons} aria-label="Przyczyny oceny">
-            {health.reasons.map((r) => (
-              <li key={r.code} className={styles[r.severity]}>
-                <strong>{r.severity === 'CRITICAL' ? 'Krytyczne' : 'Ostrzeżenie'}:</strong> {r.message}
-                {r.since ? <span className={styles.muted}> (od {time(r.since)})</span> : null}
+          {health.reasons.length === 0 ? (
+            <p className={styles.muted}>
+              {health.level === 'STABLE' ? 'Wszystkie wartości w normie.' : 'Brak szczegółów oceny.'}
+            </p>
+          ) : (
+            <ul className={styles.reasons} aria-label="Przyczyny oceny">
+              {health.reasons.map((r) => (
+                <li key={r.code} className={styles[r.severity]}>
+                  <strong>{r.severity === 'CRITICAL' ? 'Krytyczne' : 'Ostrzeżenie'}:</strong> {r.message}
+                  {r.since ? <span className={styles.muted}> (od {time(r.since)})</span> : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+        {alarms}
+      </div>
+
+      <section className={styles.tiles} aria-label="Bieżące zużycie zasobów">
+        <UsageTile
+          label="Procesor"
+          value={m.cpu_percent}
+          unit="%"
+          state={tone(m.cpu_percent, 85)}
+          detail={`Obciążenie: ${load}`}
+        />
+        <UsageTile
+          label="Pamięć RAM"
+          value={health.percent.memory}
+          unit="%"
+          state={tone(health.percent.memory, 90)}
+          detail={ofTotal(m.mem_used_bytes, m.mem_total_bytes)}
+        />
+        <UsageTile
+          label="Dysk"
+          value={health.percent.disk}
+          unit="%"
+          state={tone(health.percent.disk, 85, 95)}
+          detail={ofTotal(m.disk_used_bytes, m.disk_total_bytes)}
+        />
+        <UsageTile
+          label="Temperatura procesora"
+          value={m.cpu_temp_c}
+          unit="°C"
+          state={tone(m.cpu_temp_c, 75)}
+          detail={m.cpu_temp_c === null ? 'brak czujnika' : 'ostrzeżenie powyżej 75 °C'}
+        />
+      </section>
+
+      <div className={styles.columns}>
+        <Panel title="Składniki">
+          <ul className={styles.components} aria-label="Stan składników">
+            {health.components.map((c) => (
+              <li key={c.component} className={styles.component}>
+                <span className={styles.componentName}>{c.name}</span>
+                <span className={`${styles.badge} ${styles[c.state]}`}>
+                  <span className={styles.dot} aria-hidden="true" />
+                  {STATE_LABEL[c.state]}
+                </span>
+                <span className={styles.componentMeta}>
+                  {c.state === 'UP' ? `sprawdzony ${time(c.checkedAt)}` : `ostatnio działał: ${time(c.lastOkAt)}`}
+                </span>
               </li>
             ))}
           </ul>
-        )}
-      </Panel>
-
-      <div className={styles.grid}>
-        <Panel title="Procesor">
-          <dl className={styles.list}>
-            <Row label="Użycie" value={percent(m.cpu_percent)} />
-            <Row
-              label="Obciążenie (1 / 5 / 15 min)"
-              value={
-                m.load_1m === null && m.load_5m === null && m.load_15m === null
-                  ? UNAVAILABLE
-                  : [m.load_1m, m.load_5m, m.load_15m].map((v) => formatNumber(v, 2)).join(' / ')
-              }
-            />
-            <Row label="Rdzenie" value={shown(formatNumber(m.cpu_count, 0))} />
-          </dl>
+          {health.components.length === 0 ? <p className={styles.muted}>Brak wyników sprawdzania składników.</p> : null}
         </Panel>
 
-        <Panel title="Pamięć">
+        <Panel title="Szczegóły systemu">
           <dl className={styles.list}>
-            <Row label="RAM zajęty" value={percent(health.percent.memory)} />
-            <Row
-              label="RAM zajęty / całkowity"
-              value={shown(
-                m.mem_total_bytes === null ? MISSING : `${formatBytes(m.mem_used_bytes)} / ${formatBytes(m.mem_total_bytes)}`,
-              )}
-            />
+            <Row label="Rdzenie" value={shown(formatNumber(m.cpu_count, 0))} />
+            <Row label="Obciążenie (1 / 5 / 15 min)" value={load} />
             <Row
               label="Swap"
               value={
@@ -128,70 +215,13 @@ function HealthView({ health, failed, timeZone }: { health: SystemHealth; failed
                     )
               }
             />
-          </dl>
-        </Panel>
-
-        <Panel title="Dysk">
-          <dl className={styles.list}>
-            <Row label="Zajętość" value={percent(health.percent.disk)} />
-            <Row
-              label="Zajęty / całkowity"
-              value={shown(
-                m.disk_total_bytes === null
-                  ? MISSING
-                  : `${formatBytes(m.disk_used_bytes)} / ${formatBytes(m.disk_total_bytes)}`,
-              )}
-            />
             <Row label="Rozmiar bazy danych" value={shown(formatBytes(m.db_size_bytes))} />
-          </dl>
-        </Panel>
-
-        <Panel title="Temperatura i zasilanie">
-          <dl className={styles.list}>
-            <Row label="Temperatura procesora" value={shown(formatQuantity(m.cpu_temp_c, '°C'))} />
             <Row label="Niedobór napięcia" value={undervoltageText(m.undervoltage_now)} />
-          </dl>
-        </Panel>
-
-        <Panel title="System">
-          <dl className={styles.list}>
             <Row label="Czas pracy hosta" value={shown(formatUptime(m.uptime_s))} />
-            <Row label="Wersja aplikacji" value={health.appVersion} />
             <Row label="Czas serwera" value={time(health.serverTime)} />
           </dl>
         </Panel>
       </div>
-
-      <Panel title="Składniki">
-        <div className={styles.tableWrap}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th scope="col">Składnik</th>
-                <th scope="col">Stan</th>
-                <th scope="col">Ostatnie sprawdzenie</th>
-                <th scope="col">Ostatnio działał</th>
-              </tr>
-            </thead>
-            <tbody>
-              {health.components.map((c) => (
-                <tr key={c.component}>
-                  <th scope="row">{c.name}</th>
-                  <td>
-                    <span className={`${styles.badge} ${styles[c.state]}`}>
-                      <span className={styles.dot} aria-hidden="true" />
-                      {STATE_LABEL[c.state]}
-                    </span>
-                  </td>
-                  <td>{time(c.checkedAt)}</td>
-                  <td>{time(c.lastOkAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {health.components.length === 0 ? <p className={styles.muted}>Brak wyników sprawdzania składników.</p> : null}
-      </Panel>
     </WidgetState>
   )
 }
@@ -231,8 +261,12 @@ export function ServerHealthPage({
   }
   return (
     <div className={styles.page}>
-      <HealthView health={state.data.data} failed={state.failed} timeZone={timeZone} />
-      <SystemAlarmsPanel fetchFn={fetchFn} onExpired={() => navigate(loginUrl('expired'))} timeZone={timeZone} />
+      <HealthView
+        health={state.data.data}
+        failed={state.failed}
+        timeZone={timeZone}
+        alarms={<SystemAlarmsPanel fetchFn={fetchFn} onExpired={() => navigate(loginUrl('expired'))} timeZone={timeZone} />}
+      />
       <ServerHistory fetchFn={fetchFn} onExpired={() => navigate(loginUrl('expired'))} timeZone={timeZone} />
     </div>
   )
