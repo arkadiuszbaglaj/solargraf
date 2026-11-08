@@ -363,6 +363,14 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: pełna instalacja nowszej wersji z przycisku sprawdzi się dopiero przy wydaniu 0.2.0; nie testowane na RPi; przy ręcznie zmienionym katalogu instalacji kopia sprzed P7.4b nie ma `SOLARGRAF_RUN_DIR` (restore uzupełnia).
 - Następne małe zadanie: wydanie 0.2.0 (podniesienie wersji, podpisany manifest) i próba aktualizacji z przycisku na serwerze testowym.
 
+- Data: 2026-11-08
+- Etap: P7.5 — wydanie 0.2.0 (D63, D65)
+- Zmiany: wersja 0.2.0 we wszystkich pakietach (`tools/release.py version 0.2.0`, `uv.lock`). Zawiera animację przepływu energii (D64) oraz polecenie `update` z instalacją z aplikacji (D65).
+- Testy uruchomione i wyniki: `tools/release.py version` — pliki spójne; pełne CI na PR.
+- Decyzje zatwierdzone: przygotowanie 0.2.0 — właściciel 2026-11-08.
+- Ryzyka / rzeczy nieweryfikowane: tag `v0.2.0`, podpisany manifest i aktualizacja na serwerze testowym czekają na właściciela (klucz prywatny, sudo). Instalacja 0.1.0 nie ma usługi aktualizacji, więc pierwsze przejście trzeba uruchomić w terminalu.
+- Następne małe zadanie: tag i wydanie `v0.2.0` z manifestem (`--min-upgrade-from 0.1.0`), aktualizacja serwera testowego.
+
 ## Szablon kolejnego wpisu
 
 - Data:
