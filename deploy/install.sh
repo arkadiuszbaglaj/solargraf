@@ -1207,7 +1207,9 @@ cmd_update() {
 		# Zlecenie z aplikacji (usługa systemd): flaga tylko uruchamia, jej treść jest ignorowana;
 		# wersja wyłącznie z podpisanego manifestu, bez --ref i bez paczki.
 		rm -f "$INSTALL_DIR/run/update-request/update"
-		[ "$REF_GIVEN" -eq 0 ] && [ "$DRY_RUN" -eq 0 ] || die "--from-request nie łączy się z --ref ani --dry-run."
+		if [ "$REF_GIVEN" -eq 1 ] || [ "$DRY_RUN" -eq 1 ]; then
+			die "--from-request nie łączy się z --ref ani --dry-run."
+		fi
 		ASSUME_YES=1
 	fi
 	if [ "$DRY_RUN" -eq 0 ]; then
