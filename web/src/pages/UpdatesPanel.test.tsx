@@ -113,9 +113,13 @@ describe('parseUpdates', () => {
         reason: null,
         freeMb: null,
         requiredMb: null,
+        reclaimedMb: null,
       },
     })
+    const done = parseUpdates({ ...BASE, install: { ...SUPPORTED, last: { ...JOB, state: 'SUCCESS', reclaimed_mb: 812 } } })
+    expect(done?.install.last?.reclaimedMb).toBe(812)
     const bad = (last: unknown) => parseUpdates({ ...BASE, install: { ...SUPPORTED, last } })
+    expect(bad({ ...JOB, reclaimed_mb: -1 })).toBeNull()
     expect(bad({ ...JOB, reason: 'LOW_DISK', free_mb: -5 })).toBeNull()
     expect(bad({ ...JOB, reason: 'LOW_DISK', free_mb: 1.5 })).toBeNull()
     expect(bad({ ...JOB, state: 'DONE' })).toBeNull()

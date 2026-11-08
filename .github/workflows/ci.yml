@@ -342,6 +342,7 @@ jobs:
           docker image inspect "$other" >/dev/null
           version="$(grep -oE '^__version__ = "[0-9]+\.[0-9]+\.[0-9]+"' server/src/solargraf_server/__init__.py | cut -d'"' -f2)"
           job | jq -e --arg v "$version" '.state == "SUCCESS" and .step == "DONE" and .from_version == $v and .to_version == $v'
+          job | jq -e '.reclaimed_mb >= 0'
           sudo find "$DIR/backups" -name '*-pre-update.tar.gz' | grep -q .
           sudo test -f "$DIR/src.previous/deploy/compose.yaml"
           docker image inspect solargraf-api:previous >/dev/null

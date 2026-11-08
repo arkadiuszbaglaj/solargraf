@@ -66,7 +66,7 @@ function ActivePoller({ onTick }: { onTick: () => void }) {
   return null
 }
 
-function versionsText(job: UpdateJob): string {
+export function versionsText(job: UpdateJob): string {
   if (job.fromVersion !== null && job.toVersion !== null) return ` ${job.fromVersion} → ${job.toVersion}`
   return job.fromVersion === null ? '' : ` (z wersji ${job.fromVersion})`
 }
@@ -99,7 +99,7 @@ function LastJob({ job, running, timeZone }: { job: UpdateJob; running: boolean;
   return (
     <p className={problem ? styles.WARNING : styles.muted}>
       Ostatnia aktualizacja{versionsText(job)}, {when}: {JOB_STATE_TEXT[job.state]}
-      {step}.
+      {step}.{job.state === 'SUCCESS' && job.reclaimedMb !== null ? ` Sprzątanie odzyskało ${job.reclaimedMb} MB.` : ''}
     </p>
   )
 }

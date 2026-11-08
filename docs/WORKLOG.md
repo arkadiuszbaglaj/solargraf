@@ -435,6 +435,8 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 
 - Sprzątanie po aktualizacji uzupełnione: `docker image prune` tylko dla obrazów `<none>` z etykietą `com.solargraf.product=solargraf` oraz raport „odzyskano N MB (wolne A → B MB)” w wyniku `solargraf update` i `install.log`; plan aktualizacji wymienia oba kroki. Test w CI (zadanie „Instalator”): osierocony obraz produktu usunięty, obcy osierocony obraz zostaje, raport w wyniku. Lokalnie tylko `bash -n` (brak Dockera i shellcheck). Na serwer trafi z kolejnym wydaniem.
 
+- Odzyskane miejsce w UI: skrypt zapisuje `reclaimed_mb` w pliku stanu aktualizacji, API przekazuje je w `install.last`, „Stan serwera” ma wiersze „Ostatnia aktualizacja” i „Odzyskane miejsce przy sprzątaniu” (brak danych — „niedostępne”, błąd API aktualizacji nie blokuje strony), panel „Aktualizacje” dopisuje odzyskane MB. Testy: pytest aktualizacji, web 375, tsc, oxlint; CI sprawdza `reclaimed_mb` po udanej aktualizacji.
+
 ## Szablon kolejnego wpisu
 
 - Data:

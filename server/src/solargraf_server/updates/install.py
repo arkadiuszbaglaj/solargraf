@@ -69,6 +69,8 @@ class Job(BaseModel):
     # MB (MiB z ``df -Pm``) w /var/lib; tylko przy ``LOW_DISK``.
     free_mb: int | None = Field(default=None, ge=0)
     required_mb: int | None = Field(default=None, ge=0)
+    # MB odzyskane przy sprzątaniu po udanej aktualizacji (D17); brak u starszych wersji skryptu.
+    reclaimed_mb: int | None = Field(default=None, ge=0)
 
 
 @dataclass(frozen=True)

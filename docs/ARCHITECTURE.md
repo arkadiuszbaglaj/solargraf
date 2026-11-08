@@ -265,7 +265,7 @@ Aktualizację wykonuje polecenie `update` narzędzia na hoście (sekcja wyżej),
    - osierocone obrazy `<none>` z etykietą produktu `com.solargraf.product` (`docker image prune` z filtrem etykiety, bez `--all`);
    - cache budowania, jeśli obraz był budowany lokalnie;
    - pobrane archiwa i pliki tymczasowe wydań w katalogu instalacyjnym.
-6. Raport odzyskanego miejsca (wolne MB w `/var/lib` przed i po sprzątaniu) — w wyniku polecenia i w `install.log`. Pokazanie go w widoku „Stan serwera” nie jest jeszcze zrobione.
+6. Raport odzyskanego miejsca (wolne MB w `/var/lib` przed i po sprzątaniu) — w wyniku polecenia, w `install.log` i w pliku stanu (`reclaimed_mb`); Ustawienia → Stan serwera pokazuje ostatnią aktualizację i odzyskane miejsce, a Ustawienia → Aktualizacje — odzyskane MB przy wyniku.
 
 **Czego nigdy nie usuwamy:** wolumenów z danymi, kopii zapasowych (mają własną retencję), plików konfiguracyjnych i sekretów, obrazów i kontenerów innych aplikacji na tym samym hoście. Dlatego sprzątanie wybiera obrazy po **etykiecie produktu** nadawanej przy budowaniu (np. `org.opencontainers.image.vendor` / własna etykieta produktu), a nie przez ogólne `docker system prune`.
 

@@ -34,6 +34,8 @@ export interface UpdateJob {
   /** MB wolne i wymagane w katalogu danych Dockera; tylko przy `LOW_DISK`. */
   freeMb: number | null
   requiredMb: number | null
+  /** MB odzyskane przy sprzątaniu po udanej aktualizacji; `null` — brak (np. starszy skrypt). */
+  reclaimedMb: number | null
 }
 
 export interface InstallState {
@@ -101,6 +103,7 @@ function parseJob(v: unknown): UpdateJob | null | undefined {
   const reason = reasonOrNull(v.reason)
   const freeMb = mbOrNull(v.free_mb)
   const requiredMb = mbOrNull(v.required_mb)
+  const reclaimedMb = mbOrNull(v.reclaimed_mb)
   if (
     typeof v.state !== 'string' ||
     !JOB_STATES.has(v.state) ||
@@ -112,7 +115,8 @@ function parseJob(v: unknown): UpdateJob | null | undefined {
     finishedAt === undefined ||
     reason === undefined ||
     freeMb === undefined ||
-    requiredMb === undefined
+    requiredMb === undefined ||
+    reclaimedMb === undefined
   ) {
     return undefined
   }
@@ -126,6 +130,7 @@ function parseJob(v: unknown): UpdateJob | null | undefined {
     reason,
     freeMb,
     requiredMb,
+    reclaimedMb,
   }
 }
 

@@ -67,11 +67,16 @@ def test_read_job_validates_status_file(tmp_path: Path) -> None:
         install.JobStep.DONE,
         "0.2.0",
     )
-    assert (job.reason, job.free_mb, job.required_mb) == (None, None, None)
+    assert (job.reason, job.free_mb, job.required_mb, job.reclaimed_mb) == (None, None, None, None)
+    _write_status(dirs, finished_at=NOW.isoformat(), reclaimed_mb=812)
+    job = install.read_job(dirs)
+    assert job is not None
+    assert job.reclaimed_mb == 812
     for bad in (
         {"state": "OTHER"},
         {"reason": "OTHER"},
         {"reason": "LOW_DISK", "free_mb": -1},
+        {"reclaimed_mb": -5},
         {"to_version": "v0.2.0; rm -rf /"},
         {"started_at": "2026-11-08T12:00:00"},  # bez strefy
     ):
