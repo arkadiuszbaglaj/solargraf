@@ -304,6 +304,7 @@ jobs:
           sudo solargraf status | tee status-out.txt
           grep -q 'Kopia automatyczna: włączona' status-out.txt
           # Stare kopie automatyczne (puste pliki z wcześniejszą datą w nazwie) — retencja je usuwa.
+          sudo install -d -m 700 "$DIR/backups"
           for i in 1 2 3 4 5 6 7 8; do sudo touch "$DIR/backups/solargraf-backup-2000010${i}T000000Z-auto.tar.gz"; done
           sudo touch "$DIR/backups/solargraf-backup-20000101T000000Z-manual.tar.gz"
           sudo systemctl start solargraf-backup.service
