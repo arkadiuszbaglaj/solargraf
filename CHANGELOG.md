@@ -4,6 +4,10 @@ Sekcja `## X.Y.Z` jest opisem wydania na GitHubie i w podpisanym manifeście (D6
 właściciel instalacji w Ustawienia → Aktualizacje. Najwyżej 2000 znaków na wersję. Nową sekcję
 dodaje się w tym samym PR co podniesienie wersji (`tools/release.py version X.Y.Z`).
 
+## 0.5.1
+
+- Ostrzeżenie o rozjechanym zegarze podaje kierunek różnicy (serwer spieszy się albo spóźnia względem urządzenia) i najpierw radzi sprawdzić automatyczny czas urządzenia; administrator widzi też polecenie sprawdzenia serwera.
+
 ## 0.5.0
 
 - Dashboard: zakładki MPPT z wykresem napięcia i prądu stringu, pierścień stanu naładowania i szacunek energii w magazynie, tabela faz sieci z energią pobraną i oddaną dziś, nowe panele „BMS — ogniwa” oraz „Zużycie i samowystarczalność” (D69).
