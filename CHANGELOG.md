@@ -4,6 +4,11 @@ Sekcja `## X.Y.Z` jest opisem wydania na GitHubie i w podpisanym manifeście (D6
 właściciel instalacji w Ustawienia → Aktualizacje. Najwyżej 2000 znaków na wersję. Nową sekcję
 dodaje się w tym samym PR co podniesienie wersji (`tools/release.py version X.Y.Z`).
 
+## 0.4.0
+
+- Alarmy serwera: baner na każdej stronie przy kończącym się dysku, braku pamięci, przegrzaniu, niedoborze napięcia albo niedziałającym składniku; lista z historią i potwierdzaniem w Ustawienia → Stan serwera (D68).
+- Wydania publikowane automatycznie z podpisanym manifestem (D67).
+
 ## 0.3.0
 
 - Zakładka „Wykresy i historia”: moc PV, zużycia domu, sieci i baterii oraz stan naładowania baterii dla dnia, tygodnia, miesiąca, roku albo własnego zakresu dat (D66).

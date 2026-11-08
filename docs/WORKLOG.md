@@ -411,6 +411,14 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: nie sprawdzone na serwerze testowym ani RPi; powiadomienia poza aplikacją — osobno.
 - Następne małe zadanie: kreator dodawania falownika z testem komunikacji.
 
+- Data: 2026-11-08
+- Etap: wydanie 0.4.0
+- Zmiany: wersja 0.4.0 we wszystkich pakietach i sekcja w `CHANGELOG.md`. Zawiera alarmy systemowe (D68). Wydanie publikuje workflow (D67) po merge.
+- Testy uruchomione i wyniki: `tools/release.py version` i `notes` — spójne; pełne CI na PR.
+- Decyzje zatwierdzone: wydanie 0.4.0 — właściciel 2026-11-08.
+- Ryzyka / rzeczy nieweryfikowane: instalacja 0.4.0 przyciskiem na serwerze testowym.
+- Następne małe zadanie: aktualizacja serwera testowego do 0.4.0, potem kreator dodawania falownika.
+
 ## Szablon kolejnego wpisu
 
 - Data:

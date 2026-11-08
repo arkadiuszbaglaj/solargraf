@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import io
 import os
 import re
 import sys
@@ -230,6 +231,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     version = read_versions()[SOURCE]
     if args.command == "notes":
+        if isinstance(sys.stdout, io.TextIOWrapper):
+            sys.stdout.reconfigure(encoding="utf-8")  # konsola Windows (cp1250) nie zna np. „→”
         print(changelog_notes(version))
         return 0
     if args.command == "verify":
