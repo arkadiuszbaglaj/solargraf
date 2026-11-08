@@ -1,6 +1,6 @@
 [project]
 name = "solargraf-profiles"
-version = "0.6.0"
+version = "0.7.0"
 description = "SolarGraf (nazwa robocza) — format i walidacja profili urządzeń"
 requires-python = ">=3.12,<3.13"
 license = "LicenseRef-Proprietary"
