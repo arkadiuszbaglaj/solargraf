@@ -332,3 +332,5 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Decyzje zatwierdzone:
 - Ryzyka / rzeczy nieweryfikowane:
 - Następne małe zadanie:
+
+- 2026-11-08: klucz podpisu wydań wygenerowany przez właściciela (`tools/release.py keygen`, plik poza repozytorium); klucz publiczny w `updates/release_key.py` — sprawdzanie aktualizacji aktywne. Do pierwszego wydania (tag `v0.1.0` + manifest) sprawdzenie kończy się błędem NETWORK (brak pliku w wydaniach), co nie jest alarmem.
