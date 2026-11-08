@@ -96,6 +96,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 - [ ] TLS w LAN (Caddy), instrukcja VPN.
 - [ ] Weryfikacja pliku licencji offline i limity (O5).
 - [x] Sprawdzanie aktualizacji (D15, D63): wersja 0.1.0 z jednego miejsca, podpisany manifest, sprawdzanie ręczne i co tydzień, API, narzędzie wydania (P7.3a); klucz podpisu właściciela; komunikat i ustawienia w UI (P7.3b); pierwsze wydanie `v0.1.0` z manifestem.
+- [x] Aktualizacja (D65): `solargraf update` z kopią, automatycznym powrotem i sprzątaniem (P7.4a); instalacja z aplikacji w Ustawienia → Aktualizacje (P7.4b); wydanie `v0.2.0` (P7.5).
 - [x] Backup/restore z testem odtworzenia (P7.2, D62).
 - [ ] Wymagania CRA: SBOM w wydaniu, polityka podatności, okres wsparcia (O9), dokumentacja techniczna.
 - [ ] Materiały RODO dla klientów; nazwa handlowa (O4).

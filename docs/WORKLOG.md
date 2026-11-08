@@ -371,6 +371,14 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: tag `v0.2.0`, podpisany manifest i aktualizacja na serwerze testowym czekają na właściciela (klucz prywatny, sudo). Instalacja 0.1.0 nie ma usługi aktualizacji, więc pierwsze przejście trzeba uruchomić w terminalu.
 - Następne małe zadanie: tag i wydanie `v0.2.0` z manifestem (`--min-upgrade-from 0.1.0`), aktualizacja serwera testowego.
 
+- Data: 2026-11-08
+- Etap: P7.5 — wydanie `v0.2.0`
+- Zmiany: wydanie `v0.2.0` na GitHubie (tag na `05ec418`, oznaczone jako „latest”) z `manifest.json` i `manifest.json.sig` (`--min-upgrade-from 0.1.0`), podpisanymi kluczem właściciela za jego zgodą. W CI test aktualizacji bierze wersję z repozytorium zamiast stałej 0.1.0.
+- Testy uruchomione i wyniki: podpis z `dist/` zweryfikowany wbudowanym kluczem — 0.1.0 dostaje 0.2.0, dla 0.2.0 brak nowszej wersji; CI PR #52 zielone; `releases/latest/download` kodem aplikacji (`update_target`) — dla 0.1.0 wynik `0.2.0` (kod 0), dla 0.2.0 kod 10; brak sieci/podpisu nie wystąpił.
+- Decyzje zatwierdzone: publikacja `v0.2.0` — zgoda właściciela 2026-11-08.
+- Ryzyka / rzeczy nieweryfikowane: GitHub przez kilka minut zwracał klientowi aplikacji (inny User-Agent) stare przekierowanie na v0.1.0 (potem poprawnie); aktualizacja serwera testowego 0.1.0 → 0.2.0 nieuruchomiona (wymaga sudo właściciela); nie testowane na RPi.
+- Następne małe zadanie: aktualizacja serwera testowego (`install.sh update --ref v0.2.0`), potem P7.1d (alarmy systemowe).
+
 ## Szablon kolejnego wpisu
 
 - Data:
