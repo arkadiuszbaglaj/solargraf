@@ -4,6 +4,13 @@ Sekcja `## X.Y.Z` jest opisem wydania na GitHubie i w podpisanym manifeście (D6
 właściciel instalacji w Ustawienia → Aktualizacje. Najwyżej 2000 znaków na wersję. Nową sekcję
 dodaje się w tym samym PR co podniesienie wersji (`tools/release.py version X.Y.Z`).
 
+## 0.7.2
+
+- Nowy układ pulpitu: karty bieżących wartości na górze, pod nimi przepływ energii, wykres dnia i urządzenia, niżej szczegóły instalacji i alarmy. Panele w rzędzie mają równą wysokość; na telefonie karty układają się po dwie w rzędzie.
+- Karty bieżących wartości są czytelniejsze: większa wartość, krótsze opisy, wiek odczytu zawsze na dole karty.
+- Temperatura wyświetla się w °C (zamiast „degC”), a liczniki bez pustej jednostki.
+- Wynik „Testuj połączenie”: oznaczenie SIMULATED tylko przy odczytanych danych; gdy nic nie odczytano, krótki komunikat zamiast pustej tabeli; zajęty adres lub nieznany profil jako „Test nie został wykonany”.
+
 ## 0.7.1
 
 - Sprzątanie po aktualizacji usuwa także osierocone obrazy aplikacji (tylko z etykietą produktu — obrazy innych programów na serwerze zostają) i podaje, ile miejsca odzyskano.
