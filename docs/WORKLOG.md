@@ -433,6 +433,8 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 
 - Porządek w ROADMAP: aktualizacja z kopią i powrotem oznaczona jako zrobiona (D65); sprzątanie rozpisane — brakuje usuwania osieroconych obrazów `<none>` i raportu odzyskanego miejsca. Właściciel zatwierdził O12 → D73 (jedna poprzednia wersja). Tylko dokumentacja.
 
+- Sprzątanie po aktualizacji uzupełnione: `docker image prune` tylko dla obrazów `<none>` z etykietą `com.solargraf.product=solargraf` oraz raport „odzyskano N MB (wolne A → B MB)” w wyniku `solargraf update` i `install.log`; plan aktualizacji wymienia oba kroki. Test w CI (zadanie „Instalator”): osierocony obraz produktu usunięty, obcy osierocony obraz zostaje, raport w wyniku. Lokalnie tylko `bash -n` (brak Dockera i shellcheck). Na serwer trafi z kolejnym wydaniem.
+
 ## Szablon kolejnego wpisu
 
 - Data:

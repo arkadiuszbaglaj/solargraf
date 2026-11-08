@@ -262,10 +262,10 @@ Aktualizację wykonuje polecenie `update` narzędzia na hoście (sekcja wyżej),
 4. Health checks wszystkich komponentów.
 5. **Tylko jeśli health checks przeszły** — sprzątanie:
    - obrazy Dockera aplikacji starsze niż poprzednia wersja (poprzednia zostaje do rollbacku);
-   - osierocone (dangling) warstwy obrazów aplikacji;
+   - osierocone obrazy `<none>` z etykietą produktu `com.solargraf.product` (`docker image prune` z filtrem etykiety, bez `--all`);
    - cache budowania, jeśli obraz był budowany lokalnie;
    - pobrane archiwa i pliki tymczasowe wydań w katalogu instalacyjnym.
-6. Raport: usunięte elementy i odzyskane miejsce — w logu skryptu i w widoku „Stan serwera” (data ostatniej aktualizacji, odzyskane miejsce).
+6. Raport odzyskanego miejsca (wolne MB w `/var/lib` przed i po sprzątaniu) — w wyniku polecenia i w `install.log`. Pokazanie go w widoku „Stan serwera” nie jest jeszcze zrobione.
 
 **Czego nigdy nie usuwamy:** wolumenów z danymi, kopii zapasowych (mają własną retencję), plików konfiguracyjnych i sekretów, obrazów i kontenerów innych aplikacji na tym samym hoście. Dlatego sprzątanie wybiera obrazy po **etykiecie produktu** nadawanej przy budowaniu (np. `org.opencontainers.image.vendor` / własna etykieta produktu), a nie przez ogólne `docker system prune`.
 

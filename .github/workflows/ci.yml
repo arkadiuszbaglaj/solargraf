@@ -319,10 +319,27 @@ jobs:
           grep -q 'Tryb --dry-run' upd-dry.txt
           sudo test ! -e "$DIR/src.previous"
 
+          # Osierocone obrazy: z etykietą produktu (usuwany) i obcy bez etykiety (zostaje).
+          # Druga budowa pod tą samą nazwą zostawia pierwszą jako <none>.
+          orphan() {
+            echo 'FROM postgres:18-trixie' | docker build -q "$@" - >/dev/null
+          }
+          orphan --label com.solargraf.product=solargraf --label ci.orphan=ours -t ci-orphan-ours:x
+          orphan --label com.solargraf.product=solargraf --label ci.orphan=ours2 -t ci-orphan-ours:x
+          orphan --label ci.orphan=other -t ci-orphan-other:x
+          orphan --label ci.orphan=other2 -t ci-orphan-other:x
+          ours="$(docker images -q --filter dangling=true --filter label=ci.orphan=ours)"
+          other="$(docker images -q --filter dangling=true --filter label=ci.orphan=other)"
+          test -n "$ours" && test -n "$other"
+          grep -q 'raport odzyskanego miejsca' upd-dry.txt
+
           # Udana aktualizacja (ten sam kod): kopia pre-update, poprzednia wersja zachowana, dane bez zmian.
           sudo SOLARGRAF_SOURCE_URL=http://127.0.0.1:8765/src.tar.gz solargraf update --ref main --yes | tee upd-ok.txt
           grep -q 'Zaktualizowano solargraf' upd-ok.txt
           grep -q 'Sprzątanie' upd-ok.txt
+          grep -qE 'Sprzątanie: odzyskano [0-9]+ MB \(wolne w /var/lib: [0-9]+ → [0-9]+ MB\)' upd-ok.txt
+          if docker image inspect "$ours" >/dev/null 2>&1; then echo 'Niespełniony warunek'; exit 1; fi
+          docker image inspect "$other" >/dev/null
           version="$(grep -oE '^__version__ = "[0-9]+\.[0-9]+\.[0-9]+"' server/src/solargraf_server/__init__.py | cut -d'"' -f2)"
           job | jq -e --arg v "$version" '.state == "SUCCESS" and .step == "DONE" and .from_version == $v and .to_version == $v'
           sudo find "$DIR/backups" -name '*-pre-update.tar.gz' | grep -q .
