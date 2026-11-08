@@ -168,6 +168,8 @@ API (D63, tylko OWNER, zmiany z CSRF):
 - `PUT /api/system/updates/settings` — włączenie/wyłączenie sprawdzania automatycznego;
 - `POST /api/system/updates/dismiss` — ukrycie zwykłej wersji (wersji z poprawkami bezpieczeństwa — nie).
 
+UI (P7.3b): panel „Aktualizacje” na stronie Ustawienia → Stan serwera i baner nad treścią każdej strony — oba tylko dla roli OWNER (jak API). Ukrycie zwykłej wersji zapisuje serwer (dla wszystkich właścicieli); odłożenie wersji z poprawkami bezpieczeństwa trzyma przeglądarka w `sessionStorage` do zamknięcia karty albo wylogowania.
+
 Wydanie: `tools/release.py version X.Y.Z` (wersja we wszystkich pakietach), tag `vX.Y.Z`, `tools/release.py manifest --key …` i dołączenie `manifest.json` oraz `manifest.json.sig` do wydania na GitHubie.
 
 ## Monitor serwera
