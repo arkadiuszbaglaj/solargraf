@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { LiveDevice, LiveReading } from '../api/live'
-import { mergeReadings } from './liveValues'
+import { mergeReadings, type SiteValue } from './liveValues'
 import {
   availableEnergyWh,
+  batteryTime,
   cellVoltageSpread,
   detailSections,
   phaseLabel,
+  formatEstimate,
   sectionNumber,
   type DetailSection,
 } from './siteDetails'
@@ -250,5 +252,50 @@ describe('wartości wyliczone', () => {
     expect(cellVoltageSpread(3.31, 3.34)).toBeCloseTo(0.03)
     expect(cellVoltageSpread(null, 3.34)).toBeNull()
     expect(cellVoltageSpread(3.4, 3.3)).toBeNull()
+  })
+})
+
+const v = (value: number, ageSeconds = 5, stale = false): SiteValue => ({
+  kind: 'value',
+  value,
+  ageSeconds,
+  stale,
+  origin: 'DEVICE',
+  deviceName: 'Falownik',
+})
+
+describe('czas ładowania i rozładowania magazynu', () => {
+
+  it('ładowanie: brakująca energia ÷ moc; rozładowanie: pozostała energia ÷ moc (D39: + = rozładowanie)', () => {
+    // 10 kWh, SoC 60% → brakuje 4 kWh; ładowanie 2 kW → 2 h.
+    expect(batteryTime(v(60), v(-2000), 10_000)).toEqual({ kind: 'charging', seconds: 7200 })
+    // 16 kWh, SoC 25% → zostało 4 kWh; rozładowanie 1,5 kW → 2 h 40 min.
+    expect(batteryTime(v(25), v(1500), 16_000)).toEqual({ kind: 'discharging', seconds: 9600 })
+  })
+
+  it('spoczynek, pełny i pusty magazyn', () => {
+    expect(batteryTime(v(50), v(-49), 10_000)).toEqual({ kind: 'idle' })
+    expect(batteryTime(v(50), v(49), 10_000)).toEqual({ kind: 'idle' })
+    expect(batteryTime(v(100), v(-500), 10_000)).toEqual({ kind: 'full' })
+    expect(batteryTime(v(0), v(500), 10_000)).toEqual({ kind: 'empty' })
+  })
+
+  it('bez szacunku przy braku, nieaktualności, rozjechanych odczytach albo złych wartościach', () => {
+    expect(batteryTime(null, v(-2000), 10_000)).toBeNull()
+    expect(batteryTime(v(60), { kind: 'no-data', ageSeconds: 3 }, 10_000)).toBeNull()
+    expect(batteryTime(v(60), v(-2000), null)).toBeNull()
+    expect(batteryTime(v(60, 5, true), v(-2000), 10_000)).toBeNull()
+    expect(batteryTime(v(60, 5), v(-2000, 40), 10_000)).toBeNull()
+    expect(batteryTime(v(60, 5), v(-2000, 35), 10_000)).toEqual({ kind: 'charging', seconds: 7200 })
+    expect(batteryTime(v(120), v(-2000), 10_000)).toBeNull()
+    expect(batteryTime(v(60), v(-2000), 0)).toBeNull()
+  })
+
+  it('format czasu', () => {
+    expect(formatEstimate(7200)).toBe('ok. 2 h')
+    expect(formatEstimate(9600)).toBe('ok. 2 h 40 min')
+    expect(formatEstimate(45 * 60)).toBe('ok. 45 min')
+    expect(formatEstimate(20)).toBe('poniżej minuty')
+    expect(formatEstimate(100 * 3600)).toBe('ponad 99 h')
   })
 })

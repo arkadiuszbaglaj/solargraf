@@ -152,6 +152,32 @@ describe('SiteDetailsPanels', () => {
     expect(screen.queryByText('Energia w magazynie (szacunek)')).toBeNull()
   })
 
+  it('magazyn: czas do pełna przy ładowaniu, czas pracy przy rozładowaniu, nic przy nieaktualnej mocy', () => {
+    const metrics: Array<[string]> = [['battery_soc'], ['battery_power'], ['battery_capacity']]
+    const base = [reading('battery_soc', 60), reading('battery_capacity', 10_000)]
+    const { unmount } = render(
+      <SiteDetailsPanels now={NOW} live={ready(metrics, [...base, reading('battery_power', -2000)])} />,
+    )
+    let battery = screen.getByRole('region', { name: 'Magazyn energii' })
+    expect(within(battery).getByText('Pełne naładowanie za')).toBeTruthy()
+    expect(within(battery).getByText('ok. 2 h')).toBeTruthy()
+    expect(battery.textContent).toContain('bez rezerwy falownika')
+    unmount()
+
+    const second = render(
+      <SiteDetailsPanels now={NOW} live={ready(metrics, [...base, reading('battery_power', 1500)])} />,
+    )
+    battery = screen.getByRole('region', { name: 'Magazyn energii' })
+    expect(within(battery).getByText('Energii wystarczy na')).toBeTruthy()
+    expect(within(battery).getByText('ok. 4 h')).toBeTruthy()
+    second.unmount()
+
+    // Odczyt mocy sprzed 10 min — nieaktualny; szacunek energii zostaje, czasu nie ma.
+    render(<SiteDetailsPanels now={NOW} live={ready(metrics, [...base, reading('battery_power', -2000, null, 600)])} />)
+    expect(screen.getByText('Energia w magazynie (szacunek)')).toBeTruthy()
+    expect(screen.queryByText('Pełne naładowanie za')).toBeNull()
+  })
+
   it('BMS: rozrzut napięć ogniw tylko z obu wartości, oznaczony jako wyliczony', () => {
     render(
       <SiteDetailsPanels

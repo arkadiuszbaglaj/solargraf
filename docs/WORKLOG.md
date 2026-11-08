@@ -427,6 +427,8 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 
 - Zakładka „Urządzenia” (D70): pozycja menu aktywna, `/urzadzenia` z instalacją z przełącznika (dawny adres przekierowuje); kafle statusów (działa / wymaga uwagi / nieznany / wyłączone) jako filtry, wyszukiwarka, filtr typu i statusu, tabela z wiekiem odczytu; panel wybranego urządzenia z bieżącymi wartościami z SSE, wykresem 24 h / 7 / 30 dni, połączeniem i profilem (firmware i numer seryjny z API — nowe pola w kliencie), włączaniem odczytu; formularz dodawania pod przyciskiem. Testy web 358 (nowe: filtry, kafle, wybór i adres, wartości na żywo, wykres, DEMO, routing), tsc, oxlint; podgląd z atrapą SIMULATED 1600 px i 375 px (bez poziomego przewijania strony, fokus przechodzi do szczegółów). Niezweryfikowane: z prawdziwym backendem na serwerze testowym. Następny krok: kreator dodawania falownika z testem komunikacji.
 
+- Szacunkowy czas ładowania i rozładowania magazynu (D71) w panelu „Magazyn”: przy obecnej mocy do 100% / 0% SoC, tylko przy świeżych i zgodnych w czasie odczytach SoC, mocy i pojemności oraz |moc| ≥ 50 W. Testy web 363 (wzór na przykładach liczbowych, przypadki brzegowe, panel), tsc, oxlint; podgląd z atrapą SIMULATED (64% z 10 kWh, ładowanie 0,5 kW → ok. 7 h 12 min).
+
 ## Szablon kolejnego wpisu
 
 - Data:

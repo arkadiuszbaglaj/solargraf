@@ -9,9 +9,13 @@ import { useNow } from '../hooks/useNow'
 import { formatAge, formatQuantity, MISSING } from '../lib/format'
 import {
   availableEnergyWh,
+  batteryTime,
+  type BatteryTime,
   cellVoltageSpread,
   detailSections,
+  formatEstimate,
   sectionNumber,
+  sectionValue,
   sectionValues,
   type DetailGroup,
   type DetailRow,
@@ -199,6 +203,7 @@ function BatteryBody({ section }: { section: DetailSection }) {
   const soc = sectionNumber(section, 'battery_soc')
   const capacity = sectionNumber(section, 'battery_capacity')
   const available = availableEnergyWh(soc, capacity)
+  const time = batteryTime(sectionValue(section, 'battery_soc'), sectionValue(section, 'battery_power'), capacity)
   const rows = section.groups.flatMap((g) => g.rows)
   const socRow = rows.find((r) => r.id === 'battery_soc|0')
   return (
@@ -224,7 +229,35 @@ function BatteryBody({ section }: { section: DetailSection }) {
             <span className={styles.barFill} style={{ width: `${(available / capacity) * 100}%` }} />
           </div>
           <p className={styles.meta}>Stan naładowania × pojemność nominalna; bez rezerwy i zużycia ogniw.</p>
+          {time ? <BatteryTimeText time={time} /> : null}
         </div>
+      ) : null}
+    </>
+  )
+}
+
+/** Szacunek czasu przy obecnej mocy (D71) — do 100% albo do 0% SoC, bez rezerwy falownika. */
+function BatteryTimeText({ time }: { time: BatteryTime }) {
+  if (time.kind === 'idle') return null
+  const [label, value] =
+    time.kind === 'charging'
+      ? ['Pełne naładowanie za', formatEstimate(time.seconds)]
+      : time.kind === 'discharging'
+        ? ['Energii wystarczy na', formatEstimate(time.seconds)]
+        : time.kind === 'full'
+          ? ['Magazyn', 'naładowany']
+          : ['Magazyn', 'rozładowany']
+  return (
+    <>
+      <p className={styles.estimateText}>
+        <span>{label}</span>
+        <strong>{value}</strong>
+      </p>
+      {time.kind === 'charging' || time.kind === 'discharging' ? (
+        <p className={styles.meta}>
+          Szacunek przy obecnej mocy, do {time.kind === 'charging' ? '100%' : '0%'} stanu naładowania; bez rezerwy
+          falownika i strat.
+        </p>
       ) : null}
     </>
   )
