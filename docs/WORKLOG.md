@@ -387,6 +387,14 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: nie sprawdzone na prawdziwym serwerze z danymi symulatora; 5 zapytań na zmianę zakresu; wybór instalacji nie jest zapamiętywany między stronami.
 - Następne małe zadanie: energia za okres instalacji (słupki dzienne) na stronie wykresów albo P7.1d.
 
+- Data: 2026-11-08
+- Etap: wydanie 0.3.0
+- Zmiany: wersja 0.3.0 we wszystkich pakietach (`tools/release.py version 0.3.0`, `uv.lock`). Zawiera zakładkę „Wykresy i historia” instalacji (D66).
+- Testy uruchomione i wyniki: `tools/release.py version` — pliki spójne; testy wersji (pytest -k version) zielone; pełne CI na PR.
+- Decyzje zatwierdzone: przygotowanie 0.3.0 — właściciel 2026-11-08.
+- Ryzyka / rzeczy nieweryfikowane: tag `v0.3.0`, podpisany manifest i instalacja z przycisku na serwerze testowym czekają na właściciela (klucz prywatny).
+- Następne małe zadanie: podpisany manifest i wydanie `v0.3.0`, aktualizacja serwera testowego przyciskiem w aplikacji.
+
 ## Szablon kolejnego wpisu
 
 - Data:
