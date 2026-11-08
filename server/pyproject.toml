@@ -1,6 +1,6 @@
 [project]
 name = "solargraf-server"
-version = "0.7.0"
+version = "0.7.1"
 description = "SolarGraf (nazwa robocza) — server"
 requires-python = ">=3.12,<3.13"
 license = "LicenseRef-Proprietary"
