@@ -1034,9 +1034,20 @@ manifest_target() {
 UPDATE_STARTED_AT=""
 UPDATE_STEP="CHECK"
 FROM_REQUEST=0
+# Przyczyna błędu dla UI — tylko z zamkniętego zbioru (LOW_DISK) i liczby po walidacji.
+UPDATE_REASON=""
+UPDATE_FREE_MB=""
 
 json_version() {
 	if [[ "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then printf '"%s"' "$1"; else printf 'null'; fi
+}
+
+json_reason() {
+	if [ "$UPDATE_REASON" = "LOW_DISK" ] && [[ "$UPDATE_FREE_MB" =~ ^[0-9]+$ ]]; then
+		printf '"reason":"LOW_DISK","free_mb":%s,"required_mb":%s' "$UPDATE_FREE_MB" "$MIN_DISK_MB"
+	else
+		printf '"reason":null,"free_mb":null,"required_mb":null'
+	fi
 }
 
 write_update_status() {
@@ -1046,9 +1057,9 @@ write_update_status() {
 	[ "$state" = "RUNNING" ] || finished="\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\""
 	(
 		umask 022
-		printf '{"state":"%s","step":"%s","from_version":%s,"to_version":%s,"started_at":"%s","finished_at":%s}\n' \
+		printf '{"state":"%s","step":"%s","from_version":%s,"to_version":%s,"started_at":"%s","finished_at":%s,%s}\n' \
 			"$state" "$step" "$(json_version "$UPDATE_FROM")" "$(json_version "$UPDATE_TO")" \
-			"$UPDATE_STARTED_AT" "$finished" >"$dir/status.json.tmp"
+			"$UPDATE_STARTED_AT" "$finished" "$(json_reason)" >"$dir/status.json.tmp"
 	)
 	mv -f "$dir/status.json.tmp" "$dir/status.json"
 }
@@ -1198,6 +1209,26 @@ cleanup_after_update() {
 	say "Sprzątanie: usunięto starsze obrazy aplikacji i cache budowania starszy niż 7 dni (poprzednia wersja zostaje)."
 }
 
+# Miejsce na kopię, nowe obrazy i budowanie. Przy braku najpierw usuwa cache budowania Dockera
+# (bezpieczne — odtwarza się przy budowaniu) i sprawdza ponownie; nadal za mało — błąd LOW_DISK.
+update_free_mb() { df -Pm /var/lib | awk 'NR==2 {print $4}'; }
+
+ensure_update_disk() {
+	local free_mb
+	free_mb="$(update_free_mb)"
+	if [ "$free_mb" -lt "$MIN_DISK_MB" ]; then
+		say "Wolne miejsce w /var/lib: ${free_mb} MB (minimum ${MIN_DISK_MB} MB) — usuwam cache budowania Dockera."
+		docker builder prune -af >/dev/null 2>&1 || true
+		free_mb="$(update_free_mb)"
+	fi
+	if [ "$free_mb" -lt "$MIN_DISK_MB" ]; then
+		UPDATE_REASON="LOW_DISK"
+		UPDATE_FREE_MB="$free_mb"
+		die "Za mało miejsca w /var/lib: ${free_mb} MB (minimum ${MIN_DISK_MB} MB). Zwolnij miejsce (np. stare kopie w $(backup_dir), nieużywane obrazy — docker system df) i spróbuj ponownie."
+	fi
+	say "Wolne miejsce w /var/lib: ${free_mb} MB."
+}
+
 cmd_update() {
 	if [ "$DRY_RUN" -eq 0 ]; then
 		require_root
@@ -1261,6 +1292,7 @@ cmd_update() {
 
 	say "== Plan aktualizacji"
 	say "- wersja: $UPDATE_FROM → $UPDATE_TO (źródło: $SRC_LABEL)"
+	say "- miejsce: minimum ${MIN_DISK_MB} MB w /var/lib; przy braku najpierw usunięcie cache budowania Dockera"
 	say "- kopia zapasowa pre-update w $(backup_dir)"
 	say "- poprzedni kod w $INSTALL_DIR/src.previous i obrazy :previous (do powrotu)"
 	say "- budowa obrazów, migracje bazy, uruchomienie i sprawdzenie gotowości"
@@ -1271,9 +1303,7 @@ cmd_update() {
 		return 0
 	fi
 	confirm "Zaktualizować $PRODUCT z $UPDATE_FROM do $UPDATE_TO?" || die "Przerwano."
-	local free_mb
-	free_mb="$(df -Pm /var/lib | awk 'NR==2 {print $4}')"
-	[ "$free_mb" -ge "$MIN_DISK_MB" ] || die "Za mało miejsca w /var/lib: ${free_mb} MB (minimum ${MIN_DISK_MB} MB)."
+	ensure_update_disk
 
 	say "== Kopia zapasowa"
 	write_update_status RUNNING BACKUP
