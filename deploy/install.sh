@@ -1197,16 +1197,34 @@ remove_update_units() {
 	fi
 }
 
-# Sprzątanie po udanej aktualizacji (D17): obrazy aplikacji starsze niż poprzednia wersja
-# i stary cache budowania. Nigdy wolumeny, kopie, konfiguracja ani obrazy innych aplikacji.
+# Sprzątanie po udanej aktualizacji (D17, D73): obrazy aplikacji starsze niż poprzednia wersja,
+# osierocone obrazy <none> z etykietą produktu i stary cache budowania; na końcu raport
+# odzyskanego miejsca. Nigdy wolumeny, kopie, konfiguracja ani obrazy innych aplikacji.
+readonly PRODUCT_LABEL="com.solargraf.product=$PRODUCT"
+
 cleanup_after_update() {
-	local id
+	local id before after
+	before="$(update_free_mb)"
 	for id in $OLD_PREVIOUS_IMAGES; do
 		# Bez -f: obraz nadal oznaczony inną nazwą albo używany przez kontener zostaje.
 		docker image rm "$id" >/dev/null 2>&1 || true
 	done
+	# Bez --all: tylko obrazy bez nazwy (<none>), i tylko z etykietą produktu.
+	docker image prune -f --filter "label=$PRODUCT_LABEL" >/dev/null 2>&1 || true
 	docker builder prune -f --filter until=168h >/dev/null 2>&1 || true
-	say "Sprzątanie: usunięto starsze obrazy aplikacji i cache budowania starszy niż 7 dni (poprzednia wersja zostaje)."
+	after="$(update_free_mb)"
+	say "Sprzątanie: usunięto starsze i osierocone obrazy aplikacji oraz cache budowania starszy niż 7 dni (poprzednia wersja zostaje)."
+	say "Sprzątanie: odzyskano $(reclaimed_mb "$before" "$after") MB (wolne w /var/lib: $before → $after MB)."
+	log_line "sprzątanie: wolne $before → $after MB"
+}
+
+# Odzyskane miejsce w MB; nigdy ujemne (w tym czasie inne procesy mogą zapisywać na dysk).
+reclaimed_mb() {
+	local diff=$(($2 - $1))
+	if [ "$diff" -lt 0 ]; then
+		diff=0
+	fi
+	printf '%s' "$diff"
 }
 
 # Miejsce na kopię, nowe obrazy i budowanie. Przy braku najpierw usuwa cache budowania Dockera
@@ -1297,7 +1315,7 @@ cmd_update() {
 	say "- poprzedni kod w $INSTALL_DIR/src.previous i obrazy :previous (do powrotu)"
 	say "- budowa obrazów, migracje bazy, uruchomienie i sprawdzenie gotowości"
 	say "- przy błędzie: automatyczny powrót do $UPDATE_FROM (z odtworzeniem kopii, gdy zmieniła się baza)"
-	say "- sprzątanie starszych obrazów aplikacji i cache budowania (D17)"
+	say "- sprzątanie: starsze i osierocone obrazy aplikacji (etykieta $PRODUCT_LABEL), cache budowania starszy niż 7 dni; raport odzyskanego miejsca (D17, D73)"
 	if [ "$DRY_RUN" -eq 1 ]; then
 		say "== Tryb --dry-run: nic nie zmieniono."
 		return 0
