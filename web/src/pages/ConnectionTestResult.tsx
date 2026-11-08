@@ -137,7 +137,10 @@ export function ConnectionTestResult({ run }: { run: TestRun }) {
         {test.origin === 'SIMULATED' ? <DemoBadge origin="SIMULATED" /> : null}
       </p>
       {test.errorCode ? <p className={styles.muted}>{TEST_ERROR_LABEL[test.errorCode]}</p> : null}
-      {test.readings.length > 0 ? (
+      {test.readings.length > 0 && good === 0 ? (
+        <p className={styles.muted}>Nie odczytano żadnego z {test.readings.length} parametrów profilu.</p>
+      ) : null}
+      {good > 0 ? (
         <>
           <p className={styles.muted}>
             Odczytano {good} z {test.readings.length} parametrów profilu.

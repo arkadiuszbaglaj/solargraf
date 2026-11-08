@@ -26,7 +26,7 @@ from solargraf_agent.api import (
 )
 from solargraf_agent.buffer import Buffer
 from solargraf_agent.modbus import ModbusPoller, Target, new_client, utc_now
-from solargraf_agent.readings import ErrorCode, PollingRun, RunResult
+from solargraf_agent.readings import ErrorCode, PollingRun, Quality, RunResult
 from solargraf_profiles.catalog import Transport
 from solargraf_profiles.model import Profile
 
@@ -72,7 +72,8 @@ def test_payload(run: PollingRun) -> dict[str, Any]:
     code: str | None = None
     if run.result is not RunResult.OK:
         code = (run.error_code or ErrorCode.INVALID_RESPONSE).value
-    origins = {r.origin.value for r in run.readings}
+    # Pochodzenie tylko z odczytanych wartości — bez nich nie ma danych do oznaczenia.
+    origins = {r.origin.value for r in run.readings if r.quality is Quality.GOOD}
     return {
         "result": run.result.value,
         "error_code": code,

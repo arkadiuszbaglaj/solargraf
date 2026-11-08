@@ -295,6 +295,7 @@ class TestConnectionTests:
             assert result["result"] == "FAILED"
             assert result["error_code"] == "CONNECTION_REFUSED"
             assert {r["value"] for r in result["readings"]} == {None}
+            assert result["origin"] is None  # nic nie odczytano — nie ma czego oznaczać
 
         run(tmp_path, test)
 
