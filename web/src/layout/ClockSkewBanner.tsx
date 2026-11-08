@@ -10,8 +10,9 @@ const browserFetch: typeof fetch = (...args) => fetch(...args)
 
 /**
  * Ostrzeżenie o rozjechanych zegarach serwera i przeglądarki (D53), dla wszystkich ról.
- * Nie wskazuje, który zegar jest zły — z samego porównania tego nie wiadomo. Błąd sprawdzenia
- * nie jest ostrzeżeniem o zegarze (dostępność API pokazują widżety).
+ * Podaje kierunek różnicy, ale nie rozstrzyga, który zegar jest zły — z samego porównania tego
+ * nie wiadomo. Najpierw radzi sprawdzić urządzenie (częstsza przyczyna, każdy może to zrobić),
+ * administratorowi także serwer. Błąd sprawdzenia nie jest ostrzeżeniem o zegarze.
  */
 export function ClockSkewBanner({ fetchFn = browserFetch }: { fetchFn?: typeof fetch }) {
   const { state } = usePeriodic('clock', (_now, signal) => sampleServerClock(fetchFn, signal), CLOCK_CHECK_MS)
@@ -20,17 +21,22 @@ export function ClockSkewBanner({ fetchFn = browserFetch }: { fetchFn?: typeof f
   const offset = significantSkew(state.data)
   if (offset === null) return null
   const admin = session?.session.memberships.some((m) => m.role === 'OWNER' || m.role === 'ADMIN') ?? false
+  const direction = offset > 0 ? 'spieszy się' : 'spóźnia się'
   return (
     <div className={styles.banner} role="status">
       <p>
-        Zegar serwera i tego urządzenia różnią się o {formatSkew(offset)} — wiek danych i statusy mogą być
-        błędne.
+        Zegar serwera i tego urządzenia różnią się o {formatSkew(offset)} (serwer {direction} względem tego
+        urządzenia) — wiek danych i statusy mogą być błędne.
       </p>
-      {admin ? (
-        <p className={styles.hint}>
-          Sprawdź synchronizację czasu na serwerze: <code>sudo solargraf status</code>
-        </p>
-      ) : null}
+      <p className={styles.hint}>
+        Sprawdź, czy to urządzenie ustawia czas automatycznie (z internetu).
+        {admin ? (
+          <>
+            {' '}
+            Jeśli tak, sprawdź synchronizację czasu na serwerze: <code>sudo solargraf status</code>
+          </>
+        ) : null}
+      </p>
     </div>
   )
 }
