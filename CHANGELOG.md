@@ -4,6 +4,10 @@ Sekcja `## X.Y.Z` jest opisem wydania na GitHubie i w podpisanym manifeście (D6
 właściciel instalacji w Ustawienia → Aktualizacje. Najwyżej 2000 znaków na wersję. Nową sekcję
 dodaje się w tym samym PR co podniesienie wersji (`tools/release.py version X.Y.Z`).
 
+## 0.5.2
+
+- Aktualizacja przy braku miejsca na dysku: serwer najpierw sam usuwa cache budowania Dockera; jeśli to nie wystarczy, Ustawienia → Aktualizacje pokazują, ile miejsca jest wolne, ile potrzeba i co można zwolnić — zamiast niejasnego „etap: sprawdzanie wersji”.
+
 ## 0.5.1
 
 - Ostrzeżenie o rozjechanym zegarze podaje kierunek różnicy (serwer spieszy się albo spóźnia względem urządzenia) i najpierw radzi sprawdzić automatyczny czas urządzenia; administrator widzi też polecenie sprawdzenia serwera.
