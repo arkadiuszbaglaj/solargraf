@@ -128,3 +128,20 @@ def availability(manifest: Manifest, current: str) -> Availability | None:
         info_url=manifest.info_url,
         direct_upgrade=mine >= minimum,
     )
+
+
+class TargetRefused(StrEnum):
+    """Dlaczego polecenie ``update`` nie ma czego instalować (D65)."""
+
+    NO_NEWER = "NO_NEWER"  # manifest nie ma wersji nowszej niż bieżąca (albo bieżąca bez numeru)
+    INTERMEDIATE = "INTERMEDIATE"  # bieżąca starsza niż ``min_upgrade_from``
+
+
+def upgrade_target(manifest: Manifest, current: str) -> str | TargetRefused:
+    """Wersja do zainstalowania przez ``update`` z podpisanego manifestu albo powód odmowy."""
+    found = availability(manifest, current)
+    if found is None:
+        return TargetRefused.NO_NEWER
+    if not found.direct_upgrade:
+        return TargetRefused.INTERMEDIATE
+    return found.version
