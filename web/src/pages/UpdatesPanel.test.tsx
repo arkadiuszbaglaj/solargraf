@@ -110,9 +110,14 @@ describe('parseUpdates', () => {
         toVersion: '0.2.0',
         startedAt: '2026-11-07T12:00:00Z',
         finishedAt: null,
+        reason: null,
+        freeMb: null,
+        requiredMb: null,
       },
     })
     const bad = (last: unknown) => parseUpdates({ ...BASE, install: { ...SUPPORTED, last } })
+    expect(bad({ ...JOB, reason: 'LOW_DISK', free_mb: -5 })).toBeNull()
+    expect(bad({ ...JOB, reason: 'LOW_DISK', free_mb: 1.5 })).toBeNull()
     expect(bad({ ...JOB, state: 'DONE' })).toBeNull()
     expect(bad({ ...JOB, step: 'REBOOT' })).toBeNull()
     expect(bad({ ...JOB, to_version: 'v0.2.0' })).toBeNull()
@@ -277,6 +282,27 @@ describe('UpdatesPanel — instalacja (D65)', () => {
     const finished = { ...JOB, state: 'ROLLED_BACK', step: 'DONE', finished_at: '2026-11-07T12:20:00Z' }
     renderPanel(api({ ...BASE, install: { ...SUPPORTED, last: finished } }))
     expect(await screen.findByText(/przywrócono poprzednią wersję/)).toBeTruthy()
+  })
+
+  it('brak miejsca na dysku: przyczyna i liczby zamiast etapu', async () => {
+    const lowDisk = {
+      ...JOB,
+      state: 'FAILED',
+      step: 'CHECK',
+      finished_at: '2026-11-07T12:01:00Z',
+      reason: 'LOW_DISK',
+      free_mb: 4964,
+      required_mb: 5120,
+    }
+    renderPanel(api({ ...BASE, install: { ...SUPPORTED, last: lowDisk } }))
+    expect(await screen.findByText(/za mało miejsca na dysku serwera \(wolne 4964 MB, wymagane 5120 MB\)/)).toBeTruthy()
+    expect(screen.queryByText(/sprawdzanie wersji/)).toBeNull()
+  })
+
+  it('nieznana przyczyna w stanie: odpowiedź odrzucona', async () => {
+    const odd = { ...JOB, reason: 'OTHER' }
+    renderPanel(api({ ...BASE, install: { ...SUPPORTED, last: odd } }))
+    expect(await screen.findByText(/Nie udało się/)).toBeTruthy()
   })
 
   it('serwer bez usługi: tylko polecenie w terminalu', async () => {

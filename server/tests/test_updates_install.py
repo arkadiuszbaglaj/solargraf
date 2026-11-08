@@ -67,8 +67,11 @@ def test_read_job_validates_status_file(tmp_path: Path) -> None:
         install.JobStep.DONE,
         "0.2.0",
     )
+    assert (job.reason, job.free_mb, job.required_mb) == (None, None, None)
     for bad in (
         {"state": "OTHER"},
+        {"reason": "OTHER"},
+        {"reason": "LOW_DISK", "free_mb": -1},
         {"to_version": "v0.2.0; rm -rf /"},
         {"started_at": "2026-11-08T12:00:00"},  # bez strefy
     ):
@@ -76,6 +79,30 @@ def test_read_job_validates_status_file(tmp_path: Path) -> None:
         assert install.read_job(dirs) is None
     (dirs.status / install.STATUS_NAME).write_text("x" * (install.MAX_STATUS_BYTES + 1))
     assert install.read_job(dirs) is None
+
+
+def test_read_job_low_disk_reason(tmp_path: Path) -> None:
+    """Plik stanu z ``install.sh`` po braku miejsca (D65): przyczyna i liczby dla UI."""
+    dirs = _dirs(tmp_path)
+    _write_status(
+        dirs,
+        state="FAILED",
+        step="CHECK",
+        from_version="0.5.0",
+        to_version="0.5.1",
+        finished_at=NOW.isoformat(),
+        reason="LOW_DISK",
+        free_mb=4964,
+        required_mb=5120,
+    )
+    job = install.read_job(dirs)
+    assert job is not None
+    assert (job.state, job.reason, job.free_mb, job.required_mb) == (
+        install.JobState.FAILED,
+        install.JobReason.LOW_DISK,
+        4964,
+        5120,
+    )
 
 
 def test_running_expires(tmp_path: Path) -> None:

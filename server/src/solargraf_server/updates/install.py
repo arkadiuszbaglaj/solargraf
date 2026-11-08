@@ -47,6 +47,12 @@ class JobStep(StrEnum):
     DONE = "DONE"
 
 
+class JobReason(StrEnum):
+    """Znana przyczyna błędu, którą UI opisuje konkretnie (zamiast samego etapu)."""
+
+    LOW_DISK = "LOW_DISK"  # za mało miejsca w /var/lib także po usunięciu cache budowania
+
+
 class Job(BaseModel):
     """Plik stanu zapisany przez ``install.sh`` — walidowany jak każda dana z granicy systemu."""
 
@@ -58,6 +64,11 @@ class Job(BaseModel):
     to_version: str | None = Field(default=None, pattern=_VERSION)
     started_at: AwareDatetime
     finished_at: AwareDatetime | None = None
+    # Starsze wersje skryptu nie zapisują tych pól — wtedy None.
+    reason: JobReason | None = None
+    # MB (MiB z ``df -Pm``) w /var/lib; tylko przy ``LOW_DISK``.
+    free_mb: int | None = Field(default=None, ge=0)
+    required_mb: int | None = Field(default=None, ge=0)
 
 
 @dataclass(frozen=True)

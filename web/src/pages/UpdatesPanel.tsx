@@ -83,6 +83,18 @@ function LastJob({ job, running, timeZone }: { job: UpdateJob; running: boolean;
   // RUNNING bez trwającej aktualizacji — przerwana (np. restart serwera); nie zgadujemy wyniku.
   const problem = job.state === 'FAILED' || job.state === 'ROLLED_BACK' || job.state === 'RUNNING'
   const when = formatDateTime(job.finishedAt ?? job.startedAt, timeZone)
+  if (job.reason === 'LOW_DISK') {
+    return (
+      <p className={styles.WARNING}>
+        Ostatnia aktualizacja{versionsText(job)}, {when}: nie rozpoczęła się — za mało miejsca na dysku serwera
+        {job.freeMb !== null && job.requiredMb !== null
+          ? ` (wolne ${job.freeMb} MB, wymagane ${job.requiredMb} MB)`
+          : ''}
+        . Cache budowania Dockera został już usunięty. Zwolnij miejsce na serwerze, np. usuń stare kopie zapasowe
+        albo nieużywane obrazy (<code>sudo docker system df</code> pokaże, co zajmuje miejsce), i spróbuj ponownie.
+      </p>
+    )
+  }
   const step = job.state === 'FAILED' ? ` (etap: ${JOB_STEP_TEXT[job.step]})` : ''
   return (
     <p className={problem ? styles.WARNING : styles.muted}>

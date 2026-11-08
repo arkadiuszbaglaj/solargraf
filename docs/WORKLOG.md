@@ -423,6 +423,8 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 
 - Pełne panele dashboardu (D69): nowe metryki katalogu (prąd faz sieci, temperatura modułów, pojemność nominalna baterii, napięcia i temperatury ogniw min./maks., liczba cykli — wielkość COUNT) i ich wartości SIMULATED w symulatorze; Fotowoltaika z zakładkami MPPT i wykresem V/A stringu od północy, Magazyn z pierścieniem SoC i szacunkiem energii, Sieć z tabelą faz i energią dziś, nowe panele „BMS — ogniwa” i „Zużycie i samowystarczalność”. Testy: Python 409 (bez bazy), web 341, tsc, oxlint, ruff, mypy zielone; podgląd z atrapą SIMULATED 1600 px i 375 px. Nie zrobione: pogoda/nasłonecznienie, „Raporty”, mapy rejestrów nowych metryk dla Deye/BOS-G16 (wymagają dokumentacji producenta).
 
+- Aktualizacja przy braku miejsca (D65): na serwerze testowym aktualizacja 0.5.0 → 0.5.1 z aplikacji przerwała się, bo w `/var/lib` było 4964 MB wolnego przy minimum 5120 MB, a UI pokazywał mylące „etap: sprawdzanie wersji”. Teraz skrypt przy braku miejsca najpierw usuwa cache budowania Dockera i sprawdza ponownie; nadal za mało — plik stanu ma `reason: LOW_DISK` z liczbami MB, a panel „Aktualizacje” pokazuje przyczynę, wolne i wymagane miejsce oraz radę. Testy: web 343, pytest aktualizacji, ruff, mypy, tsc, oxlint, `bash -n` i symulacja zapisu pliku stanu (poprawny JSON). Niezweryfikowane: przebieg na serwerze z małym dyskiem (shellcheck i test end-to-end w CI).
+
 ## Szablon kolejnego wpisu
 
 - Data:

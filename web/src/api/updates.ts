@@ -19,6 +19,8 @@ export interface UpdateAvailability {
 
 export type JobState = 'RUNNING' | 'SUCCESS' | 'FAILED' | 'ROLLED_BACK' | 'NO_UPDATE'
 export type JobStep = 'CHECK' | 'BACKUP' | 'BUILD' | 'START' | 'ROLLBACK' | 'CLEANUP' | 'DONE'
+/** Znana przyczyna błędu; `LOW_DISK` — za mało miejsca na dysku serwera. */
+export type JobReason = 'LOW_DISK'
 
 /** Ostatnia aktualizacja zapisana przez skrypt na serwerze (także uruchomiona z terminala). */
 export interface UpdateJob {
@@ -28,6 +30,10 @@ export interface UpdateJob {
   toVersion: string | null
   startedAt: string
   finishedAt: string | null
+  reason: JobReason | null
+  /** MB wolne i wymagane w katalogu danych Dockera; tylko przy `LOW_DISK`. */
+  freeMb: number | null
+  requiredMb: number | null
 }
 
 export interface InstallState {
@@ -78,6 +84,11 @@ const timeOrNull = (v: unknown): string | null | undefined => (v === null ? null
 
 const JOB_STATES: ReadonlySet<string> = new Set(['RUNNING', 'SUCCESS', 'FAILED', 'ROLLED_BACK', 'NO_UPDATE'])
 const JOB_STEPS: ReadonlySet<string> = new Set(['CHECK', 'BACKUP', 'BUILD', 'START', 'ROLLBACK', 'CLEANUP', 'DONE'])
+const mbOrNull = (v: unknown): number | null | undefined =>
+  v === null || v === undefined ? null : typeof v === 'number' && Number.isInteger(v) && v >= 0 ? v : undefined
+// Brak pola (starszy serwer) — brak przyczyny; nieznana wartość — odrzucenie jak dla state/step.
+const reasonOrNull = (v: unknown): JobReason | null | undefined =>
+  v === null || v === undefined ? null : v === 'LOW_DISK' ? v : undefined
 const versionOrNull = (v: unknown): string | null | undefined =>
   v === null ? null : typeof v === 'string' && /^\d+\.\d+\.\d+$/.test(v) ? v : undefined
 
@@ -87,6 +98,9 @@ function parseJob(v: unknown): UpdateJob | null | undefined {
   const fromVersion = versionOrNull(v.from_version)
   const toVersion = versionOrNull(v.to_version)
   const finishedAt = timeOrNull(v.finished_at)
+  const reason = reasonOrNull(v.reason)
+  const freeMb = mbOrNull(v.free_mb)
+  const requiredMb = mbOrNull(v.required_mb)
   if (
     typeof v.state !== 'string' ||
     !JOB_STATES.has(v.state) ||
@@ -95,7 +109,10 @@ function parseJob(v: unknown): UpdateJob | null | undefined {
     fromVersion === undefined ||
     toVersion === undefined ||
     !isTime(v.started_at) ||
-    finishedAt === undefined
+    finishedAt === undefined ||
+    reason === undefined ||
+    freeMb === undefined ||
+    requiredMb === undefined
   ) {
     return undefined
   }
@@ -106,6 +123,9 @@ function parseJob(v: unknown): UpdateJob | null | undefined {
     toVersion,
     startedAt: v.started_at,
     finishedAt,
+    reason,
+    freeMb,
+    requiredMb,
   }
 }
 
