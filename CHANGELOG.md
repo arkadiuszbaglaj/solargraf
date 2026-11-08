@@ -4,6 +4,10 @@ Sekcja `## X.Y.Z` jest opisem wydania na GitHubie i w podpisanym manifeście (D6
 właściciel instalacji w Ustawienia → Aktualizacje. Najwyżej 2000 znaków na wersję. Nową sekcję
 dodaje się w tym samym PR co podniesienie wersji (`tools/release.py version X.Y.Z`).
 
+## 0.4.1
+
+- Uporządkowana strona Ustawienia → Stan serwera: ocena stabilności obok alarmów, kafle zużycia procesora, pamięci, dysku i temperatury z paskiem w kolorze progów, składniki obok szczegółów systemu; bez powtórzonych wartości.
+
 ## 0.4.0
 
 - Alarmy serwera: baner na każdej stronie przy kończącym się dysku, braku pamięci, przegrzaniu, niedoborze napięcia albo niedziałającym składniku; lista z historią i potwierdzaniem w Ustawienia → Stan serwera (D68).
