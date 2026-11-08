@@ -78,7 +78,7 @@ Model zagrożeń: aplikacja działa w sieci LAN klienta lub jest dostępna przez
 
 - Skrypt działa na hoście z uprawnieniami administratora; jego operacje są logowane.
 - Usuwa wyłącznie obrazy i pliki z etykietą/katalogiem produktu. Zakaz `docker system prune -a`, `--volumes` i usuwania wolumenów.
-- Sprzątanie tylko po udanych health checks; zawsze zostaje poprzednia wersja do rollbacku (O12).
+- Sprzątanie tylko po udanych health checks; zawsze zostaje poprzednia wersja do rollbacku (D73).
 - Tryb `--dry-run` do podglądu przed usunięciem.
 
 ## Kopie zapasowe
