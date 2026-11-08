@@ -347,6 +347,14 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: nie oglądane na dashboardzie z prawdziwym backendem (tryb DEMO nie pokazuje diagramu); zmiana mocy co sekundę może lekko przeskoczyć fazę animacji (wartości zaokrąglone).
 - Następne małe zadanie: P7.1d (alarmy systemowe) albo polecenie `update` instalatora.
 
+- Data: 2026-11-08
+- Etap: P7.4a — polecenie `update` instalatora (D65)
+- Zmiany: `solargraf-admin update-target` (manifest pobrany od nowa i sprawdzony podpisem; kody 10/11/12) i `upgrade_target` w `updates/manifest.py`; `install.sh update` — wersja z manifestu albo `--ref`/paczka, kopia `pre-update`, `src.previous` i obrazy `:previous`, budowa/migracje/gotowość, powrót w pułapce EXIT (z restore przy zmianie rewizji), sprzątanie D17, blokada `flock`; `SOLARGRAF_HEALTH_TIMEOUT_S` tylko do testów. D15 zmieniona przez D65; README.
+- Testy uruchomione i wyniki: server — ruff, mypy --strict, pytest `test_updates_units.py` 12 passed; `bash -n`. ShellCheck i scenariusze aktualizacji (manifest, --dry-run, sukces, obniżenie, nieudana migracja + start → powrót) — w CI.
+- Decyzje zatwierdzone: D65 (przycisk w UI, kopia + automatyczny powrót, tag z manifestu, sprzątanie od razu) — właściciel 2026-11-08.
+- Ryzyka / rzeczy nieweryfikowane: aktualizacja między różnymi wersjami (np. 0.1.0 → 0.2.0) sprawdzona dopiero przy następnym wydaniu; nie testowane na RPi.
+- Następne małe zadanie: P7.4b — plik-flaga, usługa systemd, API i zakładka Ustawienia → Aktualizacje.
+
 ## Szablon kolejnego wpisu
 
 - Data:

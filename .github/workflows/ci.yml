@@ -298,6 +298,70 @@ jobs:
           test "$(sudo sha256sum "$DIR/.env" | cut -d' ' -f1)" = "$before"
           grep -q 'już skonfigurowany' reinstall-out.txt
           sudo solargraf status
+      - name: Aktualizacja (D65) — manifest, sukces z kopią i sprzątaniem, błąd z powrotem
+        run: |
+          ca="$DIR/solargraf-ca.crt"
+          compose() { sudo docker compose -p solargraf -f "$DIR/src/deploy/compose.yaml" --env-file "$DIR/.env" "$@"; }
+          count() { compose exec -T db psql -U solargraf -d solargraf -tAc "$1"; }
+          sites="$(count 'SELECT count(*) FROM sites')"
+          test "$sites" -gt 0
+          revision="$(count 'SELECT version_num FROM alembic_version')"
+
+          # Podpisany manifest z GitHuba: zainstalowana wersja jest najnowsza.
+          sudo solargraf update --yes | tee upd-manifest.txt
+          grep -q 'Brak nowszej wersji' upd-manifest.txt
+          sudo find "$DIR/backups" -name '*-pre-update.tar.gz' 2>/dev/null | grep -q . && { echo 'Niespełniony warunek'; exit 1; }
+
+          # --dry-run niczego nie zmienia.
+          sudo SOLARGRAF_SOURCE_URL=http://127.0.0.1:8765/src.tar.gz solargraf update --ref main --dry-run | tee upd-dry.txt
+          grep -q 'Tryb --dry-run' upd-dry.txt
+          sudo test ! -e "$DIR/src.previous"
+
+          # Udana aktualizacja (ten sam kod): kopia pre-update, poprzednia wersja zachowana, dane bez zmian.
+          sudo SOLARGRAF_SOURCE_URL=http://127.0.0.1:8765/src.tar.gz solargraf update --ref main --yes | tee upd-ok.txt
+          grep -q 'Zaktualizowano solargraf' upd-ok.txt
+          grep -q 'Sprzątanie' upd-ok.txt
+          sudo find "$DIR/backups" -name '*-pre-update.tar.gz' | grep -q .
+          sudo test -f "$DIR/src.previous/deploy/compose.yaml"
+          docker image inspect solargraf-api:previous >/dev/null
+          curl -fsS --cacert "$ca" https://localhost/api/health/ready
+          test "$(count 'SELECT count(*) FROM sites')" = "$sites"
+          test "$(readlink -f /usr/local/bin/solargraf)" = "$DIR/src/deploy/install.sh"
+          # Obniżenie wersji jest odrzucane przed zmianą czegokolwiek.
+          mkdir -p /tmp/old && tar -xzf /tmp/srv/src.tar.gz -C /tmp/old
+          sed -i 's/^__version__ = .*/__version__ = "0.0.1"/' /tmp/old/solargraf-main/server/src/solargraf_server/__init__.py
+          tar -C /tmp/old -czf /tmp/srv/old.tar.gz solargraf-main
+          if sudo SOLARGRAF_SOURCE_URL=http://127.0.0.1:8765/old.tar.gz solargraf update --ref old --yes 2>upd-old.txt; then echo 'Niespełniony warunek'; exit 1; fi
+          grep -q 'starsza niż zainstalowana' upd-old.txt
+
+          # Nieudana aktualizacja: migracja zmienia bazę, a API nie startuje → powrót kodu, obrazów i bazy.
+          mkdir -p /tmp/bad && tar -xzf /tmp/srv/src.tar.gz -C /tmp/bad
+          bad=/tmp/bad/solargraf-main
+          printf '%s\n' '"""Tylko test CI: migracja przed nieudanym startem."""' 'import sqlalchemy as sa' 'from alembic import op' \
+            'revision: str = "ci_update_fail"' "down_revision: str | None = \"$revision\"" 'branch_labels = None' 'depends_on = None' \
+            'def upgrade() -> None:' '    op.create_table("ci_update_marker", sa.Column("id", sa.Integer(), primary_key=True))' \
+            'def downgrade() -> None:' '    op.drop_table("ci_update_marker")' > "$bad/server/alembic/versions/9999_ci_update_fail.py"
+          sed -i '/^  api:$/,/^  worker:$/ s/^    image: solargraf-api:local$/&\n    entrypoint: ["false"]/' "$bad/deploy/compose.yaml"
+          grep -q 'entrypoint: \["false"\]' "$bad/deploy/compose.yaml"
+          tar -C /tmp/bad -czf /tmp/srv/bad.tar.gz solargraf-main
+          if sudo SOLARGRAF_HEALTH_TIMEOUT_S=60 SOLARGRAF_SOURCE_URL=http://127.0.0.1:8765/bad.tar.gz solargraf update --ref bad --yes | tee upd-bad.txt; then echo 'Niespełniony warunek'; exit 1; fi
+          grep -q 'przywracam wersję' upd-bad.txt
+          grep -q 'Migracje zmieniły bazę' upd-bad.txt
+          grep -q 'aplikacja działa' upd-bad.txt
+          sudo test ! -e "$DIR/src/server/alembic/versions/9999_ci_update_fail.py"
+          if sudo grep -q 'entrypoint' "$DIR/src/deploy/compose.yaml"; then echo 'Niespełniony warunek'; exit 1; fi
+          test "$(count 'SELECT version_num FROM alembic_version')" = "$revision"
+          test "$(count "SELECT count(*) FROM information_schema.tables WHERE table_name = 'ci_update_marker'")" = "0"
+          test "$(count 'SELECT count(*) FROM sites')" = "$sites"
+          curl -fsS --cacert "$ca" https://localhost/api/health/ready
+          # Agent działa po powrocie (heartbeat po aktualizacji).
+          after="$(date -u +%s)"
+          for i in $(seq 1 45); do
+            beat="$(count "SELECT coalesce(extract(epoch FROM max(last_heartbeat_at))::bigint, 0) FROM agents")"
+            [ "$beat" -ge "$after" ] && break
+            if [ "$i" -eq 45 ]; then compose logs --no-color agent; exit 1; fi
+            sleep 2
+          done
       - name: Kopia automatyczna (D62) — timer systemd i retencja 7 kopii
         run: |
           systemctl is-enabled solargraf-backup.timer

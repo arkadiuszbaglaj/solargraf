@@ -6,6 +6,7 @@
 #   sudo solargraf status
 #   sudo solargraf backup [--to KATALOG]
 #   sudo solargraf restore PLIK [--yes]
+#   sudo solargraf update [--yes] [--dry-run] [--ref REF]
 #   sudo solargraf uninstall [--purge] [--yes]
 #
 # Zasady (docs/SECURITY.md, „Instalator”): sekrety tylko w pliku 600, nigdy na ekranie ani
@@ -21,7 +22,10 @@ readonly CLI_LINK="/usr/local/bin/solargraf"
 readonly MIN_RAM_MB=1024
 readonly RECOMMENDED_RAM_MB=2048
 readonly MIN_DISK_MB=5120
-readonly HEALTH_TIMEOUT_S=300
+# Nadpisanie tylko do testów (np. szybszy test powrotu po nieudanej aktualizacji w CI).
+HEALTH_TIMEOUT_S="${SOLARGRAF_HEALTH_TIMEOUT_S:-300}"
+[[ "$HEALTH_TIMEOUT_S" =~ ^[1-9][0-9]*$ ]] || HEALTH_TIMEOUT_S=300
+readonly HEALTH_TIMEOUT_S
 readonly AGENT_NAME="lokalny"
 readonly CORE_SERVICES=(db migrate api worker proxy)
 # Źródło kodu w trybie `curl | bash` (D35). Docelowo domena producenta (O13, P7).
@@ -34,6 +38,7 @@ PURGE=0
 INSTALL_DIR="$DEFAULT_DIR"
 ADDRESS=""
 SOURCE_REF="main"
+REF_GIVEN=0
 SRC_DIR=""
 SRC_LABEL=""
 TMP_DIR=""
@@ -105,6 +110,7 @@ Użycie:
   install.sh install   [--yes] [--dry-run] [--dir KATALOG] [--address ADRES] [--no-auto-backup] [--no-update-check]
   install.sh backup    [--to KATALOG] [--dir KATALOG]   kopia bazy, sekretów i CA
   install.sh restore PLIK [--yes] [--dir KATALOG]       odtworzenie kopii (zastępuje dane)
+  install.sh update    [--yes] [--dry-run] [--ref REF] [--dir KATALOG]   aktualizacja z kopią i powrotem
   install.sh status    [--dir KATALOG]
   install.sh setup-link [--dir KATALOG]   nowy jednorazowy link do pierwszego konta
   install.sh simulator on|off [--dir KATALOG]   symulator urządzenia do testów (SIMULATED)
@@ -114,7 +120,8 @@ Użycie:
   --yes       nie pytaj o potwierdzenie (np. instalacja Dockera)
   --dir       katalog instalacji (domyślnie /opt/solargraf)
   --address   adres IPv4 lub nazwa hosta w LAN (domyślnie wykrywany)
-  --ref       gałąź lub tag z GitHuba przy instalacji przez curl (domyślnie main)
+  --ref       gałąź lub tag z GitHuba przy instalacji przez curl (domyślnie main);
+              przy update — wersja wskazana ręcznie zamiast podpisanego manifestu
   --purge     przy uninstall: usuń także dane (baza, certyfikaty, katalog); kopie zostają
   --to        katalog kopii (domyślnie KATALOG/backups)
   --no-auto-backup / --auto-backup   wyłącz / włącz codzienną kopię o 3:00
@@ -602,7 +609,7 @@ cmd_install() {
 	export_ca
 	ln -sf "$INSTALL_DIR/src/deploy/install.sh" "$CLI_LINK"
 	install_backup_timer
-	say "Polecenie: $CLI_LINK (status, backup, restore, uninstall, setup-link, simulator on|off)."
+	say "Polecenie: $CLI_LINK (status, update, backup, restore, uninstall, setup-link, simulator on|off)."
 
 	say ""
 	say "Gotowe. Adres aplikacji: https://${ADDRESS:-localhost}/"
@@ -699,7 +706,9 @@ cmd_uninstall() {
 		confirm "Usunąć aplikację RAZEM Z DANYMI (baza, certyfikaty, $INSTALL_DIR)? Tej operacji nie da się cofnąć." ||
 			die "Przerwano."
 		compose down --volumes --remove-orphans
-		docker image rm -f solargraf-api:local solargraf-proxy:local solargraf-agent:local solargraf-simulator:local >/dev/null 2>&1 || true
+		for image in $APP_IMAGES; do
+			docker image rm -f "$image:local" "$image:previous" >/dev/null 2>&1 || true
+		done
 		remove_backup_timer
 		rm -f "$CLI_LINK"
 		LOG_FILE=""
@@ -961,6 +970,221 @@ remove_backup_timer() {
 	fi
 }
 
+# --- aktualizacja (D17, D65) -----------------------------------------------------------------
+#
+# Kolejność: wersja docelowa (podpisany manifest albo --ref) → kopia pre-update → zachowanie
+# poprzedniego kodu (src.previous) i obrazów (:previous) → nowy kod, budowa, migracje, start,
+# gotowość. Błąd po przełączeniu kodu uruchamia powrót (pułapka EXIT): poprzedni kod i obrazy,
+# a gdy migracje zmieniły bazę — odtworzenie kopii pre-update. Po sukcesie sprzątanie (D17).
+
+readonly APP_IMAGES="solargraf-api solargraf-proxy solargraf-agent solargraf-simulator"
+# Kody wyjścia `solargraf-admin update-target` (server/src/solargraf_server/cli.py).
+readonly TARGET_NO_NEWER=10
+readonly TARGET_INTERMEDIATE=11
+
+UPDATE_PHASE=""
+UPDATE_BACKUP=""
+UPDATE_FROM=""
+UPDATE_TO=""
+DB_REVISION_BEFORE=""
+OLD_PREVIOUS_IMAGES=""
+
+# Numer wersji aplikacji z kodu (jedno źródło, tools/release.py) albo pusty.
+app_version() {
+	sed -n 's/^__version__ = "\([0-9][0-9.]*\)"$/\1/p' "$1/server/src/solargraf_server/__init__.py" 2>/dev/null | head -n1
+}
+
+# Sukces, gdy wersja $1 jest starsza niż $2 (obie MAJOR.MINOR.PATCH).
+version_lt() {
+	[ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -t. -k1,1n -k2,2n -k3,3n | head -n1)" = "$1" ]
+}
+
+db_revision() { db_sql 'SELECT version_num FROM alembic_version' 2>/dev/null | tr -d '[:space:]' || true; }
+
+# Wersja docelowa z manifestu sprawdzonego kluczem wbudowanym w zainstalowaną wersję
+# (ustawia UPDATE_TARGET). Kończy skrypt kodem 0, gdy nie ma nowszej wersji.
+UPDATE_TARGET=""
+
+manifest_target() {
+	local code=0
+	UPDATE_TARGET="$(compose exec -T api solargraf-admin update-target)" || code=$?
+	case "$code" in
+	0) ;;
+	"$TARGET_NO_NEWER")
+		say "Brak nowszej wersji — aktualizacja nie jest potrzebna."
+		exit 0
+		;;
+	"$TARGET_INTERMEDIATE") die "Najnowsza wersja wymaga aktualizacji pośredniej — szczegóły powyżej." ;;
+	*) die "Nie udało się sprawdzić podpisanego manifestu wersji (szczegóły powyżej)." ;;
+	esac
+	[[ "$UPDATE_TARGET" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "Nieoczekiwana odpowiedź przy sprawdzaniu wersji."
+}
+
+update_trap() {
+	local status=$?
+	trap - EXIT
+	set +e
+	if [ "$UPDATE_PHASE" = "switched" ]; then
+		rollback_update
+		status=1
+	fi
+	cleanup
+	exit "$status"
+}
+
+rollback_update() {
+	local revision image
+	say ""
+	say "== Aktualizacja nie powiodła się — przywracam wersję $UPDATE_FROM"
+	revision="$(db_revision)"
+	compose down --remove-orphans >/dev/null 2>&1
+	rm -rf "$INSTALL_DIR/src"
+	mv "$INSTALL_DIR/src.previous" "$INSTALL_DIR/src"
+	for image in $APP_IMAGES; do
+		if docker image inspect "$image:previous" >/dev/null 2>&1; then
+			docker image tag "$image:previous" "$image:local"
+		fi
+	done
+	if [ "$revision" != "$DB_REVISION_BEFORE" ]; then
+		say "Migracje zmieniły bazę ($DB_REVISION_BEFORE → ${revision:-nieznana}) — odtwarzam kopię $UPDATE_BACKUP."
+		if ! "$INSTALL_DIR/src/deploy/install.sh" restore "$UPDATE_BACKUP" --yes --dir "$INSTALL_DIR"; then
+			printf 'BŁĄD: Nie udało się odtworzyć kopii. Zrób to ręcznie: sudo %s restore %s\n' "$CLI_LINK" "$UPDATE_BACKUP" >&2
+			log_line "BŁĄD: powrót — odtworzenie kopii nie powiodło się"
+			return 0
+		fi
+	else
+		compose up -d --remove-orphans "${CORE_SERVICES[@]}"
+		compose up -d agent
+		if simulator_enabled; then
+			compose up -d simulator
+		fi
+	fi
+	if curl -fsk --max-time 5 --retry 24 --retry-delay 5 --retry-all-errors -o /dev/null https://localhost/api/health/ready 2>/dev/null; then
+		say "Przywrócono wersję $UPDATE_FROM — aplikacja działa. Kopia sprzed aktualizacji: $UPDATE_BACKUP"
+	else
+		printf 'BŁĄD: Po przywróceniu wersji %s aplikacja nie zgłasza gotowości. Logi: docker compose -p %s logs\n' "$UPDATE_FROM" "$PRODUCT" >&2
+		log_line "BŁĄD: powrót — brak gotowości"
+	fi
+}
+
+# Sprzątanie po udanej aktualizacji (D17): obrazy aplikacji starsze niż poprzednia wersja
+# i stary cache budowania. Nigdy wolumeny, kopie, konfiguracja ani obrazy innych aplikacji.
+cleanup_after_update() {
+	local id
+	for id in $OLD_PREVIOUS_IMAGES; do
+		# Bez -f: obraz nadal oznaczony inną nazwą albo używany przez kontener zostaje.
+		docker image rm "$id" >/dev/null 2>&1 || true
+	done
+	docker builder prune -f --filter until=168h >/dev/null 2>&1 || true
+	say "Sprzątanie: usunięto starsze obrazy aplikacji i cache budowania starszy niż 7 dni (poprzednia wersja zostaje)."
+}
+
+cmd_update() {
+	if [ "$DRY_RUN" -eq 0 ]; then
+		require_root
+	fi
+	require_installation
+	if [ "$DRY_RUN" -eq 0 ]; then
+		LOG_FILE="$INSTALL_DIR/install.log"
+		exec 9>"$INSTALL_DIR/update.lock"
+		flock -n 9 || die "Aktualizacja już trwa."
+	fi
+	log_line "--- update"
+	UPDATE_FROM="$(app_version "$INSTALL_DIR/src")"
+	[ -n "$UPDATE_FROM" ] || UPDATE_FROM="nieznana"
+
+	# Źródło: paczka, z której uruchomiono skrypt; --ref; albo podpisany manifest.
+	SRC_DIR="$(local_source)"
+	local expected=""
+	if [ -n "$SRC_DIR" ] && [ "$SRC_DIR" != "$INSTALL_DIR/src" ]; then
+		SRC_LABEL="$SRC_DIR"
+	else
+		SRC_DIR=""
+		if [ "$REF_GIVEN" -eq 0 ]; then
+			say "== Sprawdzam podpisany manifest wersji"
+			manifest_target
+			expected="$UPDATE_TARGET"
+			SOURCE_REF="v$expected"
+		fi
+		SRC_LABEL="$(source_url)"
+		if [ "$DRY_RUN" -eq 0 ]; then
+			download_sources
+		fi
+	fi
+	if [ -n "$SRC_DIR" ]; then
+		UPDATE_TO="$(app_version "$SRC_DIR")"
+		[ -n "$UPDATE_TO" ] || die "Pobrany kod nie ma numeru wersji aplikacji."
+		if [ -n "$expected" ] && [ "$UPDATE_TO" != "$expected" ]; then
+			die "Pobrany kod ma wersję $UPDATE_TO, a manifest wskazuje $expected — przerwano."
+		fi
+		if [ "$UPDATE_FROM" != "nieznana" ] && version_lt "$UPDATE_TO" "$UPDATE_FROM"; then
+			die "Wersja $UPDATE_TO jest starsza niż zainstalowana $UPDATE_FROM — obniżenie wersji nie jest obsługiwane (użyj restore kopii)."
+		fi
+	else
+		UPDATE_TO="${expected:-$SOURCE_REF}"
+	fi
+
+	say "== Plan aktualizacji"
+	say "- wersja: $UPDATE_FROM → $UPDATE_TO (źródło: $SRC_LABEL)"
+	say "- kopia zapasowa pre-update w $(backup_dir)"
+	say "- poprzedni kod w $INSTALL_DIR/src.previous i obrazy :previous (do powrotu)"
+	say "- budowa obrazów, migracje bazy, uruchomienie i sprawdzenie gotowości"
+	say "- przy błędzie: automatyczny powrót do $UPDATE_FROM (z odtworzeniem kopii, gdy zmieniła się baza)"
+	say "- sprzątanie starszych obrazów aplikacji i cache budowania (D17)"
+	if [ "$DRY_RUN" -eq 1 ]; then
+		say "== Tryb --dry-run: nic nie zmieniono."
+		return 0
+	fi
+	confirm "Zaktualizować $PRODUCT z $UPDATE_FROM do $UPDATE_TO?" || die "Przerwano."
+	local free_mb
+	free_mb="$(df -Pm /var/lib | awk 'NR==2 {print $4}')"
+	[ "$free_mb" -ge "$MIN_DISK_MB" ] || die "Za mało miejsca w /var/lib: ${free_mb} MB (minimum ${MIN_DISK_MB} MB)."
+
+	say "== Kopia zapasowa"
+	compose up -d db
+	wait_db
+	UPDATE_BACKUP="$(make_backup pre-update)"
+	say "Zapisano: $UPDATE_BACKUP"
+	DB_REVISION_BEFORE="$(db_revision)"
+
+	say "== Zachowuję poprzednią wersję"
+	local image
+	OLD_PREVIOUS_IMAGES=""
+	for image in $APP_IMAGES; do
+		if docker image inspect "$image:previous" >/dev/null 2>&1; then
+			OLD_PREVIOUS_IMAGES="$OLD_PREVIOUS_IMAGES $(docker image inspect -f '{{.Id}}' "$image:previous")"
+		fi
+		if docker image inspect "$image:local" >/dev/null 2>&1; then
+			docker image tag "$image:local" "$image:previous"
+		fi
+	done
+	rm -rf "$INSTALL_DIR/src.previous" "$INSTALL_DIR/src.new"
+	mkdir -p "$INSTALL_DIR/src.new"
+	tar -C "$SRC_DIR" --exclude=./.git --exclude='*/node_modules' --exclude='./web/dist' --exclude='*/.venv' \
+		--exclude='./deploy/.env' -cf - . | tar -C "$INSTALL_DIR/src.new" -xf -
+	chmod 0755 "$INSTALL_DIR/src.new/deploy/install.sh"
+
+	# Od tej chwili każde wyjście z błędem (die, set -e) przywraca poprzednią wersję.
+	trap update_trap EXIT
+	mv "$INSTALL_DIR/src" "$INSTALL_DIR/src.previous"
+	UPDATE_PHASE="switched"
+	mv "$INSTALL_DIR/src.new" "$INSTALL_DIR/src"
+
+	say "== Budowa obrazów i uruchomienie"
+	compose build
+	compose up -d --remove-orphans "${CORE_SERVICES[@]}"
+	wait_healthy
+	compose up -d agent
+	if simulator_enabled; then
+		compose up -d simulator
+	fi
+	UPDATE_PHASE="done"
+	ln -sf "$INSTALL_DIR/src/deploy/install.sh" "$CLI_LINK"
+	cleanup_after_update
+	say ""
+	say "Zaktualizowano $PRODUCT: $UPDATE_FROM → $UPDATE_TO. Kopia sprzed aktualizacji: $UPDATE_BACKUP"
+}
+
 # --- wejście ---------------------------------------------------------------------------------
 
 main() {
@@ -1004,6 +1228,7 @@ main() {
 			[ $# -ge 2 ] || die "--ref wymaga nazwy gałęzi lub tagu."
 			[[ "$2" =~ ^[A-Za-z0-9._/-]+$ ]] || die "Nieprawidłowa nazwa --ref."
 			SOURCE_REF="$2"
+			REF_GIVEN=1
 			shift
 			;;
 		-h | --help)
@@ -1029,6 +1254,7 @@ main() {
 	setup-link) cmd_setup_link ;;
 	simulator) cmd_simulator ;;
 	backup) cmd_backup ;;
+	update) cmd_update ;;
 	restore) cmd_restore ;;
 	uninstall) cmd_uninstall ;;
 	"" | -h | --help | help) usage ;;

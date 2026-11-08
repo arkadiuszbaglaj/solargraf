@@ -11,6 +11,7 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+from solargraf_server import cli
 from solargraf_server.updates import manifest as mf
 from solargraf_server.updates import service
 from solargraf_server.updates.release_key import RELEASE_PUBLIC_KEY
@@ -97,6 +98,63 @@ def test_availability_compares_locally() -> None:
     assert mf.availability(manifest(), "0.3.0") is None
     assert mf.availability(manifest(), "0.10.0") is None  # 0.10 > 0.3 liczbowo
     assert mf.availability(manifest(), "github:main") is None
+
+
+def test_upgrade_target_only_direct_newer() -> None:
+    assert mf.upgrade_target(manifest(), "0.2.5") == "0.3.0"
+    assert mf.upgrade_target(manifest(), "0.2.0") == "0.3.0"
+    assert mf.upgrade_target(manifest(), "0.1.0") is mf.TargetRefused.INTERMEDIATE
+    assert mf.upgrade_target(manifest(), "0.3.0") is mf.TargetRefused.NO_NEWER
+    assert mf.upgrade_target(manifest(), "github:main") is mf.TargetRefused.NO_NEWER
+
+
+def _serving(files: dict[str, bytes]) -> service.Fetch:
+    async def fetch(url: str, timeout_s: float, limit: int) -> bytes:
+        if url not in files:
+            raise service.FetchError(mf.CheckError.NETWORK)
+        return files[url]
+
+    return fetch
+
+
+URL = "https://example.com/manifest.json"
+
+
+def _target(
+    files: dict[str, bytes],
+    current: str,
+    capsys: pytest.CaptureFixture[str],
+    key: str | None = PUBLIC,
+) -> tuple[int, str, str]:
+    fetch = _serving(files)
+    code = asyncio.run(
+        cli.update_target(url=URL, timeout_s=1, public_key=key, current=current, fetch=fetch)
+    )
+    out = capsys.readouterr()
+    return code, out.out, out.err
+
+
+def test_update_target_prints_only_verified_version(capsys: pytest.CaptureFixture[str]) -> None:
+    body, sig = signed(MANIFEST)
+    assert _target({URL: body, URL + ".sig": sig}, "0.2.0", capsys) == (0, "0.3.0\n", "")
+
+
+def test_update_target_refusals(capsys: pytest.CaptureFixture[str]) -> None:
+    body, sig = signed(MANIFEST)
+    files = {URL: body, URL + ".sig": sig}
+    code, out, err = _target(files, "0.3.0", capsys)
+    assert (code, out) == (cli.EXIT_NO_NEWER, "")
+    assert "Brak nowszej wersji" in err
+    code, out, err = _target(files, "0.1.0", capsys)
+    assert (code, out) == (cli.EXIT_INTERMEDIATE, "")
+    assert "0.2.0" in err
+    # Zmieniona treść albo brak sieci — nic na stdout, skrypt nie dostaje wersji.
+    tampered = {URL: body.replace(b"0.3.0", b"9.0.0"), URL + ".sig": sig}
+    code, out, err = _target(tampered, "0.2.0", capsys)
+    assert (code, out) == (cli.EXIT_CHECK_FAILED, "")
+    assert "INVALID_SIGNATURE" in err
+    assert _target({}, "0.2.0", capsys)[:2] == (cli.EXIT_CHECK_FAILED, "")
+    assert _target(files, "0.2.0", capsys, key=None)[:2] == (cli.EXIT_CHECK_FAILED, "")
 
 
 def test_fetch_refuses_plain_http() -> None:
