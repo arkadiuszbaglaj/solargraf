@@ -7,6 +7,7 @@ import { usePeriodic } from '../hooks/usePeriodic'
 import { KIND_LABEL, STATUS_LABEL } from '../lib/deviceLabels'
 import { formatAge } from '../lib/format'
 import { ageSeconds } from '../lib/freshness'
+import { devicesUrl } from '../paths'
 import styles from './SiteDevicesPanel.module.css'
 
 export const DEVICES_REFRESH_MS = 30_000
@@ -82,7 +83,7 @@ export function SiteDevicesPanel({
   return (
     <Panel
       title="Urządzenia"
-      actions={<a href={`/instalacje/${encodeURIComponent(siteId)}/urzadzenia`}>Lista urządzeń</a>}
+      actions={<a href={devicesUrl(siteId)}>Lista urządzeń</a>}
     >
       <WidgetState
         status={status}

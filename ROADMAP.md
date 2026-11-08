@@ -72,6 +72,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 - [x] Diagram przepływu energii na podstawie spójnego bilansu pomiarów. (P5.4, D54)
 - [x] Szczegóły PV/MPPT, baterii/BMS i sieci/faz — tylko jeśli profil je udostępnia (D56; bez komórek BMS — brak metryk w katalogu).
 - [x] Status urządzeń i agentów wyliczany z polityki świeżości. (P5.3, D52)
+- [x] Zakładka „Urządzenia”: kafle statusów, wyszukiwarka i filtry, panel szczegółów z bieżącymi wartościami, wykresem i połączeniem (D70).
 - [x] Alarmy z priorytetem, timestampem i potwierdzaniem. (P5.5, D55; pełna strona i powiadomienia później)
 - [x] Eksport CSV (D57: historia urządzenia; eksport energii i KPI — osobno).
 

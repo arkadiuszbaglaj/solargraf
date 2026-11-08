@@ -10,9 +10,10 @@ import {
 } from 'lucide-react'
 import { useOptionalSession } from '../auth/SessionContext'
 import { branding } from '../branding'
+import { DEVICES_TAB_PATH } from '../paths'
 import styles from './Sidebar.module.css'
 
-export type Page = 'dashboard' | 'sites' | 'charts' | 'server'
+export type Page = 'dashboard' | 'sites' | 'charts' | 'devices' | 'server'
 
 interface NavItem {
   label: string
@@ -27,7 +28,7 @@ const NAV: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, page: 'dashboard', href: '/' },
   { label: 'Instalacje', icon: SolarPanel, page: 'sites', href: '/instalacje' },
   { label: 'Wykresy i historia', icon: ChartColumn, page: 'charts', href: '/wykresy' },
-  { label: 'Urządzenia', icon: Cpu },
+  { label: 'Urządzenia', icon: Cpu, page: 'devices', href: DEVICES_TAB_PATH },
   { label: 'Alarmy', icon: Bell },
   { label: 'Raporty', icon: FileText },
   { label: 'Ustawienia', icon: Settings, page: 'server', href: '/ustawienia/serwer', ownerOnly: true },

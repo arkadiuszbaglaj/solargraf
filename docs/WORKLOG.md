@@ -425,6 +425,8 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 
 - Aktualizacja przy braku miejsca (D65): na serwerze testowym aktualizacja 0.5.0 → 0.5.1 z aplikacji przerwała się, bo w `/var/lib` było 4964 MB wolnego przy minimum 5120 MB, a UI pokazywał mylące „etap: sprawdzanie wersji”. Teraz skrypt przy braku miejsca najpierw usuwa cache budowania Dockera i sprawdza ponownie; nadal za mało — plik stanu ma `reason: LOW_DISK` z liczbami MB, a panel „Aktualizacje” pokazuje przyczynę, wolne i wymagane miejsce oraz radę. Testy: web 343, pytest aktualizacji, ruff, mypy, tsc, oxlint, `bash -n` i symulacja zapisu pliku stanu (poprawny JSON). Niezweryfikowane: przebieg na serwerze z małym dyskiem (shellcheck i test end-to-end w CI).
 
+- Zakładka „Urządzenia” (D70): pozycja menu aktywna, `/urzadzenia` z instalacją z przełącznika (dawny adres przekierowuje); kafle statusów (działa / wymaga uwagi / nieznany / wyłączone) jako filtry, wyszukiwarka, filtr typu i statusu, tabela z wiekiem odczytu; panel wybranego urządzenia z bieżącymi wartościami z SSE, wykresem 24 h / 7 / 30 dni, połączeniem i profilem (firmware i numer seryjny z API — nowe pola w kliencie), włączaniem odczytu; formularz dodawania pod przyciskiem. Testy web 358 (nowe: filtry, kafle, wybór i adres, wartości na żywo, wykres, DEMO, routing), tsc, oxlint; podgląd z atrapą SIMULATED 1600 px i 375 px (bez poziomego przewijania strony, fokus przechodzi do szczegółów). Niezweryfikowane: z prawdziwym backendem na serwerze testowym. Następny krok: kreator dodawania falownika z testem komunikacji.
+
 ## Szablon kolejnego wpisu
 
 - Data:

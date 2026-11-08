@@ -73,7 +73,7 @@ describe('SiteDevicesPanel', () => {
     expect(meter).toContain('ostatni odczyt nigdy')
     expect(screen.getByText('Falownik').closest('li')?.textContent).toContain('Działa')
     expect(screen.getAllByText('Z dokumentacji, test na symulatorze')).toHaveLength(2)
-    expect(screen.getByRole('link', { name: 'Lista urządzeń' }).getAttribute('href')).toBe(`/instalacje/${SITE}/urzadzenia`)
+    expect(screen.getByRole('link', { name: 'Lista urządzeń' }).getAttribute('href')).toBe(`/urzadzenia?instalacja=${SITE}`)
   })
 
   it('nieosiągalny agent: ostrzeżenie i stan nieznany, nigdy „offline”', async () => {

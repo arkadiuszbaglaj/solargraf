@@ -42,7 +42,14 @@ export interface ApiDevice {
   lastSuccessAt: string | null
   /** Agent połączenia urządzenia (D52); null — połączenie bez agenta. */
   agentId: string | null
-  details: { profileId: string | null; profileVersion: string | null; connection: ApiConnection } | null
+  /** Szczegóły techniczne — tylko OWNER/ADMIN (D38); `null` dla podglądu. */
+  details: {
+    firmwareVersion: string | null
+    serialNumber: string | null
+    profileId: string | null
+    profileVersion: string | null
+    connection: ApiConnection
+  } | null
   metrics: ApiDeviceMetric[]
   /** Poziom wsparcia profilu (D58); null — nieznany. */
   supportLevel: SupportLevel | null
@@ -124,11 +131,21 @@ export function parseDevice(v: unknown): ApiDevice | null {
   let details: ApiDevice['details'] = null
   if (v.details !== null) {
     if (!isRecord(v.details)) return null
+    const firmwareVersion = strOrNull(v.details.firmware_version)
+    const serialNumber = strOrNull(v.details.serial_number)
     const profileId = strOrNull(v.details.profile_id)
     const profileVersion = strOrNull(v.details.profile_version)
     const connection = parseConnection(v.details.connection)
-    if (profileId === undefined || profileVersion === undefined || !connection) return null
-    details = { profileId, profileVersion, connection }
+    if (
+      firmwareVersion === undefined ||
+      serialNumber === undefined ||
+      profileId === undefined ||
+      profileVersion === undefined ||
+      !connection
+    ) {
+      return null
+    }
+    details = { firmwareVersion, serialNumber, profileId, profileVersion, connection }
   }
   // Starsze odpowiedzi bez pola `metrics` traktujemy jak brak metryk.
   const metrics = v.metrics === undefined ? [] : parseList(v.metrics, parseMetric)

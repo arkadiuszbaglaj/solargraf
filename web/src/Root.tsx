@@ -6,17 +6,34 @@ import { DataSourceProvider } from './data/DataSourceContext'
 import { DemoDataSource } from './data/demo/DemoDataSource'
 import { LoginPage } from './pages/LoginPage'
 import { SetupPage, takeTokenFromLocation } from './pages/SetupPage'
-import { CHARTS_PATH, SERVER_HEALTH_PATH, UPDATES_PATH } from './paths'
+import { CHARTS_PATH, DEVICES_TAB_PATH, devicesUrl, SERVER_HEALTH_PATH, UPDATES_PATH } from './paths'
 
 export type Route = 'setup' | 'login' | 'sites' | 'devices' | 'history' | 'server' | 'updates' | 'charts' | 'app'
 
-export { CHARTS_PATH, SERVER_HEALTH_PATH, UPDATES_PATH }
+export { CHARTS_PATH, DEVICES_TAB_PATH, SERVER_HEALTH_PATH, UPDATES_PATH }
 
 const DEVICES_PATH = /^\/instalacje\/([0-9a-f-]{36})\/urzadzenia\/?$/i
 
-/** Identyfikator instalacji z adresu `/instalacje/{id}/urzadzenia`. */
+/** Identyfikator instalacji z dawnego adresu `/instalacje/{id}/urzadzenia` (teraz przekierowanie). */
 export function devicesSiteId(pathname: string): string | null {
   return DEVICES_PATH.exec(pathname)?.[1] ?? null
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * Instalacja i urządzenie zakładki „Urządzenia” z `?instalacja=…&urzadzenie=…` albo z dawnego
+ * adresu instalacji. Wartości spoza formatu UUID są pomijane (wtedy pierwsza instalacja konta).
+ */
+export function devicesTabIds(pathname: string, search: string): { siteId: string; deviceId: string } {
+  const legacy = devicesSiteId(pathname)
+  if (legacy) return { siteId: legacy, deviceId: '' }
+  const params = new URLSearchParams(search)
+  const pick = (name: string): string => {
+    const v = params.get(name) ?? ''
+    return UUID.test(v) ? v : ''
+  }
+  return { siteId: pick('instalacja'), deviceId: pick('urzadzenie') }
 }
 
 const HISTORY_PATH = /^\/instalacje\/([0-9a-f-]{36})\/urzadzenia\/([0-9a-f-]{36})\/historia\/?$/i
@@ -34,6 +51,7 @@ export function routeFor(pathname: string): Route {
   if (pathname === SERVER_HEALTH_PATH || pathname === `${SERVER_HEALTH_PATH}/`) return 'server'
   if (pathname === UPDATES_PATH || pathname === `${UPDATES_PATH}/`) return 'updates'
   if (pathname === CHARTS_PATH || pathname === `${CHARTS_PATH}/`) return 'charts'
+  if (pathname === DEVICES_TAB_PATH || pathname === `${DEVICES_TAB_PATH}/`) return 'devices'
   if (devicesSiteId(pathname)) return 'devices'
   if (historyIds(pathname)) return 'history'
   return 'app'
@@ -58,11 +76,14 @@ export function Root() {
       />
     )
   }
+  // Dawny adres listy urządzeń instalacji prowadzi do zakładki „Urządzenia” tej instalacji.
+  const legacySite = route === 'devices' ? devicesSiteId(window.location.pathname) : null
+  if (legacySite) window.history.replaceState(null, '', devicesUrl(legacySite))
   // DEMO tylko w serwerze deweloperskim bez backendu; z backendem dane z API i SSE (D50).
   const dashboard = (
     <DataSourceProvider source={skipAuth ? new DemoDataSource() : new ApiDataSource()}>
       {route === 'devices' ? (
-        <App page="devices" siteId={devicesSiteId(window.location.pathname) ?? ''} />
+        <App page="devices" {...devicesTabIds(window.location.pathname, window.location.search)} />
       ) : route === 'history' ? (
         <App
           page="history"
