@@ -209,3 +209,55 @@ export function cellVoltageSpread(min: number | null, max: number | null): numbe
   if (min === null || max === null || max < min) return null
   return max - min
 }
+
+/** Poniżej tej mocy baterii nie szacujemy czasu (spoczynek; jak próg strzałki przepływu D54). */
+export const BATTERY_IDLE_W = 50
+/** Największa różnica wieku odczytów SoC i mocy, przy której szacunek ma sens (jak bilans D54). */
+export const BATTERY_MAX_SPREAD_S = 30
+
+export type BatteryTime =
+  | { kind: 'charging'; seconds: number }
+  | { kind: 'discharging'; seconds: number }
+  | { kind: 'full' }
+  | { kind: 'empty' }
+  | { kind: 'idle' }
+
+/** Wartość metryki bez kanału z sekcji (cały wynik `siteValue`, z wiekiem i świeżością). */
+export function sectionValue(s: DetailSection, metric: string): SiteValue | null {
+  return s.groups.flatMap((g) => g.rows).find((r) => r.id === `${metric}|0`)?.value ?? null
+}
+
+/**
+ * Szacunkowy czas do pełnego naładowania (ładowanie) albo do rozładowania (rozładowanie) przy
+ * obecnej mocy: energia brakująca do 100% SoC albo pozostała do 0% SoC ÷ |moc|. Znak mocy wg D39:
+ * dodatnia = rozładowanie. Bez szacunku (null), gdy brakuje SoC, mocy albo pojemności, odczyt jest
+ * nieaktualny, odczyty SoC i mocy dzieli więcej niż `BATTERY_MAX_SPREAD_S` albo wartość jest spoza
+ * zakresu. Rezerwa falownika i sprawność ładowania nie są uwzględnione.
+ */
+export function batteryTime(
+  soc: SiteValue | null,
+  power: SiteValue | null,
+  capacityWh: number | null,
+): BatteryTime | null {
+  if (soc?.kind !== 'value' || power?.kind !== 'value' || capacityWh === null) return null
+  if (soc.stale || power.stale || Math.abs(soc.ageSeconds - power.ageSeconds) > BATTERY_MAX_SPREAD_S) return null
+  if (soc.value < 0 || soc.value > 100 || capacityWh <= 0 || !Number.isFinite(power.value)) return null
+  if (Math.abs(power.value) < BATTERY_IDLE_W) return { kind: 'idle' }
+  if (power.value < 0) {
+    if (soc.value >= 100) return { kind: 'full' }
+    return { kind: 'charging', seconds: (((100 - soc.value) / 100) * capacityWh * 3600) / -power.value }
+  }
+  if (soc.value <= 0) return { kind: 'empty' }
+  return { kind: 'discharging', seconds: ((soc.value / 100) * capacityWh * 3600) / power.value }
+}
+
+/** Czas szacunku po polsku: „ok. 1 h 20 min”, „ok. 45 min”, „poniżej minuty”, „ponad 99 h”. */
+export function formatEstimate(seconds: number): string {
+  const minutes = Math.round(seconds / 60)
+  if (minutes < 1) return 'poniżej minuty'
+  if (minutes > 99 * 60) return 'ponad 99 h'
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (h === 0) return `ok. ${m} min`
+  return m === 0 ? `ok. ${h} h` : `ok. ${h} h ${m} min`
+}
