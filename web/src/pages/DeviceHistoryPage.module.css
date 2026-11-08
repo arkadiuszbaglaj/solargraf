@@ -31,12 +31,6 @@
   color: var(--color-text);
 }
 
-.group {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-}
-
 .toggle {
   font: inherit;
   font-size: var(--font-size-sm);

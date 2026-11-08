@@ -379,6 +379,14 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: GitHub przez kilka minut zwracał klientowi aplikacji (inny User-Agent) stare przekierowanie na v0.1.0 (potem poprawnie); aktualizacja serwera testowego 0.1.0 → 0.2.0 nieuruchomiona (wymaga sudo właściciela); nie testowane na RPi.
 - Następne małe zadanie: aktualizacja serwera testowego (`install.sh update --ref v0.2.0`), potem P7.1d (alarmy systemowe).
 
+- Data: 2026-11-08
+- Etap: Wykresy i historia instalacji (D66)
+- Zmiany: strona `/wykresy` i aktywna pozycja menu „Wykresy i historia”. Wykres mocy (PV, zużycie, sieć, bateria) w kW i osobny wykres SoC w %, każda seria z jednego urządzenia-źródła przez istniejące API historii (`resolution=auto`), bez nowego endpointu. Okresy Dzień/Tydzień/Miesiąc/Rok z nawigacją i zakres własny (`customRange`, maks. 400 dni). Wspólny `PeriodControls` używany też na stronie historii urządzenia. W DEMO komunikat zamiast danych.
+- Testy uruchomione i wyniki: vitest 316/316, `tsc -b`, `oxlint --deny-warnings` — zielone lokalnie; backend bez zmian (pytest/mypy w CI). Podgląd na tymczasowej stronie z atrapą SIMULATED (usunięta): luka jako przerwa, znak SIMULATED, układ 375 px bez przewijania w poziomie (legenda przewijana).
+- Decyzje zatwierdzone: D66 (zmienia D47: wybór dat dla zakresu własnego) — właściciel 2026-11-08.
+- Ryzyka / rzeczy nieweryfikowane: nie sprawdzone na prawdziwym serwerze z danymi symulatora; 5 zapytań na zmianę zakresu; wybór instalacji nie jest zapamiętywany między stronami.
+- Następne małe zadanie: energia za okres instalacji (słupki dzienne) na stronie wykresów albo P7.1d.
+
 ## Szablon kolejnego wpisu
 
 - Data:

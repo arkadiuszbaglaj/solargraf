@@ -6,11 +6,11 @@ import { DataSourceProvider } from './data/DataSourceContext'
 import { DemoDataSource } from './data/demo/DemoDataSource'
 import { LoginPage } from './pages/LoginPage'
 import { SetupPage, takeTokenFromLocation } from './pages/SetupPage'
-import { SERVER_HEALTH_PATH, UPDATES_PATH } from './paths'
+import { CHARTS_PATH, SERVER_HEALTH_PATH, UPDATES_PATH } from './paths'
 
-export type Route = 'setup' | 'login' | 'sites' | 'devices' | 'history' | 'server' | 'updates' | 'app'
+export type Route = 'setup' | 'login' | 'sites' | 'devices' | 'history' | 'server' | 'updates' | 'charts' | 'app'
 
-export { SERVER_HEALTH_PATH, UPDATES_PATH }
+export { CHARTS_PATH, SERVER_HEALTH_PATH, UPDATES_PATH }
 
 const DEVICES_PATH = /^\/instalacje\/([0-9a-f-]{36})\/urzadzenia\/?$/i
 
@@ -33,6 +33,7 @@ export function routeFor(pathname: string): Route {
   if (pathname === '/instalacje') return 'sites'
   if (pathname === SERVER_HEALTH_PATH || pathname === `${SERVER_HEALTH_PATH}/`) return 'server'
   if (pathname === UPDATES_PATH || pathname === `${UPDATES_PATH}/`) return 'updates'
+  if (pathname === CHARTS_PATH || pathname === `${CHARTS_PATH}/`) return 'charts'
   if (devicesSiteId(pathname)) return 'devices'
   if (historyIds(pathname)) return 'history'
   return 'app'
@@ -69,7 +70,7 @@ export function Root() {
           deviceId={historyIds(window.location.pathname)?.deviceId ?? ''}
         />
       ) : (
-        <App page={route === 'sites' || route === 'server' || route === 'updates' ? route : 'dashboard'} />
+        <App page={route === 'sites' || route === 'server' || route === 'updates' || route === 'charts' ? route : 'dashboard'} />
       )}
     </DataSourceProvider>
   )

@@ -13,16 +13,34 @@ import { DashboardPage } from './pages/DashboardPage'
 import { DeviceHistoryPage } from './pages/DeviceHistoryPage'
 import { DevicesPage } from './pages/DevicesPage'
 import { ServerHealthPage } from './pages/ServerHealthPage'
+import { SiteChartsPage } from './pages/SiteChartsPage'
 import { SitesPage } from './pages/SitesPage'
 import { UpdatesPage } from './pages/UpdatesPage'
 import styles from './App.module.css'
+
+type AppPage = Page | 'devices' | 'history' | 'updates'
+
+/** Tytuł strony w pasku górnym; bez wpisu — dashboard z przełącznikiem instalacji. */
+const TOPBAR: Partial<Record<AppPage, { title: string; subtitle: string; showSiteSwitcher?: boolean }>> = {
+  sites: { title: 'Instalacje', subtitle: 'Instalacje dostępne dla Twojego konta', showSiteSwitcher: false },
+  devices: { title: 'Urządzenia', subtitle: 'Urządzenia i połączenia instalacji', showSiteSwitcher: false },
+  history: { title: 'Historia', subtitle: 'Historia pomiarów urządzenia', showSiteSwitcher: false },
+  // Wykresy instalacji (D66): instalację wybiera przełącznik w pasku górnym.
+  charts: { title: 'Wykresy i historia', subtitle: 'Historia pomiarów instalacji' },
+  server: { title: 'Stan serwera', subtitle: 'Zasoby, składniki i ocena stabilności', showSiteSwitcher: false },
+  updates: {
+    title: 'Aktualizacje',
+    subtitle: 'Wersja aplikacji, sprawdzanie i instalacja aktualizacji',
+    showSiteSwitcher: false,
+  },
+}
 
 export function App({
   now: fixedNow,
   page = 'dashboard',
   siteId: routeSiteId = '',
   deviceId: routeDeviceId = '',
-}: { now?: Date; page?: Page | 'devices' | 'history' | 'updates'; siteId?: string; deviceId?: string } = {}) {
+}: { now?: Date; page?: AppPage; siteId?: string; deviceId?: string } = {}) {
   const source = useDataSource()
   const tickingNow = useNow()
   const now = fixedNow ?? tickingNow
@@ -42,21 +60,7 @@ export function App({
       <Sidebar open={menuOpen} id={menuId} current={page === 'devices' || page === 'history' ? 'sites' : page === 'updates' ? 'server' : page} />
       <div className={styles.content}>
         <Topbar
-          {...(page === 'sites'
-            ? { title: 'Instalacje', subtitle: 'Instalacje dostępne dla Twojego konta', showSiteSwitcher: false }
-            : page === 'devices'
-              ? { title: 'Urządzenia', subtitle: 'Urządzenia i połączenia instalacji', showSiteSwitcher: false }
-              : page === 'history'
-                ? { title: 'Historia', subtitle: 'Historia pomiarów urządzenia', showSiteSwitcher: false }
-                : page === 'server'
-                  ? { title: 'Stan serwera', subtitle: 'Zasoby, składniki i ocena stabilności', showSiteSwitcher: false }
-                  : page === 'updates'
-                    ? {
-                        title: 'Aktualizacje',
-                        subtitle: 'Wersja aplikacji, sprawdzanie i instalacja aktualizacji',
-                        showSiteSwitcher: false,
-                      }
-                    : {})}
+          {...TOPBAR[page]}
           sites={sites}
           siteId={site?.id ?? ''}
           onSiteChange={setSelected}
@@ -84,6 +88,8 @@ export function App({
             <WidgetState
               status={state.status === 'loading' ? { kind: 'loading' } : { kind: 'error', onRetry: reload }}
             />
+          ) : site && page === 'charts' ? (
+            <SiteChartsPage key={site.id} site={site} now={now} origin={source.origin} />
           ) : site ? (
             <DashboardPage key={site.id} site={site} now={now} />
           ) : (

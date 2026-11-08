@@ -7,6 +7,7 @@ import { getHistory } from '../api/history'
 import type { ApiSite } from '../api/sites'
 import { getSite } from '../api/sites'
 import { DemoBadge } from '../components/DemoBadge'
+import { CALENDAR_PERIODS, PeriodControls } from '../components/PeriodControls'
 import { Panel } from '../components/Panel'
 import { WidgetState } from '../components/WidgetState'
 import { displayUnit, hasValues, RESOLUTION_LABEL } from '../components/historyChartOption'
@@ -22,13 +23,6 @@ const HistoryChartView = lazy(() =>
 )
 
 class SessionExpired extends Error {}
-
-const PERIODS: Array<{ value: Period; label: string }> = [
-  { value: 'day', label: 'Dzień' },
-  { value: 'week', label: 'Tydzień' },
-  { value: 'month', label: 'Miesiąc' },
-  { value: 'year', label: 'Rok' },
-]
 
 const metricId = (m: ApiDeviceMetric) => `${m.key}|${m.channel ?? ''}`
 const metricLabel = (m: ApiDeviceMetric) => (m.channel === null ? m.name : `${m.name} ${m.channel}`)
@@ -166,41 +160,18 @@ function HistoryPanel({
             ))}
           </select>
         </div>
-        <div className={styles.group} role="group" aria-label="Okres">
-          {PERIODS.map((p) => (
-            <button
-              key={p.value}
-              type="button"
-              className={styles.toggle}
-              aria-pressed={period === p.value}
-              onClick={() => setPeriod(p.value)}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-        <div className={styles.group} role="group" aria-label="Nawigacja po okresach">
-          <button
-            type="button"
-            className={styles.toggle}
-            aria-label="Poprzedni okres"
-            onClick={() => setAnchor(shiftAnchor(anchor, period, -1))}
-          >
-            ←
-          </button>
-          <button type="button" className={styles.toggle} disabled={isCurrent} onClick={() => setAnchor(todayDate)}>
-            Dziś
-          </button>
-          <button
-            type="button"
-            className={styles.toggle}
-            aria-label="Następny okres"
-            disabled={range.to > now}
-            onClick={() => setAnchor(shiftAnchor(anchor, period, 1))}
-          >
-            →
-          </button>
-        </div>
+        <PeriodControls
+          options={CALENDAR_PERIODS}
+          value={period}
+          onChange={setPeriod}
+          nav={{
+            onPrev: () => setAnchor(shiftAnchor(anchor, period, -1)),
+            onToday: () => setAnchor(todayDate),
+            onNext: () => setAnchor(shiftAnchor(anchor, period, 1)),
+            isCurrent,
+            nextDisabled: range.to > now,
+          }}
+        />
       </div>
       <p className={styles.range} aria-live="polite">
         {range.label}

@@ -12,7 +12,7 @@ import { useOptionalSession } from '../auth/SessionContext'
 import { branding } from '../branding'
 import styles from './Sidebar.module.css'
 
-export type Page = 'dashboard' | 'sites' | 'server'
+export type Page = 'dashboard' | 'sites' | 'charts' | 'server'
 
 interface NavItem {
   label: string
@@ -26,7 +26,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, page: 'dashboard', href: '/' },
   { label: 'Instalacje', icon: SolarPanel, page: 'sites', href: '/instalacje' },
-  { label: 'Wykresy i historia', icon: ChartColumn },
+  { label: 'Wykresy i historia', icon: ChartColumn, page: 'charts', href: '/wykresy' },
   { label: 'Urządzenia', icon: Cpu },
   { label: 'Alarmy', icon: Bell },
   { label: 'Raporty', icon: FileText },
