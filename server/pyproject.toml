@@ -1,6 +1,6 @@
 [project]
 name = "solargraf-server"
-version = "0.0.0"
+version = "0.1.0"
 description = "SolarGraf (nazwa robocza) — server"
 requires-python = ">=3.12,<3.13"
 license = "LicenseRef-Proprietary"
@@ -8,6 +8,7 @@ dependencies = [
     "alembic>=1.20.1",
     "argon2-cffi>=25.1.0",
     "asyncpg>=0.32.0",
+    "cryptography>=46",
     "fastapi>=0.162.0",
     "pydantic-settings>=2.16.2",
     "solargraf-profiles",

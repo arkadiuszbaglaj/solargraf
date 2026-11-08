@@ -12,6 +12,10 @@ x-db-env: &db-env
   SOLARGRAF_DB_USER: solargraf
   SOLARGRAF_DB_PASSWORD: ${SOLARGRAF_DB_PASSWORD:?Brak SOLARGRAF_DB_PASSWORD w .env}
 
+# Sprawdzanie aktualizacji (D63): wartość początkowa z instalatora (--no-update-check).
+x-update-env: &update-env
+  SOLARGRAF_UPDATE_CHECK: ${SOLARGRAF_UPDATE_CHECK:-true}
+
 x-hardening: &hardening
   read_only: true
   tmpfs: [/tmp]
@@ -55,7 +59,8 @@ services:
   api:
     image: solargraf-api:local
     labels: *labels
-    environment: *db-env
+    environment:
+      <<: [*db-env, *update-env]
     <<: *hardening
     depends_on:
       migrate:
@@ -68,7 +73,7 @@ services:
     labels: *labels
     command: ["solargraf-worker"]
     environment:
-      <<: *db-env
+      <<: [*db-env, *update-env]
       # Retencja (D49); puste = domyślne 90 dni / 2 lata / 90 dni.
       SOLARGRAF_RETENTION_RAW_DAYS: ${SOLARGRAF_RETENTION_RAW_DAYS:-90}
       SOLARGRAF_RETENTION_M5_DAYS: ${SOLARGRAF_RETENTION_M5_DAYS:-730}

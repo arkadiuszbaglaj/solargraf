@@ -28,6 +28,9 @@ from solargraf_server.profiles import ProfileCatalog
 from solargraf_server.profiles import router as profiles_router
 from solargraf_server.sites import router as sites_router
 from solargraf_server.system.api import router as system_router
+from solargraf_server.updates import service as update_service
+from solargraf_server.updates.api import router as updates_router
+from solargraf_server.updates.release_key import RELEASE_PUBLIC_KEY
 
 
 def create_app(settings: Settings, readiness_check: ReadinessCheck | None = None) -> FastAPI:
@@ -76,6 +79,10 @@ def create_app(settings: Settings, readiness_check: ReadinessCheck | None = None
     app.include_router(profiles_router)
     app.include_router(agent_router)
     app.include_router(system_router)
+    app.include_router(updates_router)
+    # Podmieniane w testach (bez sieci i z kluczem testowym).
+    app.state.update_fetch = update_service.fetch_https
+    app.state.update_public_key = RELEASE_PUBLIC_KEY
     return app
 
 

@@ -40,6 +40,14 @@ class Settings(BaseSettings):
     monitor_api_url: str | None = None
     monitor_proxy_address: str | None = None
     monitor_timeout_s: float = Field(default=2.0, gt=0, le=10)
+    # Sprawdzanie aktualizacji (D63): wartość początkowa automatycznego sprawdzania
+    # (instalator --no-update-check), adres podpisanego manifestu (podpis: adres + ".sig").
+    update_check: bool = True
+    update_manifest_url: str = Field(
+        default="https://github.com/arkadiuszbaglaj/solargraf/releases/latest/download/manifest.json",
+        pattern=r"^https://",
+    )
+    update_timeout_s: float = Field(default=15.0, gt=0, le=60)
 
     def database_url(self) -> URL:
         """URL dla SQLAlchemy (asyncpg). Hasło nie pojawia się w ``repr``/logach URL."""

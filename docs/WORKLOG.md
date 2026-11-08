@@ -316,6 +316,13 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: restore nie sprawdzony na RPi i przy dużej bazie (czas pg_restore); kopia na tym samym dysku.
 - Następne małe zadanie: P7.3 — sprawdzanie aktualizacji (D63) albo P7.1d.
 
+- Data: 2026-11-08
+- Etap: P7.3a — sprawdzanie aktualizacji, backend (D63).
+- Zmiany: wersja 0.1.0 we wszystkich pakietach (`tools/release.py version`), `updates/manifest.py` (Ed25519, walidacja, porównanie wersji), `updates/service.py` (pobranie HTTPS przez bibliotekę standardową, zapis wyniku, harmonogram tygodniowy), migracja 0009 (`update_status`), API `/api/system/updates` (OWNER, CSRF, limit 1/min, ukrywanie wersji), zadanie w workerze, `--no-update-check` w instalatorze, `tools/release.py` (keygen, manifest). Zależność `cryptography` 50.0.2 — licencja Apache-2.0 OR BSD-3-Clause (sprawdzona w metadanych PyPI, kontrola licencji OK).
+- Testy uruchomione i wyniki: ruff, mypy --strict, pytest 398 passed / 109 skipped (testy z bazą — w CI).
+- Ryzyka / rzeczy nieweryfikowane: brak klucza właściciela — do jego wygenerowania sprawdzanie jest wyłączone (NOT_CONFIGURED); pobieranie z GitHuba (przekierowania) nie sprawdzone na żywo.
+- Następne małe zadanie: klucz podpisu właściciela, P7.3b — UI.
+
 ## Szablon kolejnego wpisu
 
 - Data:

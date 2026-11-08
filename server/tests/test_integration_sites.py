@@ -1,16 +1,22 @@
 """Izolacja danych między organizacjami i zawężenie członkostwa (D29, D33) — PostgreSQL w CI."""
 
 import asyncio
+import base64
+import json
 import os
 import subprocess
 import sys
 import uuid
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import cast
 
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
@@ -24,6 +30,7 @@ from solargraf_server.maintenance import Retention, apply_retention
 from solargraf_server.models import Membership, MembershipSite, Organization, Role, Site, User
 from solargraf_server.system.host import METRICS, HostSampler
 from solargraf_server.system.monitor import MonitorTargets, run_monitor
+from solargraf_server.updates.service import Fetch, run_scheduled
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("SOLARGRAF_TEST_DB") != "1", reason="wymaga SOLARGRAF_TEST_DB=1 i bazy"
@@ -32,7 +39,7 @@ pytestmark = pytest.mark.skipif(
 SERVER_DIR = Path(__file__).resolve().parent.parent
 PASSWORD = "haslo-testowe-izolacji"
 TABLES = (
-    "system_metric_samples, system_components, system_status, "
+    "update_status, system_metric_samples, system_components, system_status, "
     "alarms, aggregates, aggregate_dirty, measurements, polling_runs, agent_batches, devices, "
     "connections, agents, "
     "membership_sites, sites, audit_events, auth_sessions, setup_tokens, memberships, users, "
@@ -859,3 +866,163 @@ class TestSystemMonitor:
         assert deleted["system_metric_samples"] == 1
         [(count,)] = _sql("SELECT count(*) FROM system_metric_samples")
         assert count == len(METRICS)  # bieżąca próbka zostaje
+
+
+# --- sprawdzanie aktualizacji (D63) ------------------------------------------------------
+
+UPDATE_KEY = Ed25519PrivateKey.generate()  # tylko do testów, nigdzie nie zapisywany
+UPDATE_PUBLIC = base64.b64encode(
+    UPDATE_KEY.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+).decode()
+
+
+def _manifest(version: str, *, security: bool = False) -> bytes:
+    return json.dumps(
+        {
+            "product": "solargraf",
+            "channel": "stable",
+            "version": version,
+            "released_at": "2026-12-01T10:00:00Z",
+            "min_upgrade_from": "0.0.1",
+            "security": security,
+            "notes": "Poprawki.",
+            "info_url": "https://example.com/wydanie",
+        }
+    ).encode()
+
+
+def _fake_fetch(body: bytes, *, tamper: bool = False) -> tuple[Fetch, list[str]]:
+    calls: list[str] = []
+    signature = base64.b64encode(UPDATE_KEY.sign(body))
+
+    async def fetch(url: str, timeout_s: float, limit: int) -> bytes:
+        calls.append(url)
+        if url.endswith(".sig"):
+            return signature
+        return body + (b" " if tamper else b"")
+
+    return fetch, calls
+
+
+def _configure(client: TestClient, fetch: Fetch, key: str | None = UPDATE_PUBLIC) -> None:
+    app = cast(FastAPI, client.app)
+    app.state.update_public_key = key
+    app.state.update_fetch = fetch
+
+
+def _no_jitter(limit: timedelta) -> timedelta:
+    return timedelta(0)
+
+
+def _scheduled(at: datetime, fetch: Fetch | None = None, *, automatic_default: bool = True) -> bool:
+    async def go() -> bool:
+        engine = create_engine(Settings())  # type: ignore[call-arg]
+        try:
+            async with create_sessionmaker(engine)() as db:
+                if fetch is None:
+                    return await run_scheduled(
+                        db,
+                        automatic_default=automatic_default,
+                        url="https://example.com/manifest.json",
+                        timeout_s=1,
+                        public_key=UPDATE_PUBLIC,
+                        now=at,
+                        jitter=_no_jitter,
+                    )
+                return await run_scheduled(
+                    db,
+                    automatic_default=automatic_default,
+                    url="https://example.com/manifest.json",
+                    timeout_s=1,
+                    public_key=UPDATE_PUBLIC,
+                    now=at,
+                    fetch=fetch,
+                    jitter=_no_jitter,
+                )
+        finally:
+            await engine.dispose()
+
+    return asyncio.run(go())
+
+
+class TestUpdateCheck:
+    def test_without_key_nothing_is_fetched(self, world: World, as_user: AsUser) -> None:
+        owner, csrf = as_user("owner_a")
+        fetch, calls = _fake_fetch(_manifest("9.0.0"))
+        _configure(owner, fetch, key=None)
+        body = owner.get("/api/system/updates").json()
+        assert (body["configured"], body["automatic"], body["available"]) == (False, True, None)
+        resp = owner.post("/api/system/updates/check", headers={"X-CSRF-Token": csrf})
+        assert resp.json()["last_error"] == "NOT_CONFIGURED"
+        assert calls == []
+
+    def test_manual_check_dismiss_and_security(self, world: World, as_user: AsUser) -> None:
+        owner, csrf = as_user("owner_a")
+        headers = {"X-CSRF-Token": csrf}
+        fetch, calls = _fake_fetch(_manifest("9.0.0"))
+        _configure(owner, fetch)
+        body = owner.post("/api/system/updates/check", headers=headers).json()
+        assert calls[0].endswith("/manifest.json")
+        assert calls[1].endswith("/manifest.json.sig")
+        assert body["last_error"] is None
+        assert body["available"]["version"] == "9.0.0"
+        assert body["available"]["direct_upgrade"] is True
+        assert body["dismissed"] is False
+        resp = owner.post("/api/system/updates/dismiss", json={"version": "9.0.0"}, headers=headers)
+        assert resp.json()["dismissed"] is True
+        assert owner.get("/api/system/updates").json()["dismissed"] is True
+        # Limit częstotliwości: ponowne kliknięcie od razu nie łączy się z siecią.
+        owner.post("/api/system/updates/check", headers=headers)
+        assert len(calls) == 2
+        _sql("UPDATE update_status SET last_checked_at = now() - interval '2 minutes'")
+        # Zły podpis: błąd zapisany, ostatni poprawny manifest zostaje.
+        bad, _ = _fake_fetch(_manifest("9.1.0"), tamper=True)
+        _configure(owner, bad)
+        body = owner.post("/api/system/updates/check", headers=headers).json()
+        assert body["last_error"] == "INVALID_SIGNATURE"
+        assert body["available"]["version"] == "9.0.0"
+        _sql("UPDATE update_status SET last_checked_at = now() - interval '2 minutes'")
+        # Wersja z poprawkami bezpieczeństwa: nowa, nieukryta i nie da się jej ukryć.
+        secure, _ = _fake_fetch(_manifest("9.2.0", security=True))
+        _configure(owner, secure)
+        body = owner.post("/api/system/updates/check", headers=headers).json()
+        assert (body["available"]["version"], body["dismissed"]) == ("9.2.0", False)
+        resp = owner.post("/api/system/updates/dismiss", json={"version": "9.2.0"}, headers=headers)
+        assert resp.status_code == 409
+        actions = {a for (a,) in _sql("SELECT action FROM audit_events")}
+        assert {"UPDATES_CHECKED", "UPDATE_DISMISSED"} <= actions
+
+    def test_settings_and_permissions(self, world: World, as_user: AsUser) -> None:
+        owner, csrf = as_user("owner_a")
+        resp = owner.put("/api/system/updates/settings", json={"automatic": False})
+        assert resp.status_code == 403  # bez CSRF
+        resp = owner.put(
+            "/api/system/updates/settings",
+            json={"automatic": False},
+            headers={"X-CSRF-Token": csrf},
+        )
+        assert resp.json()["automatic"] is False
+        assert ("UPDATES_SETTINGS_CHANGED",) in _sql("SELECT action FROM audit_events")
+        admin, admin_csrf = as_user("admin_a")
+        assert admin.get("/api/system/updates").status_code == 403
+        resp = admin.post("/api/system/updates/check", headers={"X-CSRF-Token": admin_csrf})
+        assert resp.status_code == 403
+
+    def test_worker_schedule(self, world: World) -> None:
+        fetch, calls = _fake_fetch(_manifest("9.0.0"))
+        now = datetime.now(UTC)
+        # Pierwsze wywołanie wyznacza termin, drugie (w terminie) sprawdza.
+        assert _scheduled(now, fetch) is False
+        assert _scheduled(now, fetch) is True
+        assert len(calls) == 2
+        [(next_check,)] = _sql("SELECT next_check_at FROM update_status")
+        assert next_check == now + timedelta(days=7)
+        assert _scheduled(now + timedelta(days=1), fetch) is False
+        # Wyłączone automatyczne sprawdzanie — bez połączeń.
+        _sql("UPDATE update_status SET automatic = false, next_check_at = now()")
+        assert _scheduled(now + timedelta(days=8), fetch) is False
+        assert len(calls) == 2
+
+    def test_installer_default_disables_automatic(self, world: World) -> None:
+        assert _scheduled(datetime.now(UTC), automatic_default=False) is False
+        assert _sql("SELECT automatic FROM update_status") == [(False,)]

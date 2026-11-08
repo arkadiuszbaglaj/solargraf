@@ -102,7 +102,7 @@ confirm() {
 usage() {
 	cat <<'EOF'
 Użycie:
-  install.sh install   [--yes] [--dry-run] [--dir KATALOG] [--address ADRES] [--no-auto-backup]
+  install.sh install   [--yes] [--dry-run] [--dir KATALOG] [--address ADRES] [--no-auto-backup] [--no-update-check]
   install.sh backup    [--to KATALOG] [--dir KATALOG]   kopia bazy, sekretów i CA
   install.sh restore PLIK [--yes] [--dir KATALOG]       odtworzenie kopii (zastępuje dane)
   install.sh status    [--dir KATALOG]
@@ -118,6 +118,8 @@ Użycie:
   --purge     przy uninstall: usuń także dane (baza, certyfikaty, katalog); kopie zostają
   --to        katalog kopii (domyślnie KATALOG/backups)
   --no-auto-backup / --auto-backup   wyłącz / włącz codzienną kopię o 3:00
+  --no-update-check   nowa instalacja bez automatycznego sprawdzania aktualizacji
+                      (np. serwer bez Internetu; później zmiana w Ustawieniach)
 EOF
 }
 
@@ -586,6 +588,7 @@ cmd_install() {
 
 	copy_sources
 	write_env
+	apply_update_check
 	say "== Budowa obrazów i uruchomienie (pierwsza budowa może potrwać kilka–kilkanaście minut)"
 	compose up -d --build --remove-orphans "${CORE_SERVICES[@]}"
 	wait_healthy
@@ -730,6 +733,7 @@ BACKUP_TO=""
 BACKUP_KIND="manual"
 RESTORE_FILE=""
 AUTO_BACKUP=""
+UPDATE_CHECK=""
 
 backup_dir() { printf '%s' "${BACKUP_TO:-$INSTALL_DIR/backups}"; }
 
@@ -896,6 +900,16 @@ cmd_restore() {
 	say "Odtworzono kopię $RESTORE_FILE."
 }
 
+# Wartość początkowa automatycznego sprawdzania aktualizacji (D63); dalej decyduje ustawienie w UI.
+apply_update_check() {
+	if [ "$UPDATE_CHECK" = "0" ]; then
+		env_set SOLARGRAF_UPDATE_CHECK false
+		say "Automatyczne sprawdzanie aktualizacji: wyłączone na start (zmiana w Ustawieniach)."
+	elif [ "$UPDATE_CHECK" = "1" ]; then
+		env_unset SOLARGRAF_UPDATE_CHECK
+	fi
+}
+
 # Kopia automatyczna codziennie o 3:00 (D62). Wyłączenie zapamiętane w .env.
 auto_backup_enabled() { ! grep -q '^SOLARGRAF_AUTO_BACKUP=0$' "$INSTALL_DIR/.env"; }
 
@@ -968,6 +982,8 @@ main() {
 		--auto) BACKUP_KIND="auto" ;;
 		--no-auto-backup) AUTO_BACKUP=0 ;;
 		--auto-backup) AUTO_BACKUP=1 ;;
+		--no-update-check) UPDATE_CHECK=0 ;;
+		--update-check) UPDATE_CHECK=1 ;;
 		--to)
 			[ $# -ge 2 ] || die "--to wymaga ścieżki."
 			case "$2" in /*) ;; *) die "--to musi być ścieżką bezwzględną." ;; esac
