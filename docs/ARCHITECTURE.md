@@ -229,7 +229,7 @@ Dla ostrożnych administratorów ta sama instalacja w wersji z weryfikacją: pob
 | `install` | instalacja jak wyżej |
 | `update` | aktualizacja z backupem, health checks, rollbackiem i sprzątaniem (sekcja niżej) |
 | `status` | wersja, stan komponentów, miejsce na dysku |
-| `backup` / `restore` | kopia i odtworzenie bazy oraz konfiguracji |
+| `backup` / `restore` | kopia i odtworzenie bazy, `.env` i CA proxy; kopia automatyczna codziennie o 3:00, retencja 7 (D62) |
 | `logs` | logi komponentów (bez sekretów) |
 | `uninstall` | usunięcie aplikacji; dane i kopie zostają, chyba że podano `--purge` i potwierdzono |
 

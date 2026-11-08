@@ -298,6 +298,83 @@ jobs:
           test "$(sudo sha256sum "$DIR/.env" | cut -d' ' -f1)" = "$before"
           grep -q 'już skonfigurowany' reinstall-out.txt
           sudo solargraf status
+      - name: Kopia automatyczna (D62) — timer systemd i retencja 7 kopii
+        run: |
+          systemctl is-enabled solargraf-backup.timer
+          sudo solargraf status | tee status-out.txt
+          grep -q 'Kopia automatyczna: włączona' status-out.txt
+          # Stare kopie automatyczne (puste pliki z wcześniejszą datą w nazwie) — retencja je usuwa.
+          for i in 1 2 3 4 5 6 7 8; do sudo touch "$DIR/backups/solargraf-backup-2000010${i}T000000Z-auto.tar.gz"; done
+          sudo touch "$DIR/backups/solargraf-backup-20000101T000000Z-manual.tar.gz"
+          sudo systemctl start solargraf-backup.service
+          test "$(sudo find "$DIR/backups" -name '*-auto.tar.gz' | wc -l)" = "7"
+          sudo test -f "$DIR/backups/solargraf-backup-20000101T000000Z-manual.tar.gz"
+          sudo find "$DIR/backups" -name '*-auto.tar.gz' -size +0 | grep -q .
+          sudo rm -f "$DIR"/backups/solargraf-backup-2000*
+          sudo rm -f "$DIR"/backups/*-auto.tar.gz
+      - name: Backup → uninstall --purge → instalacja → restore (D62)
+        run: |
+          ca="$DIR/solargraf-ca.crt"
+          compose() { sudo docker compose -p solargraf -f "$DIR/src/deploy/compose.yaml" --env-file "$DIR/.env" "$@"; }
+          count() { compose exec -T db psql -U solargraf -d solargraf -tAc "$1"; }
+          measurements="$(count 'SELECT count(*) FROM measurements')"
+          test "$measurements" -gt 0
+          env_before="$(sudo grep -v -e '^SOLARGRAF_SITE_ADDRESSES=' -e '^SOLARGRAF_PUBLIC_ADDRESS=' "$DIR/.env" | sha256sum)"
+          ca_before="$(sha256sum < "$ca")"
+          sudo solargraf backup | tee backup-out.txt
+          file="$(sed -n 's/^Kopia zapasowa: //p' backup-out.txt)"
+          test -n "$file"
+          test "$(sudo stat -c %a "$file")" = "600"
+          test "$(sudo stat -c %a "$DIR/backups")" = "700"
+          sudo tar -tzf "$file" | LC_ALL=C sort | tr '\n' ' ' | grep -qx 'SHA256SUMS caddy-pki.tar db.dump env manifest.txt '
+          sudo tar -xzOf "$file" manifest.txt | grep -qx 'db_revision=[0-9a-z_]*'
+          # Sekrety nie trafiają na ekran ani do logu.
+          password="$(sudo sed -n 's/^SOLARGRAF_DB_PASSWORD=//p' "$DIR/.env")"
+          if grep -qF "$password" backup-out.txt || sudo grep -qF "$password" "$DIR/install.log"; then echo 'Niespełniony warunek'; exit 1; fi
+
+          # Uszkodzona kopia i kopia z nowszej wersji są odrzucane przed zmianą czegokolwiek.
+          work="$(mktemp -d)"
+          sudo tar -xzf "$file" -C "$work"
+          sudo sed -i 's/^db_revision=.*/db_revision=9999/' "$work/manifest.txt"
+          sudo tar -C "$work" -czf /tmp/bad-sum.tar.gz db.dump env caddy-pki.tar manifest.txt SHA256SUMS
+          if sudo solargraf restore /tmp/bad-sum.tar.gz --yes 2>restore-err.txt; then echo 'Niespełniony warunek'; exit 1; fi
+          grep -q 'Sumy kontrolne' restore-err.txt
+          (cd "$work" && sudo sh -c 'sha256sum db.dump env caddy-pki.tar manifest.txt > SHA256SUMS')
+          sudo tar -C "$work" -czf /tmp/newer.tar.gz db.dump env caddy-pki.tar manifest.txt SHA256SUMS
+          if sudo solargraf restore /tmp/newer.tar.gz --yes 2>restore-err.txt; then echo 'Niespełniony warunek'; exit 1; fi
+          grep -q 'nowszej wersji' restore-err.txt
+          test "$(count 'SELECT count(*) FROM measurements')" -ge "$measurements"
+
+          # Utrata danych: pełne usunięcie, kopie zostają.
+          sudo solargraf uninstall --purge --yes
+          if docker volume inspect solargraf_db-data >/dev/null 2>&1; then echo 'Niespełniony warunek'; exit 1; fi
+          sudo test -f "$file"
+          sudo test ! -e "$DIR/.env"
+          sudo test ! -e "$DIR/src"
+          sudo /tmp/bundle/solargraf/deploy/install.sh install --yes | tee fresh-out.txt
+          grep -q 'setup?token=' fresh-out.txt
+          test "$(count 'SELECT count(*) FROM users')" = "0"
+
+          sudo solargraf restore "$file" --yes | tee restore-out.txt
+          grep -q 'Odtworzono kopię' restore-out.txt
+          sudo find "$DIR/backups" -name '*-pre-restore.tar.gz' | grep -q .
+          test "$(sudo grep -v -e '^SOLARGRAF_SITE_ADDRESSES=' -e '^SOLARGRAF_PUBLIC_ADDRESS=' "$DIR/.env" | sha256sum)" = "$env_before"
+          test "$(sudo stat -c %a "$DIR/.env")" = "600"
+          test "$(count 'SELECT count(*) FROM measurements')" -ge "$measurements"
+          # To samo CA: certyfikat zaimportowany wcześniej w przeglądarce dalej działa.
+          test "$(sha256sum < "$ca")" = "$ca_before"
+          curl -fsS --cacert "$ca" https://localhost/api/health/ready
+          curl -fsS --cacert "$ca" -c restore-jar.txt -H 'Content-Type: application/json' \
+            -d '{"email":"ci@example.pl","password":"ci-instalator-haslo-1"}' https://localhost/api/auth/login >/dev/null
+          curl -fsS --cacert "$ca" -b restore-jar.txt https://localhost/api/sites | jq -e 'map(.name) | index("Test symulatora") != null'
+          # Agent działa z odtworzonym tokenem (heartbeat po odtworzeniu).
+          restored_at="$(date -u +%s)"
+          for i in $(seq 1 45); do
+            beat="$(count "SELECT coalesce(extract(epoch FROM max(last_heartbeat_at))::bigint, 0) FROM agents")"
+            [ "$beat" -ge "$restored_at" ] && break
+            if [ "$i" -eq 45 ]; then compose logs --no-color agent; exit 1; fi
+            sleep 2
+          done
       - name: uninstall zostawia dane, --purge je usuwa
         run: |
           sudo solargraf uninstall --yes
@@ -307,7 +384,12 @@ jobs:
           test ! -e /usr/local/bin/solargraf
           sudo "$DIR/src/deploy/install.sh" uninstall --purge --yes
           if docker volume inspect solargraf_db-data >/dev/null 2>&1; then echo 'Niespełniony warunek'; exit 1; fi
-          test ! -e "$DIR"
+          if systemctl is-enabled solargraf-backup.timer 2>/dev/null; then echo 'Niespełniony warunek'; exit 1; fi
+          # Kopie zapasowe zostają (D17, D62); bez nich znika cały katalog.
+          sudo test ! -e "$DIR/src"
+          sudo test ! -e "$DIR/.env"
+          sudo find "$DIR" -mindepth 1 -maxdepth 1 ! -name backups | wc -l | grep -qx 0
+          sudo rm -rf "$DIR/backups"
       - name: Logi
         if: failure()
         run: sudo docker compose -p solargraf -f "$DIR/src/deploy/compose.yaml" --env-file "$DIR/.env" logs --no-color || true

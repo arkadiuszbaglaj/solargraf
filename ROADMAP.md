@@ -96,7 +96,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 - [ ] TLS w LAN (Caddy), instrukcja VPN.
 - [ ] Weryfikacja pliku licencji offline i limity (O5).
 - [ ] Sprawdzanie aktualizacji (D15, O10): ręcznie i automatycznie raz w tygodniu, podpisany manifest wersji, komunikat w UI o nowej wersji, ustawienie włącz/wyłącz; proces publikacji manifestu przy każdym wydaniu.
-- [ ] Backup/restore z testem odtworzenia.
+- [x] Backup/restore z testem odtworzenia (P7.2, D62).
 - [ ] Wymagania CRA: SBOM w wydaniu, polityka podatności, okres wsparcia (O9), dokumentacja techniczna.
 - [ ] Materiały RODO dla klientów; nazwa handlowa (O4).
 - [ ] Testy wydajności na RPi 4/5 i ustalenie limitów liczby instalacji.

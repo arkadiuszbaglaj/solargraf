@@ -308,6 +308,14 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: zapytanie agregujące niezmierzone na RPi przy 30 dniach danych; nie sprawdzone na prawdziwym serwerze.
 - Następne małe zadanie: P7.1d — alarmy systemowe dla OWNER.
 
+- Data: 2026-11-08
+- Etap: P7.2 — backup i restore z testem odtworzenia (D62); zapisane D63 (sprawdzanie aktualizacji, O10 rozstrzygnięte).
+- Zmiany: `deploy/install.sh` — `backup` (pg_dump, `.env`, CA Caddy, manifest, SHA256SUMS, 600/700), `restore` (weryfikacja archiwum i rewizji migracji, kopia pre-restore, odtworzenie bazy od zera, migracje, CA i nowe certyfikaty), timer systemd o 3:00 z retencją 7 kopii automatycznych, `--no-auto-backup`/`--auto-backup`, `status` pokazuje ostatnią kopię; `uninstall --purge` zostawia `backups/`. CI: test timera i retencji oraz pełny cykl backup → purge → instalacja → restore.
+- Testy uruchomione i wyniki: `bash -n`, poprawność YAML lokalnie; ShellCheck i test instalatora tylko w CI (brak Dockera lokalnie).
+- Decyzje zatwierdzone: D62, D63.
+- Ryzyka / rzeczy nieweryfikowane: restore nie sprawdzony na RPi i przy dużej bazie (czas pg_restore); kopia na tym samym dysku.
+- Następne małe zadanie: P7.3 — sprawdzanie aktualizacji (D63) albo P7.1d.
+
 ## Szablon kolejnego wpisu
 
 - Data:
