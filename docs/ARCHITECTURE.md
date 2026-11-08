@@ -162,10 +162,13 @@ Manifest zawiera co najmniej: numer najnowszej wersji, datę wydania, minimalną
 
 **Poza zakresem:** automatyczne pobieranie i instalowanie aktualizacji. Aktualizacja odbywa się ręcznie według procedury z P7 (backup bazy przed migracją, rollback).
 
-API (szkic):
-- `GET /api/system/updates` — stan: wersja bieżąca, najnowsza, data i wynik sprawdzenia, ustawienie automatycznego sprawdzania;
-- `POST /api/system/updates/check` — sprawdzenie ręczne (administrator, limit częstotliwości);
-- `PUT /api/system/updates/settings` — włączenie/wyłączenie sprawdzania automatycznego (administrator).
+API (D63, tylko OWNER, zmiany z CSRF):
+- `GET /api/system/updates` — wersja bieżąca, dostępna (z flagą bezpieczeństwa i możliwością bezpośredniej aktualizacji), data i wynik sprawdzenia, ustawienie automatycznego sprawdzania;
+- `POST /api/system/updates/check` — sprawdzenie ręczne (najwyżej raz na minutę);
+- `PUT /api/system/updates/settings` — włączenie/wyłączenie sprawdzania automatycznego;
+- `POST /api/system/updates/dismiss` — ukrycie zwykłej wersji (wersji z poprawkami bezpieczeństwa — nie).
+
+Wydanie: `tools/release.py version X.Y.Z` (wersja we wszystkich pakietach), tag `vX.Y.Z`, `tools/release.py manifest --key …` i dołączenie `manifest.json` oraz `manifest.json.sig` do wydania na GitHubie.
 
 ## Monitor serwera
 

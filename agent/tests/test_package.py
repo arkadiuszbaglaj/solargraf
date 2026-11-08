@@ -1,5 +1,8 @@
+import re
+
 import solargraf_agent
 
 
-def test_version_is_defined() -> None:
-    assert solargraf_agent.__version__ == "0.0.0"
+def test_version_is_semver() -> None:
+    # Wartość ustawia `tools/release.py version`; spójność wszystkich plików — tools/tests.
+    assert re.fullmatch(r"\d+\.\d+\.\d+", solargraf_agent.__version__)

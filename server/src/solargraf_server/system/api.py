@@ -16,7 +16,7 @@ from sqlalchemy import ColumnElement, DateTime, Interval, exists, func, literal,
 from sqlalchemy.orm import InstrumentedAttribute
 
 from solargraf_server import __version__
-from solargraf_server.auth.deps import AuthContext, DbSession, current_auth
+from solargraf_server.auth.deps import AuthContext, DbSession, current_auth, require_csrf
 from solargraf_server.models import Membership, Role
 from solargraf_server.models.system import (
     STATUS_ROW_ID,
@@ -80,10 +80,8 @@ class SystemHealthOut(BaseModel):
     server_time: datetime
 
 
-async def require_owner(
-    auth: Annotated[AuthContext, Depends(current_auth)], db: DbSession
-) -> AuthContext:
-    """Monitor serwera widzi tylko OWNER (D29)."""
+async def ensure_owner(db: DbSession, auth: AuthContext) -> AuthContext:
+    """Dane serwera (monitor, aktualizacje) widzi tylko OWNER (D29)."""
     owner = await db.scalar(
         select(
             exists().where(Membership.user_id == auth.user.id, Membership.role == Role.OWNER.value)
@@ -92,6 +90,19 @@ async def require_owner(
     if not owner:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Brak uprawnień do stanu serwera.")
     return auth
+
+
+async def require_owner(
+    auth: Annotated[AuthContext, Depends(current_auth)], db: DbSession
+) -> AuthContext:
+    return await ensure_owner(db, auth)
+
+
+async def require_owner_csrf(
+    auth: Annotated[AuthContext, Depends(require_csrf)], db: DbSession
+) -> AuthContext:
+    """Zmiany ustawień serwera: OWNER i poprawny token CSRF."""
+    return await ensure_owner(db, auth)
 
 
 @router.get("/health", response_model=SystemHealthOut)

@@ -29,6 +29,7 @@ from solargraf_server.models.telemetry import (
     Resolution,
     RunResult,
 )
+from solargraf_server.models.updates import UpdateStatus
 
 __all__ = [
     "DEFAULT_FRESHNESS_THRESHOLD_S",
@@ -64,6 +65,7 @@ __all__ = [
     "SystemMetricSample",
     "SystemStatus",
     "Transport",
+    "UpdateStatus",
     "User",
     "UserSession",
 ]

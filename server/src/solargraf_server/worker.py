@@ -48,6 +48,8 @@ from solargraf_server.models import (
 from solargraf_server.profiles import ProfileCatalog
 from solargraf_server.system.host import HostSampler
 from solargraf_server.system.monitor import MonitorTargets, run_monitor
+from solargraf_server.updates import service as update_service
+from solargraf_server.updates.release_key import RELEASE_PUBLIC_KEY
 
 log = logging.getLogger("solargraf_server.worker")
 
@@ -294,6 +296,20 @@ async def run(settings: Settings, interval_s: float = INTERVAL_S) -> None:
                     log.info("Monitor serwera: %s", ", ".join(reasons))
             except (SQLAlchemyError, OSError) as exc:
                 log.warning("Pomiar monitora serwera nieudany: %s", type(exc).__name__)
+            try:
+                async with maker() as db:
+                    checked = await update_service.run_scheduled(
+                        db,
+                        automatic_default=settings.update_check,
+                        url=settings.update_manifest_url,
+                        timeout_s=settings.update_timeout_s,
+                        public_key=RELEASE_PUBLIC_KEY,
+                        now=datetime.now(UTC),
+                    )
+                if checked:
+                    log.info("Sprawdzono dostępność aktualizacji")
+            except (SQLAlchemyError, OSError) as exc:
+                log.warning("Sprawdzenie aktualizacji nieudane: %s", type(exc).__name__)
             await asyncio.sleep(interval_s)
     finally:
         await engine.dispose()
