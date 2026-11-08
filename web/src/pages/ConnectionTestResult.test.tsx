@@ -193,6 +193,18 @@ describe('ConnectionTestResult', () => {
     expect(screen.getByText('Nie udało się odczytać urządzenia.')).toBeTruthy()
     expect(screen.getByText(/nie działa serwer Modbus TCP/)).toBeTruthy()
     expect(screen.queryByRole('table')).toBeNull()
+    rerender(
+      <ConnectionTestResult
+        run={done(test('DONE', { result: 'FAILED', error_code: 'TIMEOUT', readings: [{ ...READINGS[1] }] }))}
+      />,
+    )
+    expect(screen.getByText('Nie odczytano żadnego z 1 parametrów profilu.')).toBeTruthy()
+    expect(screen.queryByRole('table')).toBeNull()
+    expect(screen.queryByLabelText('Dane symulowane')).toBeNull()
+    rerender(<ConnectionTestResult run={done(test('DONE', { result: 'FAILED', error_code: 'TARGET_IN_USE' }))} />)
+    expect(screen.getByText('Test nie został wykonany.')).toBeTruthy()
+    expect(screen.getByText(/Agent już odczytuje urządzenie pod tym adresem/)).toBeTruthy()
+    expect(screen.queryByText('Nie udało się odczytać urządzenia.')).toBeNull()
     rerender(<ConnectionTestResult run={{ status: 'waiting', test: null }} />)
     expect(screen.getByRole('status').textContent).toContain('Czekam, aż agent odbierze zlecenie')
     rerender(<ConnectionTestResult run={{ status: 'expired' }} />)

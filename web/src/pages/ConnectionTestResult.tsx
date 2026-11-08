@@ -124,8 +124,11 @@ export function ConnectionTestResult({ run }: { run: TestRun }) {
   }
   const { test } = run
   const good = test.readings.filter((r) => r.quality === 'GOOD').length
-  const verdict =
-    test.result === 'OK'
+  // Agent odmówił testu (adres zajęty, nieznany profil) — to nie awaria urządzenia.
+  const skipped = test.errorCode === 'TARGET_IN_USE' || test.errorCode === 'UNKNOWN_PROFILE'
+  const verdict = skipped
+    ? { kind: 'warn', text: 'Test nie został wykonany.' }
+    : test.result === 'OK'
       ? { kind: 'ok', text: 'Połączenie działa — odczytano wszystkie parametry profilu.' }
       : test.result === 'PARTIAL'
         ? { kind: 'warn', text: 'Połączenie działa, ale części parametrów nie odczytano.' }
@@ -137,7 +140,10 @@ export function ConnectionTestResult({ run }: { run: TestRun }) {
         {test.origin === 'SIMULATED' ? <DemoBadge origin="SIMULATED" /> : null}
       </p>
       {test.errorCode ? <p className={styles.muted}>{TEST_ERROR_LABEL[test.errorCode]}</p> : null}
-      {test.readings.length > 0 ? (
+      {test.readings.length > 0 && good === 0 ? (
+        <p className={styles.muted}>Nie odczytano żadnego z {test.readings.length} parametrów profilu.</p>
+      ) : null}
+      {good > 0 ? (
         <>
           <p className={styles.muted}>
             Odczytano {good} z {test.readings.length} parametrów profilu.
