@@ -4,6 +4,11 @@ Sekcja `## X.Y.Z` jest opisem wydania na GitHubie i w podpisanym manifeście (D6
 właściciel instalacji w Ustawienia → Aktualizacje. Najwyżej 2000 znaków na wersję. Nową sekcję
 dodaje się w tym samym PR co podniesienie wersji (`tools/release.py version X.Y.Z`).
 
+## 0.6.0
+
+- Nowa zakładka „Urządzenia”: kafle ze stanem urządzeń, wyszukiwarka i filtry typu oraz statusu, a dla wybranego urządzenia bieżące wartości wszystkich parametrów z wiekiem odczytu, wykres z ostatnich 24 godzin, 7 lub 30 dni, dane połączenia i profilu (także wersja firmware i numer seryjny, jeśli są znane) oraz włączanie i wyłączanie odczytu (D70).
+- Dodawanie urządzenia otwiera się przyciskiem w tej zakładce; dawny adres listy urządzeń instalacji prowadzi do niej.
+
 ## 0.5.2
 
 - Aktualizacja przy braku miejsca na dysku: serwer najpierw sam usuwa cache budowania Dockera; jeśli to nie wystarczy, Ustawienia → Aktualizacje pokazują, ile miejsca jest wolne, ile potrzeba i co można zwolnić — zamiast niejasnego „etap: sprawdzanie wersji”.
