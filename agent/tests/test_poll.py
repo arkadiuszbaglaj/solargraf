@@ -39,8 +39,8 @@ def with_extra_point(base: dict[str, Any], address: int, table: str = "input") -
     data = copy.deepcopy(base)
     data["points"].append(
         {
-            "metric": "grid_voltage",
-            "channel": 1,
+            "metric": "pv_string_voltage",
+            "channel": 2,
             "status": "UNVERIFIED",
             "source": "simulator-map",
             "register": {"table": table, "address": address, "type": "u16"},
@@ -99,22 +99,22 @@ def by_metric(result: PollingRun) -> dict[str, Any]:
 class TestPlan:
     def test_contiguous_points_form_one_block(self) -> None:
         blocks = plan_blocks(profile())
-        assert [(b.table, b.address, b.count) for b in blocks] == [("input", 0, 13)]
-        assert len(blocks[0].points) == 10  # bez punktu UNSUPPORTED
+        assert [(b.table, b.address, b.count) for b in blocks] == [("input", 0, 28)]
+        assert len(blocks[0].points) == 25  # bez punktu UNSUPPORTED
 
     def test_gap_and_table_split_blocks(self) -> None:
-        gap = with_extra_point(RAW, 20)
-        assert [(b.address, b.count) for b in plan_blocks(gap)] == [(0, 13), (20, 1)]
-        holding = with_extra_point(RAW, 13, table="holding")
+        gap = with_extra_point(RAW, 40)
+        assert [(b.address, b.count) for b in plan_blocks(gap)] == [(0, 28), (40, 1)]
+        holding = with_extra_point(RAW, 28, table="holding")
         assert [(b.table, b.address) for b in plan_blocks(holding)] == [
-            ("holding", 13),
+            ("holding", 28),
             ("input", 0),
         ]
 
     def test_block_limit(self) -> None:
         blocks = plan_blocks(profile(max_block_registers=4))
         assert all(b.count <= 4 for b in blocks)
-        assert sum(b.count for b in blocks) == 13
+        assert sum(b.count for b in blocks) == 28
         # Wartość 32-bitowa nigdy nie jest dzielona między bloki.
         assert [(b.address, b.count) for b in blocks][:2] == [(0, 4), (4, 4)]
 
@@ -166,15 +166,17 @@ class TestPoll:
         async def test(env: Env) -> None:
             result = await env.poller.poll()
             assert result.result is RunResult.PARTIAL
-            missing = by_metric(result)["grid_voltage"]
+            missing = next(
+                r for r in result.readings if r.metric == "pv_string_voltage" and r.channel == 2
+            )
             assert missing.value is None
             assert missing.quality is Quality.MISSING
             assert missing.error is ErrorCode.MODBUS_EXCEPTION
             assert result.errors[0].modbus_code == 0x02
-            assert result.ok_points == 10
+            assert result.ok_points == 25
             assert env.sleeps == []  # wyjątek Modbus bez ponawiania
 
-        run(test, agent_profile=with_extra_point(RAW, 20))
+        run(test, agent_profile=with_extra_point(RAW, 40))
 
     def test_injected_modbus_exception(self) -> None:
         async def test(env: Env) -> None:

@@ -421,6 +421,8 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 
 - Porządek strony „Stan serwera” (bez zmian API): u góry ocena stabilności obok alarmów serwera; cztery kafle zużycia (procesor, RAM, dysk, temperatura) z dużą wartością i paskiem w kolorze progów D60; niżej lista składników obok „Szczegółów systemu”, potem historia. Usunięte powtórzone wartości (zajętość, RAM, temperatura). Brak pomiaru nadal „niedostępne”, bez paska. Testy web 325/325, tsc, oxlint zielone; sprawdzony podgląd 1280 px i 375 px (bez poziomego przewijania). Na serwer trafi z kolejnym wydaniem.
 
+- Pełne panele dashboardu (D69): nowe metryki katalogu (prąd faz sieci, temperatura modułów, pojemność nominalna baterii, napięcia i temperatury ogniw min./maks., liczba cykli — wielkość COUNT) i ich wartości SIMULATED w symulatorze; Fotowoltaika z zakładkami MPPT i wykresem V/A stringu od północy, Magazyn z pierścieniem SoC i szacunkiem energii, Sieć z tabelą faz i energią dziś, nowe panele „BMS — ogniwa” i „Zużycie i samowystarczalność”. Testy: Python 409 (bez bazy), web 341, tsc, oxlint, ruff, mypy zielone; podgląd z atrapą SIMULATED 1600 px i 375 px. Nie zrobione: pogoda/nasłonecznienie, „Raporty”, mapy rejestrów nowych metryk dla Deye/BOS-G16 (wymagają dokumentacji producenta).
+
 ## Szablon kolejnego wpisu
 
 - Data:

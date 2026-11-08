@@ -4,7 +4,8 @@
  * jednostki kanoniczne (W, Wh, V, A, °C, %), czasy w UTC (ISO 8601), brak wartości = null.
  */
 
-export type Unit = 'W' | 'Wh' | '%' | 'V' | 'A' | '°C' | 'Hz'
+/** `count` — liczba bezwymiarowa (np. cykle baterii). */
+export type Unit = 'W' | 'Wh' | '%' | 'V' | 'A' | '°C' | 'Hz' | 'count'
 export type Quality = 'GOOD' | 'ESTIMATED' | 'STALE' | 'INVALID' | 'MISSING'
 export type Origin = 'DEVICE' | 'DERIVED' | 'SIMULATED' | 'DEMO'
 

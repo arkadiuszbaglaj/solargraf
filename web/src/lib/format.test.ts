@@ -41,6 +41,12 @@ describe('formatQuantity', () => {
     expect(norm(formatQuantity(50.02, 'Hz'))).toBe('50,02 Hz')
   })
 
+  it('napięcie z wybraną precyzją (ogniwo) i liczba bez jednostki', () => {
+    expect(norm(formatQuantity(3.3019, 'V', 3))).toBe('3,302 V')
+    expect(norm(formatQuantity(412, 'count'))).toBe('412')
+    expect(formatQuantity(null, 'count')).toBe(MISSING)
+  })
+
   it('brak wartości to „—”, nigdy 0', () => {
     expect(formatQuantity(null, 'W')).toBe(MISSING)
     expect(formatQuantity(Number.NaN, 'Wh')).toBe(MISSING)

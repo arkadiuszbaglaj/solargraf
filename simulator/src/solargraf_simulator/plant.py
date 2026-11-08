@@ -14,6 +14,8 @@ from decimal import Decimal
 
 # Dłuższe przerwy między odczytami całkujemy krokami, żeby bateria nie „przeskakiwała”.
 MAX_STEP = timedelta(seconds=60)
+# Umowna liczba cykli baterii na starcie symulacji (wartość SIMULATED).
+CYCLES_AT_START = 400
 
 
 @dataclass(frozen=True)
@@ -116,6 +118,7 @@ class Plant:
         battery = self.battery_power(at)
         string_voltage = 380.0 if pv > 0 else 0.0
         battery_voltage = 51.2
+        soc = 100 * self.soc_wh / self.config.battery_capacity_wh
         values = {
             "pv_power": pv,
             "pv_string_power": pv,
@@ -131,10 +134,22 @@ class Plant:
             "battery_power": battery,
             "battery_current": battery / battery_voltage,
             "battery_voltage": battery_voltage,
-            "battery_soc": 100 * self.soc_wh / self.config.battery_capacity_wh,
+            "battery_soc": soc,
             "battery_temperature": 25.0,
             "battery_charge_energy_total": self.charge_energy_wh,
             "battery_discharge_energy_total": self.discharge_energy_wh,
             "inverter_temperature": 25.0 + 20.0 * pv / self.config.pv_peak_w,
+            "pv_module_temperature": 10.0 + 30.0 * pv / self.config.pv_peak_w,
+            # Jedna wartość dla każdej fazy (model nie rozróżnia faz).
+            "grid_current": abs(self.grid_power(at)) / 3 / 230.0,
+            "battery_capacity": float(self.config.battery_capacity_wh),
+            "battery_cell_voltage_min": 3.2 + 0.15 * soc / 100 - 0.015,
+            "battery_cell_voltage_max": 3.2 + 0.15 * soc / 100 + 0.015,
+            "battery_cell_temperature_min": 24.0,
+            "battery_cell_temperature_max": 27.0,
+            # Pełne cykle: energia rozładowania / pojemność, od umownego stanu początkowego.
+            "battery_cycle_count": float(
+                CYCLES_AT_START + int(self.discharge_energy_wh // self.config.battery_capacity_wh)
+            ),
         }
         return {k: Decimal(repr(round(v, 2))) for k, v in values.items()}

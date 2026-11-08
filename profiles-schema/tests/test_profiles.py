@@ -101,6 +101,7 @@ class TestCatalog:
             "FREQUENCY": "Hz",
             "TEMPERATURE": "degC",
             "RATIO": "%",
+            "COUNT": "count",
         }
 
     def test_sign_conventions(self) -> None:
