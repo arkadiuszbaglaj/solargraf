@@ -419,6 +419,8 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: instalacja 0.4.0 przyciskiem na serwerze testowym.
 - Następne małe zadanie: aktualizacja serwera testowego do 0.4.0, potem kreator dodawania falownika.
 
+- Porządek strony „Stan serwera” (bez zmian API): u góry ocena stabilności obok alarmów serwera; cztery kafle zużycia (procesor, RAM, dysk, temperatura) z dużą wartością i paskiem w kolorze progów D60; niżej lista składników obok „Szczegółów systemu”, potem historia. Usunięte powtórzone wartości (zajętość, RAM, temperatura). Brak pomiaru nadal „niedostępne”, bez paska. Testy web 325/325, tsc, oxlint zielone; sprawdzony podgląd 1280 px i 375 px (bez poziomego przewijania). Na serwer trafi z kolejnym wydaniem.
+
 ## Szablon kolejnego wpisu
 
 - Data:
