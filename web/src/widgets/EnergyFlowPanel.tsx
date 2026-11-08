@@ -5,7 +5,7 @@ import { Panel } from '../components/Panel'
 import { WidgetState } from '../components/WidgetState'
 import type { LiveSite } from '../hooks/useLiveSite'
 import { useNow } from '../hooks/useNow'
-import { flowView, NODE_LABEL, type FlowDirection, type FlowNode, type FlowNodeKey } from '../lib/energyFlow'
+import { flowMotion, flowView, NODE_LABEL, type FlowDirection, type FlowNode, type FlowNodeKey } from '../lib/energyFlow'
 import { formatQuantity, MISSING } from '../lib/format'
 import { siteValue, type SiteValue } from '../lib/liveValues'
 import styles from './EnergyFlowPanel.module.css'
@@ -83,13 +83,28 @@ function Diagram({ nodes, arrows }: { nodes: FlowNode[]; arrows: Partial<Record<
       {nodes.map((n) => {
         const direction = arrows?.[n.key]
         const active = direction === 'in' || direction === 'out'
+        const line = segment(n.key, direction)
+        // Ruch tylko przy potwierdzonym kierunku (spójny bilans świeżych odczytów) i mocy ≥ IDLE_W.
+        const motion = active && n.value.kind === 'value' ? flowMotion(n.value.value) : null
         return (
-          <line
-            key={n.key}
-            {...segment(n.key, direction)}
-            className={active ? `${styles.link} ${styles[`stroke_${n.key}`]}` : styles.linkIdle}
-            markerEnd={active ? `url(#${CSS.escape(`${prefix}-arrow-${n.key}`)})` : undefined}
-          />
+          <g key={n.key}>
+            <line
+              {...line}
+              className={
+                active ? `${styles.link} ${styles[`stroke_${n.key}`]} ${motion ? styles.linkMoving : ''}` : styles.linkIdle
+              }
+              markerEnd={active ? `url(#${CSS.escape(`${prefix}-arrow-${n.key}`)})` : undefined}
+            />
+            {motion ? (
+              <line
+                {...line}
+                className={`${styles.flow} ${styles[`stroke_${n.key}`]}`}
+                strokeWidth={motion.width}
+                style={{ animationDuration: `${motion.durationS}s` }}
+                data-flow={direction}
+              />
+            ) : null}
+          </g>
         )
       })}
       <circle cx={HUB.x} cy={HUB.y} r={HUB_R} className={styles.hub} />
@@ -122,7 +137,8 @@ function Diagram({ nodes, arrows }: { nodes: FlowNode[]; arrows: Partial<Record<
 
 /**
  * Diagram przepływu energii (D54) z tego samego strumienia co karty (D50). Gwiazda wokół
- * instalacji, statyczne strzałki tylko przy spójnym bilansie; bez animacji.
+ * instalacji, strzałki tylko przy spójnym bilansie; wtedy kropki płyną w kierunku przepływu z
+ * prędkością i grubością zależną od mocy (D64), a przy `prefers-reduced-motion` zostają same strzałki.
  */
 export function EnergyFlowPanel({ live, now: fixedNow }: { live: LiveSite; now?: Date }) {
   const tickingNow = useNow(1000)

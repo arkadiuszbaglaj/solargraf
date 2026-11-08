@@ -339,6 +339,14 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: każde kolejne wydanie wymaga podniesienia wersji (`tools/release.py version`), nowego manifestu i oznaczenia jako „latest”; nie sprawdzone na serwerze testowym ani RPi.
 - Następne małe zadanie: P7.1d (alarmy systemowe) albo polecenie `update` instalatora.
 
+- Data: 2026-11-08
+- Etap: UI — animacja przepływu energii (D64)
+- Zmiany: `flowMotion` (prędkość i grubość z mocy, próg IDLE_W) w `energyFlow.ts`; w `EnergyFlowPanel` kropki płyną po liniach ze strzałką (tylko potwierdzony kierunek), linia pod nimi przygaszona; `prefers-reduced-motion` — same strzałki. D54 uzupełniona odnośnikiem do D64.
+- Testy uruchomione i wyniki: web — lint, tsc, vitest 286 passed; podgląd tymczasowej strony z danymi SIMULATED (spójny bilans, moc 30 W, dane nieaktualne) na komputerze i telefonie; reguła reduced-motion sprawdzona przez wstrzyknięcie stylu.
+- Decyzje zatwierdzone: D64 (zlecenie właściciela).
+- Ryzyka / rzeczy nieweryfikowane: nie oglądane na dashboardzie z prawdziwym backendem (tryb DEMO nie pokazuje diagramu); zmiana mocy co sekundę może lekko przeskoczyć fazę animacji (wartości zaokrąglone).
+- Następne małe zadanie: P7.1d (alarmy systemowe) albo polecenie `update` instalatora.
+
 ## Szablon kolejnego wpisu
 
 - Data:

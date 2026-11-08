@@ -53,6 +53,38 @@
   stroke-width: 3;
 }
 
+/* Pod płynącymi kropkami linia jest przygaszona, żeby kropki były widoczne. */
+.linkMoving {
+  stroke-opacity: 0.35;
+}
+
+.flow {
+  /* Kropki (kreska zerowej długości z zaokrąglonym końcem) co 14 jednostek. */
+  stroke-dasharray: 0 14;
+  stroke-linecap: round;
+  animation: flow 1.5s linear infinite;
+}
+
+/* Przesunięcie o dwa okresy wzoru — kropki idą od początku linii do jej końca (w stronę strzałki). */
+@keyframes flow {
+  from {
+    stroke-dashoffset: 28;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow {
+    display: none;
+  }
+
+  .linkMoving {
+    stroke-opacity: 1;
+  }
+}
+
 .linkIdle {
   stroke: var(--color-border);
   stroke-width: 2;
