@@ -1,11 +1,12 @@
 import type { FormEvent } from 'react'
 import { useId, useState } from 'react'
 import type { ApiProfile, ConnectionFieldErrors, ConnectionForm } from '../api/devices'
-import { createConnection, listProfiles, validateConnection } from '../api/devices'
+import { createConnection, listProfiles, validateConnection, validateTarget } from '../api/devices'
 import { Panel } from '../components/Panel'
 import { WidgetState } from '../components/WidgetState'
 import { useAsync } from '../hooks/useAsync'
 import { SUPPORT_LEVEL } from '../lib/deviceLabels'
+import { ConnectionTestResult, useConnectionTest } from './ConnectionTestResult'
 import styles from './DevicesPage.module.css'
 
 const EMPTY_FORM: ConnectionForm = {
@@ -18,7 +19,13 @@ const EMPTY_FORM: ConnectionForm = {
   profile: '',
 }
 
-/** Dodanie urządzenia Modbus TCP z profilem z katalogu (D44); zapis tylko OWNER/ADMIN. */
+const TARGET_FIELDS: ReadonlySet<keyof ConnectionForm> = new Set(['host', 'port', 'unitId', 'profile'])
+
+/**
+ * Kreator dodania urządzenia Modbus TCP (D44, D72): profil i adres → test komunikacji przez agenta →
+ * nazwy i zapis. Test jest zalecany, ale nie wymagany (urządzenie może być chwilowo wyłączone).
+ * Zapis tylko OWNER/ADMIN.
+ */
 export function AddDeviceForm({
   siteId,
   csrfToken,
@@ -47,7 +54,19 @@ export function AddDeviceForm({
   const [pending, setPending] = useState(false)
 
   const available = profiles.state.status === 'ready' ? profiles.state.data : []
-  const set = (field: keyof ConnectionForm) => (value: string) => setForm((f) => ({ ...f, [field]: value }))
+  const test = useConnectionTest(siteId, csrfToken, fetchFn, onExpired)
+  const set = (field: keyof ConnectionForm) => (value: string) => {
+    // Wynik testu dotyczy konkretnego adresu i profilu — po zmianie jest nieaktualny.
+    if (TARGET_FIELDS.has(field)) test.reset()
+    setForm((f) => ({ ...f, [field]: value }))
+  }
+
+  function onTest() {
+    const { errors: found, target } = validateTarget(form, available)
+    setErrors(found)
+    setMessage(null)
+    if (target) void test.start(target)
+  }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -60,6 +79,7 @@ export function AddDeviceForm({
     setPending(false)
     if (result.ok) {
       setForm(EMPTY_FORM)
+      test.reset()
       setMessage({
         kind: 'ok',
         text: `Dodano „${result.data.name}”. Status pojawi się po pierwszym odczycie przez agenta.`,
@@ -120,53 +140,75 @@ export function AddDeviceForm({
       ) : null}
       {available.length > 0 ? (
         <form className={styles.form} onSubmit={(e) => void onSubmit(e)} noValidate>
-          <div className={styles.field}>
-            <label htmlFor={`${id}-profile`}>Profil urządzenia</label>
-            <select
-              id={`${id}-profile`}
-              value={form.profile}
-              aria-invalid={errors.profile ? true : undefined}
-              aria-describedby={errors.profile ? `${id}-profile-error` : undefined}
-              onChange={(e) => set('profile')(e.target.value)}
+          <fieldset className={styles.step}>
+            <legend>1. Profil i adres</legend>
+            <div className={styles.field}>
+              <label htmlFor={`${id}-profile`}>Profil urządzenia</label>
+              <select
+                id={`${id}-profile`}
+                value={form.profile}
+                aria-invalid={errors.profile ? true : undefined}
+                aria-describedby={errors.profile ? `${id}-profile-error` : undefined}
+                onChange={(e) => set('profile')(e.target.value)}
+              >
+                <option value="">— wybierz —</option>
+                {available.map((p) => (
+                  <option key={`${p.id}@${p.version}`} value={`${p.id}@${p.version}`}>
+                    {p.simulated ? '[SIMULATED] ' : ''}
+                    {p.manufacturer} — {p.name} ({p.version})
+                    {p.supportLevel ? ` — ${SUPPORT_LEVEL[p.supportLevel].label}` : ''}
+                  </option>
+                ))}
+              </select>
+              {selected?.simulated ? (
+                <span className={styles.simulatedNote}>
+                  SIMULATED — profil symulatora do testów, nie prawdziwego urządzenia.
+                </span>
+              ) : null}
+              {selected?.supportLevel ? (
+                <span className={styles.hint}>
+                  Wsparcie profilu: {SUPPORT_LEVEL[selected.supportLevel].label}. {SUPPORT_LEVEL[selected.supportLevel].description}
+                </span>
+              ) : null}
+              {errors.profile ? (
+                <span id={`${id}-profile-error`} className={styles.error}>
+                  {errors.profile}
+                </span>
+              ) : null}
+            </div>
+            {field('host', 'Adres w sieci lokalnej', {
+              hint: 'Prywatny adres IPv4 (np. 192.168.1.50) albo nazwa hosta. Łączy się z nim tylko agent.',
+            })}
+            <div className={styles.row}>
+              {field('port', 'Port', { inputMode: 'numeric' })}
+              {field('unitId', 'Unit ID', { inputMode: 'numeric' })}
+            </div>
+          </fieldset>
+          <fieldset className={styles.step}>
+            <legend>2. Test komunikacji</legend>
+            <p className={styles.hint}>
+              Agent jednorazowo odczyta urządzenie wybranym profilem. Nic nie jest zapisywane do urządzenia ani do
+              historii.
+            </p>
+            <button
+              type="button"
+              className={styles.secondary}
+              disabled={test.run.status === 'waiting'}
+              onClick={onTest}
             >
-              <option value="">— wybierz —</option>
-              {available.map((p) => (
-                <option key={`${p.id}@${p.version}`} value={`${p.id}@${p.version}`}>
-                  {p.simulated ? '[SIMULATED] ' : ''}
-                  {p.manufacturer} — {p.name} ({p.version})
-                  {p.supportLevel ? ` — ${SUPPORT_LEVEL[p.supportLevel].label}` : ''}
-                </option>
-              ))}
-            </select>
-            {selected?.simulated ? (
-              <span className={styles.simulatedNote}>
-                SIMULATED — profil symulatora do testów, nie prawdziwego urządzenia.
-              </span>
-            ) : null}
-            {selected?.supportLevel ? (
-              <span className={styles.hint}>
-                Wsparcie profilu: {SUPPORT_LEVEL[selected.supportLevel].label}. {SUPPORT_LEVEL[selected.supportLevel].description}
-              </span>
-            ) : null}
-            {errors.profile ? (
-              <span id={`${id}-profile-error`} className={styles.error}>
-                {errors.profile}
-              </span>
-            ) : null}
-          </div>
-          {field('deviceName', 'Nazwa urządzenia', { placeholder: 'np. Falownik dach' })}
-          {field('name', 'Nazwa połączenia', { placeholder: 'np. Logger w garażu' })}
-          {field('host', 'Adres w sieci lokalnej', {
-            hint: 'Prywatny adres IPv4 (np. 192.168.1.50) albo nazwa hosta. Łączy się z nim tylko agent.',
-          })}
-          <div className={styles.row}>
-            {field('port', 'Port', { inputMode: 'numeric' })}
-            {field('unitId', 'Unit ID', { inputMode: 'numeric' })}
+              {test.run.status === 'waiting' ? 'Testowanie…' : 'Testuj połączenie'}
+            </button>
+            <ConnectionTestResult run={test.run} />
+          </fieldset>
+          <fieldset className={styles.step}>
+            <legend>3. Nazwy i zapis</legend>
+            {field('deviceName', 'Nazwa urządzenia', { placeholder: 'np. Falownik dach' })}
+            {field('name', 'Nazwa połączenia', { placeholder: 'np. Logger w garażu' })}
             {field('pollIntervalSeconds', 'Interwał odczytu [s]', {
               inputMode: 'numeric',
               hint: selected ? `Puste = z profilu (${selected.pollIntervalSeconds} s).` : 'Puste = z profilu.',
             })}
-          </div>
+          </fieldset>
           {message ? (
             <p
               role={message.kind === 'ok' ? 'status' : 'alert'}

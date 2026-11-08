@@ -23,6 +23,7 @@ from sqlalchemy.exc import IntegrityError
 
 from solargraf_server import alarm_rules
 from solargraf_server.auth.passwords import hash_password
+from solargraf_server.auth.tokens import token_hash
 from solargraf_server.config import Settings
 from solargraf_server.db import create_engine, create_sessionmaker
 from solargraf_server.main import create_app
@@ -40,7 +41,8 @@ pytestmark = pytest.mark.skipif(
 SERVER_DIR = Path(__file__).resolve().parent.parent
 PASSWORD = "haslo-testowe-izolacji"
 TABLES = (
-    "update_status, system_alarms, system_metric_samples, system_components, system_status, "
+    "connection_tests, update_status, system_alarms, system_metric_samples, system_components, "
+    "system_status, "
     "alarms, aggregates, aggregate_dirty, measurements, polling_runs, agent_batches, devices, "
     "connections, agents, "
     "membership_sites, sites, audit_events, auth_sessions, setup_tokens, memberships, users, "
@@ -588,6 +590,132 @@ class TestDeviceWrites:
         assert profiles["sunspec.grid-meter-3ph"]["origin"] == "DEVICE"
         assert profiles["sunspec.grid-meter-3ph"]["support_level"] == "COMMUNITY"
         assert all("points" not in p for p in profiles.values())
+
+
+# --- test połączenia (D72) ---
+
+AGENT_TOKEN = "token-testowy-agenta-kreatora"
+NEW_TEST: dict[str, object] = {
+    "host": "192.168.1.60",
+    "port": 502,
+    "unit_id": 3,
+    "profile_id": "simulated.hybrid-inverter",
+    "profile_version": "0.1.0",
+}
+
+
+def _test_agent() -> dict[str, str]:
+    _sql(
+        "INSERT INTO agents (id, name, mode, token_hash, enabled, last_heartbeat_at) "
+        "VALUES (:id, 'lokalny', 'LOCAL', :h, true, now())",
+        id=uuid.uuid4(),
+        h=token_hash(AGENT_TOKEN),
+    )
+    return {"Authorization": f"Bearer {AGENT_TOKEN}"}
+
+
+TEST_RESULT: dict[str, object] = {
+    "result": "PARTIAL",
+    "error_code": "MODBUS_EXCEPTION",
+    "origin": "SIMULATED",
+    "readings": [
+        {"metric": "pv_power", "value": 1500.0, "quality": "GOOD"},
+        {"metric": "pv_string_voltage", "channel": 1, "value": None, "quality": "MISSING"},
+    ],
+}
+
+
+class TestConnectionTests:
+    def test_request_claim_report_and_read(self, world: World, as_user: AsUser) -> None:
+        agent = _test_agent()
+        c, csrf = as_user("admin_a")
+        url = f"/api/sites/{world.a1}/connection-tests"
+        resp = c.post(url, json=NEW_TEST, headers=_headers(csrf))
+        assert resp.status_code == 202, resp.text
+        test_id = resp.json()["id"]
+        assert resp.json()["state"] == "PENDING"
+        assert resp.json()["readings"] == []
+
+        claimed = c.get("/api/agent/connection-tests", headers=agent)
+        assert claimed.status_code == 200
+        assert claimed.json() == [{"id": test_id} | NEW_TEST]
+        # Odebrane zlecenie nie wraca drugi raz.
+        assert c.get("/api/agent/connection-tests", headers=agent).json() == []
+        assert c.get(f"{url}/{test_id}").json()["state"] == "RUNNING"
+
+        result_url = f"/api/agent/connection-tests/{test_id}/result"
+        done = c.post(result_url, json=TEST_RESULT, headers=agent)
+        assert done.status_code == 204, done.text
+        assert c.post(result_url, json=TEST_RESULT, headers=agent).status_code == 409
+
+        body = c.get(f"{url}/{test_id}").json()
+        assert body["state"] == "DONE"
+        assert body["result"] == "PARTIAL"
+        assert body["error_code"] == "MODBUS_EXCEPTION"
+        assert body["origin"] == "SIMULATED"
+        assert body["readings"][1] == {
+            "metric": "pv_string_voltage",
+            "channel": 1,
+            "value": None,
+            "quality": "MISSING",
+            "name": "Napięcie stringu PV",
+            "unit": "V",
+        }
+        [(action,)] = _sql(
+            "SELECT action FROM audit_events WHERE target = :t", t=f"connection_test:{test_id}"
+        )
+        assert action == "CONNECTION_TEST_REQUESTED"
+
+    def test_one_active_test_per_site_and_expiry(self, world: World, as_user: AsUser) -> None:
+        agent = _test_agent()
+        c, csrf = as_user("owner_a")
+        url = f"/api/sites/{world.a1}/connection-tests"
+        first = c.post(url, json=NEW_TEST, headers=_headers(csrf))
+        assert first.status_code == 202
+        assert c.post(url, json=NEW_TEST, headers=_headers(csrf)).status_code == 409
+        # Inna instalacja nie jest blokowana.
+        other_site = f"/api/sites/{world.a2}/connection-tests"
+        assert c.post(other_site, json=NEW_TEST, headers=_headers(csrf)).status_code == 202
+        # Zlecenie nieodebrane przez agenta wygasa i nie blokuje kolejnego.
+        _sql(
+            "UPDATE connection_tests SET created_at = now() - interval '2 minutes' WHERE id = :id",
+            id=uuid.UUID(first.json()["id"]),
+        )
+        assert c.get(f"{url}/{first.json()['id']}").json()["state"] == "EXPIRED"
+        assert c.post(url, json=NEW_TEST, headers=_headers(csrf)).status_code == 202
+        # Wygasłego zlecenia agent już nie odbiera.
+        claimed = {t["id"] for t in c.get("/api/agent/connection-tests", headers=agent).json()}
+        assert len(claimed) == 2
+        assert first.json()["id"] not in claimed
+
+    def test_permissions_and_validation(self, world: World, as_user: AsUser) -> None:
+        agent = _test_agent()
+        viewer, csrf_v = as_user("scoped_viewer_a")
+        url = f"/api/sites/{world.a1}/connection-tests"
+        assert viewer.post(url, json=NEW_TEST, headers=_headers(csrf_v)).status_code == 403
+        other, csrf_b = as_user("owner_b")
+        assert other.post(url, json=NEW_TEST, headers=_headers(csrf_b)).status_code == 404
+        admin, csrf = as_user("admin_a")
+        assert admin.post(url, json=NEW_TEST).status_code == 403  # bez CSRF
+        public = NEW_TEST | {"host": "8.8.8.8"}
+        assert admin.post(url, json=public, headers=_headers(csrf)).status_code == 422
+        unknown = NEW_TEST | {"profile_id": "brak.profilu"}
+        assert admin.post(url, json=unknown, headers=_headers(csrf)).status_code == 422
+
+        test_id = admin.post(url, json=NEW_TEST, headers=_headers(csrf)).json()["id"]
+        # Wynik widać tylko w instalacji, do której należy, i tylko z uprawnieniem MANAGE.
+        assert other.get(f"/api/sites/{world.b1}/connection-tests/{test_id}").status_code == 404
+        assert viewer.get(f"{url}/{test_id}").status_code == 403
+        assert admin.get("/api/agent/connection-tests").status_code == 401
+        admin.get("/api/agent/connection-tests", headers=agent)
+        result_url = f"/api/agent/connection-tests/{test_id}/result"
+        bad = {"result": "OK", "error_code": "TIMEOUT"}
+        assert admin.post(result_url, json=bad, headers=agent).status_code == 422
+        zero = {
+            "result": "OK",
+            "readings": [{"metric": "pv_power", "value": 0, "quality": "MISSING"}],
+        }
+        assert admin.post(result_url, json=zero, headers=agent).status_code == 422
 
 
 # --- alarmy (D55) ---

@@ -66,6 +66,9 @@ class FakeServer:
     reject: bool = False
     batches: list[dict[str, Any]] = field(default_factory=list)
     heartbeats: int = 0
+    test_jobs: list[dict[str, Any]] = field(default_factory=list)
+    test_results: dict[str, dict[str, Any]] = field(default_factory=dict)
+    test_status: int = 204
 
     def __call__(self, request: httpx2.Request) -> httpx2.Response:
         if not self.online:
@@ -75,6 +78,12 @@ class FakeServer:
             return httpx2.Response(204)
         if request.url.path == "/api/agent/config":
             return httpx2.Response(304)
+        if request.url.path == "/api/agent/connection-tests":
+            jobs, self.test_jobs = self.test_jobs, []
+            return httpx2.Response(200, json=jobs)
+        if request.url.path.startswith("/api/agent/connection-tests/"):
+            self.test_results[request.url.path.split("/")[-2]] = json.loads(request.content)
+            return httpx2.Response(self.test_status)
         if self.reject:
             return httpx2.Response(422, json={"detail": "x"})
         self.batches.append(json.loads(request.content))
@@ -242,6 +251,78 @@ class TestSending:
             assert run_["error_code"] == "CONNECTION_REFUSED"
             assert {r["value"] for r in run_["readings"]} == {None}
             assert {r["quality"] for r in run_["readings"]} == {"MISSING"}
+
+        run(tmp_path, test)
+
+
+def job(port: int, profile: tuple[str, str] = PROFILE, **extra: Any) -> dict[str, Any]:  # noqa: ANN401
+    return {
+        "id": str(uuid.uuid4()),
+        "host": "127.0.0.1",
+        "port": port,
+        "unit_id": 1,
+        "profile_id": profile[0],
+        "profile_version": profile[1],
+    } | extra
+
+
+class TestConnectionTests:
+    def test_reads_profile_once_and_reports_simulated_values(self, tmp_path: Path) -> None:
+        async def test(env: Env) -> None:
+            ok = job(env.port)
+            env.server.test_jobs = [ok]
+            assert await env.runner.check_tests() == 1
+            result = env.server.test_results[ok["id"]]
+            assert result["result"] == "OK"
+            assert result["error_code"] is None
+            assert result["origin"] == "SIMULATED"
+            values = {r["metric"]: r["value"] for r in result["readings"] if r["channel"] is None}
+            assert values["pv_power"] is not None
+            assert set(result["readings"][0]) == {"metric", "channel", "value", "quality"}
+            # Test nie zostawia zadań ani danych w buforze — to nie jest odczyt urządzenia.
+            assert env.runner.workers == {}
+            assert await env.buffer.count() == 0
+            assert await env.runner.check_tests() == 0
+
+        run(tmp_path, test)
+
+    def test_unreachable_device_is_failed_with_missing_values(self, tmp_path: Path) -> None:
+        async def test(env: Env) -> None:
+            down = job(1)
+            env.server.test_jobs = [down]
+            await env.runner.check_tests()
+            result = env.server.test_results[down["id"]]
+            assert result["result"] == "FAILED"
+            assert result["error_code"] == "CONNECTION_REFUSED"
+            assert {r["value"] for r in result["readings"]} == {None}
+
+        run(tmp_path, test)
+
+    def test_unknown_profile_and_target_in_use(self, tmp_path: Path) -> None:
+        async def test(env: Env) -> None:
+            env.runner.apply_config(config(connection(env.port, device())), start=False)
+            unknown = job(env.port, ("vendor.unknown", "1.0.0"))
+            busy = job(env.port)
+            other_port = job(1)
+            env.server.test_jobs = [unknown, busy, other_port]
+            assert await env.runner.check_tests() == 3
+            results = env.server.test_results
+            assert results[unknown["id"]]["error_code"] == "UNKNOWN_PROFILE"
+            assert results[busy["id"]] == {
+                "result": "FAILED",
+                "error_code": "TARGET_IN_USE",
+                "origin": None,
+                "readings": [],
+            }
+            assert results[other_port["id"]]["error_code"] == "CONNECTION_REFUSED"
+
+        run(tmp_path, test)
+
+    def test_rejected_result_is_not_retried(self, tmp_path: Path) -> None:
+        async def test(env: Env) -> None:
+            env.server.test_status = 409
+            env.server.test_jobs = [job(env.port)]
+            assert await env.runner.check_tests() == 1  # bez wyjątku — zlecenie wygasło
 
         run(tmp_path, test)
 

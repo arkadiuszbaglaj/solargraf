@@ -467,6 +467,48 @@ describe('DevicesPage', () => {
     ])
   })
 
+  it('kreator: test komunikacji przed zapisem; zmiana adresu unieważnia wynik', async () => {
+    const user = userEvent.setup()
+    const tests: unknown[] = []
+    const fetchFn = server((url, init) => {
+      if (url === `/api/sites/${SITE_ID}/connection-tests` && init?.method === 'POST') {
+        tests.push(JSON.parse(String(init.body)))
+        return json(202, {
+          id: 't1',
+          state: 'DONE',
+          result: 'OK',
+          error_code: null,
+          origin: 'SIMULATED',
+          readings: [{ metric: 'pv_power', channel: null, name: 'Moc PV', unit: 'W', value: 1500, quality: 'GOOD' }],
+        })
+      }
+      return undefined
+    })
+    renderPage(fetchFn)
+    await user.click(await screen.findByRole('button', { name: 'Dodaj urządzenie' }))
+    expect(await screen.findByRole('group', { name: '1. Profil i adres' })).toBeTruthy()
+    expect(screen.getByRole('group', { name: '2. Test komunikacji' })).toBeTruthy()
+    expect(screen.getByRole('group', { name: '3. Nazwy i zapis' })).toBeTruthy()
+
+    // Bez profilu i adresu test nie jest zlecany; nazwy nie są wtedy wymagane.
+    await user.click(screen.getByRole('button', { name: 'Testuj połączenie' }))
+    expect(tests).toEqual([])
+    expect(screen.getByLabelText('Adres w sieci lokalnej').getAttribute('aria-invalid')).toBe('true')
+    expect(screen.getByLabelText('Nazwa urządzenia').getAttribute('aria-invalid')).toBeNull()
+
+    await user.selectOptions(screen.getByLabelText('Profil urządzenia'), 'simulated.hybrid-inverter@0.1.0')
+    await user.type(screen.getByLabelText('Adres w sieci lokalnej'), '192.168.1.60')
+    await user.click(screen.getByRole('button', { name: 'Testuj połączenie' }))
+    expect(await screen.findByText(/Połączenie działa — odczytano wszystkie parametry/)).toBeTruthy()
+    expect(screen.getByRole('row', { name: /Moc PV/ }).textContent).toContain('1,50 kW')
+    expect(tests).toEqual([
+      { host: '192.168.1.60', port: 502, unit_id: 1, profile_id: 'simulated.hybrid-inverter', profile_version: '0.1.0' },
+    ])
+
+    await user.type(screen.getByLabelText('Adres w sieci lokalnej'), '1')
+    expect(screen.queryByText(/Połączenie działa/)).toBeNull()
+  })
+
   it('błąd walidacji w przeglądarce nie wysyła żądania; komunikat serwera jest pokazany', async () => {
     const user = userEvent.setup()
     const fetchFn = server((url, init) =>

@@ -429,6 +429,8 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 
 - Szacunkowy czas ładowania i rozładowania magazynu (D71) w panelu „Magazyn”: przy obecnej mocy do 100% / 0% SoC, tylko przy świeżych i zgodnych w czasie odczytach SoC, mocy i pojemności oraz |moc| ≥ 50 W. Testy web 363 (wzór na przykładach liczbowych, przypadki brzegowe, panel), tsc, oxlint; podgląd z atrapą SIMULATED (64% z 10 kWh, ładowanie 0,5 kW → ok. 7 h 12 min).
 
+- Kreator dodania urządzenia z testem komunikacji (D72): trzy kroki w formularzu, test przez agenta pod podanym adresem (bez skanowania podsieci). Serwer: tabela `connection_tests` (migracja 0011), endpointy użytkownika i agenta, wygaśnięcie 60/120 s, jeden test naraz na instalację, audyt. Agent: pętla co 5 s, jednorazowy odczyt profilu własnym połączeniem, `TARGET_IN_USE` dla adresu już odczytywanego, `UNKNOWN_PROFILE`. Web: hook odpytujący co 2 s (przerwany przy zmianie adresu/profilu), wynik z przyczyną błędu i tabelą odczytów. Testy: agent 57 (na symulatorze: OK, odmowa połączenia, zajęty adres, odrzucony wynik), serwer bez bazy 197 + nowe testy integracyjne (uruchamiane w CI z PostgreSQL), web 373, ruff, mypy, tsc, oxlint; podgląd z atrapą SIMULATED 1280 px i 375 px. Niezweryfikowane: z prawdziwym falownikiem i na serwerze testowym. Następny krok: wydanie z kreatorem i test na serwerze.
+
 ## Szablon kolejnego wpisu
 
 - Data:

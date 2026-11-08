@@ -22,10 +22,11 @@ from solargraf_agent.api import (
     AuthRejected,
     BatchRejected,
     ConnectionConfig,
+    TestJob,
 )
 from solargraf_agent.buffer import Buffer
 from solargraf_agent.modbus import ModbusPoller, Target, new_client, utc_now
-from solargraf_agent.readings import PollingRun
+from solargraf_agent.readings import ErrorCode, PollingRun, RunResult
 from solargraf_profiles.catalog import Transport
 from solargraf_profiles.model import Profile
 
@@ -34,6 +35,7 @@ log = logging.getLogger("solargraf_agent")
 HEARTBEAT_INTERVAL_S = 30.0
 CONFIG_INTERVAL_S = 60.0
 SEND_INTERVAL_S = 5.0
+TEST_INTERVAL_S = 5.0
 MODBUS_TCP_PORT = 502
 
 ProfileKey = tuple[str, str]
@@ -63,6 +65,32 @@ def run_payload(device_id: uuid.UUID, run: PollingRun) -> dict[str, Any]:
             for r in run.readings
         ],
     }
+
+
+def test_payload(run: PollingRun) -> dict[str, Any]:
+    """Wynik testu połączenia (D72) w kształcie API; brak odczytu to ``None``, nie zero."""
+    code: str | None = None
+    if run.result is not RunResult.OK:
+        code = (run.error_code or ErrorCode.INVALID_RESPONSE).value
+    origins = {r.origin.value for r in run.readings}
+    return {
+        "result": run.result.value,
+        "error_code": code,
+        "origin": ("SIMULATED" if "SIMULATED" in origins else "DEVICE") if origins else None,
+        "readings": [
+            {
+                "metric": r.metric,
+                "channel": r.channel,
+                "value": None if r.value is None else float(r.value),
+                "quality": r.quality.value,
+            }
+            for r in run.readings
+        ],
+    }
+
+
+def failed_test(code: str) -> dict[str, Any]:
+    return {"result": RunResult.FAILED.value, "error_code": code, "origin": None, "readings": []}
 
 
 @dataclass
@@ -105,6 +133,7 @@ class AgentRunner:
     heartbeat_interval_s: float = HEARTBEAT_INTERVAL_S
     config_interval_s: float = CONFIG_INTERVAL_S
     send_interval_s: float = SEND_INTERVAL_S
+    test_interval_s: float = TEST_INTERVAL_S
     workers: dict[uuid.UUID, ConnectionWorker] = field(default_factory=dict)
     _tasks: dict[uuid.UUID, asyncio.Task[None]] = field(default_factory=dict)
     _configs: dict[uuid.UUID, ConnectionConfig] = field(default_factory=dict)
@@ -207,6 +236,45 @@ class AgentRunner:
             sent += len(batch.runs)
         return sent
 
+    # --- test połączenia (D72) ---
+
+    def _target_in_use(self, job: TestJob) -> bool:
+        """Adres obsługiwany już przez zadanie połączenia — nie otwieramy drugiego klienta."""
+        host = job.host.lower()
+        return any(
+            (w.connection.host or "").lower() == host
+            and (w.connection.port or MODBUS_TCP_PORT) == job.port
+            for w in self.workers.values()
+        )
+
+    async def run_test(self, job: TestJob) -> dict[str, Any]:
+        """Jeden odczyt profilu pod wskazanym adresem; połączenie zamykane po teście."""
+        profile = self.profiles.get((job.profile_id, job.profile_version))
+        if profile is None:
+            return failed_test("UNKNOWN_PROFILE")
+        if self._target_in_use(job):
+            return failed_test("TARGET_IN_USE")
+        target = Target(job.host, job.port, job.unit_id)
+        poller = ModbusPoller(profile, target, clock=self.clock, sleep=self.sleep)
+        try:
+            return test_payload(await poller.poll())
+        finally:
+            poller.close()
+
+    async def check_tests(self) -> int:
+        """Odbiera zlecenia testu i wykonuje je po kolei; zwraca liczbę wykonanych."""
+        jobs = await self.api.connection_tests()
+        for job in jobs:
+            log.info(
+                "Test połączenia %s: profil %s@%s", job.id, job.profile_id, job.profile_version
+            )
+            result = await self.run_test(job)
+            try:
+                await self.api.report_test(job.id, result)
+            except BatchRejected as exc:
+                log.warning("Wynik testu %s odrzucony przez serwer (%s)", job.id, exc)
+        return len(jobs)
+
     # --- pętle ---
 
     async def _every(self, interval: float, action: Callable[[], Awaitable[Any]]) -> None:
@@ -226,6 +294,7 @@ class AgentRunner:
             ),
             asyncio.create_task(self._every(self.config_interval_s, self.sync_config)),
             asyncio.create_task(self._every(self.send_interval_s, self.send_pending)),
+            asyncio.create_task(self._every(self.test_interval_s, self.check_tests)),
         ]
         try:
             await asyncio.gather(*loops)

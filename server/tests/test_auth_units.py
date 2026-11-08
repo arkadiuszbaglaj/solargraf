@@ -138,6 +138,7 @@ def test_schema_compiles_for_postgresql_with_conventional_names() -> None:
         "system_status",
         "system_alarms",
         "update_status",
+        "connection_tests",
     }
     assert "CONSTRAINT uq_users_email UNIQUE (email)" in ddl["users"]
     assert "CONSTRAINT ck_system_status_single_row CHECK" in ddl["system_status"]
@@ -145,6 +146,9 @@ def test_schema_compiles_for_postgresql_with_conventional_names() -> None:
     assert "CONSTRAINT ck_system_metric_samples_metric CHECK" in ddl["system_metric_samples"]
     assert "CONSTRAINT ck_memberships_role CHECK" in ddl["memberships"]
     assert "CONSTRAINT ck_alarms_severity CHECK" in ddl["alarms"]
+    # Nazwy zgodne z migracją 0011.
+    assert "CONSTRAINT ck_connection_tests_state CHECK" in ddl["connection_tests"]
+    assert "CONSTRAINT fk_connection_tests_agent_id_agents FOREIGN KEY" in ddl["connection_tests"]
     assert "CONSTRAINT fk_alarms_site_id_sites FOREIGN KEY" in ddl["alarms"]
     # Nazwy zgodne z migracją 0010.
     assert "CONSTRAINT ck_system_alarms_severity CHECK" in ddl["system_alarms"]
