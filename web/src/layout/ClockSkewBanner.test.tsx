@@ -39,13 +39,15 @@ describe('parseServerTime', () => {
 describe('ClockSkewBanner', () => {
   it('rozjechany zegar: ostrzeżenie z wielkością różnicy, wskazówka dla administratora', async () => {
     render(withSession('OWNER', healthFetch(shifted(-(2 * 3600 + 13 * 60 + 30)))))
-    expect(await screen.findByText(/różnią się o 2 h 13 min/)).toBeTruthy()
+    expect(await screen.findByText(/różnią się o 2 h 13 min \(serwer spóźnia się względem/)).toBeTruthy()
+    expect(screen.getByText(/to urządzenie ustawia czas automatycznie/)).toBeTruthy()
     expect(screen.getByText(/sudo solargraf status/)).toBeTruthy()
   })
 
   it('przeglądający widzi ostrzeżenie bez wskazówki dla administratora', async () => {
     render(withSession('VIEWER', healthFetch(shifted(630))))
-    expect(await screen.findByText(/różnią się o 10 min/)).toBeTruthy()
+    expect(await screen.findByText(/różnią się o 10 min \(serwer spieszy się względem/)).toBeTruthy()
+    expect(screen.getByText(/to urządzenie ustawia czas automatycznie/)).toBeTruthy()
     expect(screen.queryByText(/sudo solargraf status/)).toBeNull()
   })
 
