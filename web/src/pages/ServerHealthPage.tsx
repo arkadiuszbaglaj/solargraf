@@ -7,7 +7,6 @@ import { usePeriodic } from '../hooks/usePeriodic'
 import { MISSING, formatBytes, formatDateTime, formatNumber, formatQuantity, formatUptime } from '../lib/format'
 import styles from './ServerHealthPage.module.css'
 import { ServerHistory } from './ServerHistory'
-import { UpdatesPanel } from './UpdatesPanel'
 
 /** Pomiar w workerze jest co 60 s (D60) — częściej nie ma czego odświeżać. */
 export const HEALTH_REFRESH_MS = 60_000
@@ -32,7 +31,7 @@ class SessionExpired extends Error {}
 type PageData = { kind: 'ok'; data: SystemHealth } | { kind: 'forbidden' }
 
 /** Czas serwera prezentujemy w strefie przeglądarki — nie należy do żadnej instalacji. */
-function browserTimeZone(): string {
+export function browserTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone
 }
 
@@ -232,7 +231,6 @@ export function ServerHealthPage({
   return (
     <div className={styles.page}>
       <HealthView health={state.data.data} failed={state.failed} timeZone={timeZone} />
-      <UpdatesPanel fetchFn={fetchFn} onExpired={() => navigate(loginUrl('expired'))} timeZone={timeZone} />
       <ServerHistory fetchFn={fetchFn} onExpired={() => navigate(loginUrl('expired'))} timeZone={timeZone} />
     </div>
   )

@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Role, Session } from '../api/auth'
-import { checkUpdates, dismissUpdate, getUpdates, parseUpdates, setAutomaticCheck } from '../api/updates'
+import { checkUpdates, dismissUpdate, getUpdates, installUpdate, parseUpdates, setAutomaticCheck } from '../api/updates'
 import { SessionProvider } from '../auth/SessionContext'
 import { UpdateBanner } from '../layout/UpdateBanner'
 import { clearPostponed } from '../lib/updates'
@@ -19,6 +19,17 @@ const BASE = {
   next_check_at: '2026-11-14T11:00:00Z',
   available: null,
   dismissed: false,
+  install: { supported: false, requested: false, running: false, last: null },
+}
+
+const SUPPORTED = { supported: true, requested: false, running: false, last: null }
+const JOB = {
+  state: 'RUNNING',
+  step: 'BUILD',
+  from_version: '0.1.0',
+  to_version: '0.2.0',
+  started_at: '2026-11-07T12:00:00Z',
+  finished_at: null,
 }
 
 const AVAILABLE = {
@@ -85,6 +96,29 @@ describe('parseUpdates', () => {
     expect(parseUpdates({ ...BASE, last_checked_at: 'wczoraj' })).toBeNull()
     expect(parseUpdates({ ...BASE, configured: 'tak' })).toBeNull()
   })
+
+  it('stan instalacji (D65): poprawny przyjmuje, nieznany stan, etap albo wersję odrzuca', () => {
+    const parsed = parseUpdates({ ...BASE, install: { ...SUPPORTED, running: true, last: JOB } })
+    expect(parsed?.install).toEqual({
+      supported: true,
+      requested: false,
+      running: true,
+      last: {
+        state: 'RUNNING',
+        step: 'BUILD',
+        fromVersion: '0.1.0',
+        toVersion: '0.2.0',
+        startedAt: '2026-11-07T12:00:00Z',
+        finishedAt: null,
+      },
+    })
+    const bad = (last: unknown) => parseUpdates({ ...BASE, install: { ...SUPPORTED, last } })
+    expect(bad({ ...JOB, state: 'DONE' })).toBeNull()
+    expect(bad({ ...JOB, step: 'REBOOT' })).toBeNull()
+    expect(bad({ ...JOB, to_version: 'v0.2.0' })).toBeNull()
+    expect(bad({ ...JOB, started_at: 'teraz' })).toBeNull()
+    expect(parseUpdates({ ...BASE, install: null })).toBeNull()
+  })
 })
 
 describe('klient API', () => {
@@ -99,6 +133,7 @@ describe('klient API', () => {
     await checkUpdates('t1', fetchFn)
     await setAutomaticCheck(false, 't2', fetchFn)
     await dismissUpdate('0.2.0', 't3', fetchFn)
+    await installUpdate('0.2.0', 't4', fetchFn)
     const calls = fetchFn.mock.calls.map(([url, init]) => [
       String(url),
       init?.method,
@@ -109,12 +144,28 @@ describe('klient API', () => {
       ['/api/system/updates/check', 'POST', 't1', undefined],
       ['/api/system/updates/settings', 'PUT', 't2', '{"automatic":false}'],
       ['/api/system/updates/dismiss', 'POST', 't3', '{"version":"0.2.0"}'],
+      ['/api/system/updates/install', 'POST', 't4', '{"version":"0.2.0"}'],
     ])
   })
 
   it('409 przy ukrywaniu to czytelny komunikat', async () => {
     const result = await dismissUpdate('0.2.0', 't', vi.fn<typeof fetch>(() => Promise.resolve(json(409, {}))))
     expect(result).toEqual({ ok: false, message: 'Tej wersji nie można ukryć.' })
+  })
+
+  it('409 przy instalacji pokazuje komunikat serwera', async () => {
+    const conflict = vi.fn<typeof fetch>(() =>
+      Promise.resolve(json(409, { detail: 'Aktualizacja jest już zlecona albo trwa.' })),
+    )
+    expect(await installUpdate('0.2.0', 't', conflict)).toEqual({
+      ok: false,
+      message: 'Aktualizacja jest już zlecona albo trwa.',
+    })
+    const bare = vi.fn<typeof fetch>(() => Promise.resolve(json(409, {})))
+    expect(await installUpdate('0.2.0', 't', bare)).toEqual({
+      ok: false,
+      message: 'Nie można teraz zainstalować tej wersji.',
+    })
   })
 })
 
@@ -188,6 +239,65 @@ describe('UpdatesPanel', () => {
     await screen.findByRole('alert')
     expect(onExpired).toHaveBeenCalled()
   })
+
+  it('403 — informacja o uprawnieniach właściciela', async () => {
+    renderPanel(reply(403))
+    expect(await screen.findByText(/tylko dla właściciela organizacji/)).toBeTruthy()
+  })
+})
+
+describe('UpdatesPanel — instalacja (D65)', () => {
+  const ready = { ...BASE, available: AVAILABLE, install: SUPPORTED }
+
+  it('instalacja wymaga potwierdzenia; po zleceniu pokazuje oczekiwanie', async () => {
+    const fetchFn = api(ready, [200, { ...ready, install: { ...SUPPORTED, requested: true } }])
+    renderPanel(fetchFn)
+    await userEvent.click(await screen.findByRole('button', { name: 'Zainstaluj wersję 0.2.0' }))
+    expect(fetchFn.mock.calls.some(([url]) => String(url).endsWith('/install'))).toBe(false)
+    expect(screen.getByRole('group', { name: 'Potwierdzenie instalacji' }).textContent).toContain('kopia zapasowa')
+    await userEvent.click(screen.getByRole('button', { name: 'Anuluj' }))
+    expect(screen.queryByRole('group', { name: 'Potwierdzenie instalacji' })).toBeNull()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Zainstaluj wersję 0.2.0' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Zainstaluj teraz' }))
+    expect(await screen.findByText('Instalacja zlecona')).toBeTruthy()
+    const install = fetchFn.mock.calls.find(([url]) => String(url) === '/api/system/updates/install')
+    expect(install?.[1]?.body).toBe('{"version":"0.2.0"}')
+    expect(screen.queryByRole('button', { name: /Zainstaluj wersję/ })).toBeNull()
+  })
+
+  it('trwająca aktualizacja: etap, bez przycisku instalacji', async () => {
+    renderPanel(api({ ...ready, install: { ...SUPPORTED, running: true, last: JOB } }))
+    expect(await screen.findByText('Aktualizacja w toku 0.1.0 → 0.2.0')).toBeTruthy()
+    expect(screen.getByText(/budowanie nowej wersji/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Zainstaluj wersję/ })).toBeNull()
+  })
+
+  it('wynik ostatniej aktualizacji: powrót jako ostrzeżenie', async () => {
+    const finished = { ...JOB, state: 'ROLLED_BACK', step: 'DONE', finished_at: '2026-11-07T12:20:00Z' }
+    renderPanel(api({ ...BASE, install: { ...SUPPORTED, last: finished } }))
+    expect(await screen.findByText(/przywrócono poprzednią wersję/)).toBeTruthy()
+  })
+
+  it('serwer bez usługi: tylko polecenie w terminalu', async () => {
+    renderPanel(api({ ...BASE, available: AVAILABLE }))
+    expect(await screen.findByText(/instalacja z aplikacji jest niedostępna/)).toBeTruthy()
+    expect(screen.getByText('sudo solargraf update')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Zainstaluj wersję/ })).toBeNull()
+  })
+
+  it('aktualizacja pośrednia: bez przycisku instalacji', async () => {
+    renderPanel(api({ ...ready, available: { ...AVAILABLE, direct_upgrade: false } }))
+    expect(await screen.findByText(/aktualizacji pośredniej/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Zainstaluj wersję/ })).toBeNull()
+  })
+
+  it('409 przy zleceniu: komunikat serwera', async () => {
+    renderPanel(api(ready, [409, { detail: 'Aktualizacja jest już zlecona albo trwa.' }]))
+    await userEvent.click(await screen.findByRole('button', { name: 'Zainstaluj wersję 0.2.0' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Zainstaluj teraz' }))
+    expect(await screen.findByText('Aktualizacja jest już zlecona albo trwa.')).toBeTruthy()
+  })
 })
 
 describe('UpdateBanner', () => {
@@ -208,8 +318,8 @@ describe('UpdateBanner', () => {
     const fetchFn = api({ ...BASE, available: AVAILABLE }, [200, { ...BASE, available: AVAILABLE, dismissed: true }])
     render(withSession('OWNER', <UpdateBanner fetchFn={fetchFn} />))
     expect(await screen.findByText('Dostępna jest wersja 0.2.0.')).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Szczegóły i instrukcja' }).getAttribute('href')).toBe(
-      '/ustawienia/serwer',
+    expect(screen.getByRole('link', { name: 'Szczegóły i instalacja' }).getAttribute('href')).toBe(
+      '/ustawienia/aktualizacje',
     )
     await userEvent.click(screen.getByRole('button', { name: 'Nie pokazuj dla tej wersji' }))
     expect(screen.queryByText(/Dostępna jest wersja/)).toBeNull()

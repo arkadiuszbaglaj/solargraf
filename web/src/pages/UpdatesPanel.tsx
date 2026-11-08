@@ -1,16 +1,21 @@
-import { useState } from 'react'
-import type { ChangeResult, UpdatesState } from '../api/updates'
-import { checkUpdates, getUpdates, setAutomaticCheck } from '../api/updates'
+import { useEffect, useState } from 'react'
+import type { ChangeResult, UpdateJob, UpdatesState } from '../api/updates'
+import { checkUpdates, getUpdates, installUpdate, setAutomaticCheck } from '../api/updates'
 import { useOptionalSession } from '../auth/SessionContext'
 import { Panel } from '../components/Panel'
 import { WidgetState } from '../components/WidgetState'
 import { usePeriodic } from '../hooks/usePeriodic'
 import { formatDateTime } from '../lib/format'
-import { CHECK_ERROR_TEXT } from '../lib/updates'
+import { CHECK_ERROR_TEXT, JOB_STATE_TEXT, JOB_STEP_TEXT } from '../lib/updates'
 import styles from './ServerHealthPage.module.css'
 
 /** Stan zmienia worker najwyżej raz na dobę — częste odświeżanie nic nie wnosi. */
 export const UPDATES_REFRESH_MS = 5 * 60_000
+/** W trakcie instalacji (D65) — postęp co kilka sekund. */
+export const UPDATES_ACTIVE_REFRESH_MS = 5_000
+
+/** Polecenie alternatywne dla instalacji z aplikacji (D65). */
+const UPDATE_COMMAND = 'sudo solargraf update'
 
 type Loaded = { kind: 'ok'; data: UpdatesState } | { kind: 'forbidden' }
 
@@ -44,7 +49,6 @@ function AvailableVersion({ state, timeZone }: { state: UpdatesState; timeZone: 
         </p>
       )}
       <p className={styles.muted}>
-        Aktualizację instalujesz ręcznie na serwerze; przed nią wykonaj kopię: <code>sudo solargraf backup</code>.{' '}
         <a href={a.infoUrl} target="_blank" rel="noopener noreferrer">
           Informacje o wydaniu
         </a>
@@ -53,7 +57,131 @@ function AvailableVersion({ state, timeZone }: { state: UpdatesState; timeZone: 
   )
 }
 
-/** Ustawienia → Stan serwera → Aktualizacje (D15, D63). Dostęp sprawdza serwer — tylko OWNER. */
+/** Odświeża stan co kilka sekund, dopóki aktualizacja trwa albo czeka na usługę serwera. */
+function ActivePoller({ onTick }: { onTick: () => void }) {
+  useEffect(() => {
+    const id = setInterval(onTick, UPDATES_ACTIVE_REFRESH_MS)
+    return () => clearInterval(id)
+  }, [onTick])
+  return null
+}
+
+function versionsText(job: UpdateJob): string {
+  if (job.fromVersion !== null && job.toVersion !== null) return ` ${job.fromVersion} → ${job.toVersion}`
+  return job.fromVersion === null ? '' : ` (z wersji ${job.fromVersion})`
+}
+
+function LastJob({ job, running, timeZone }: { job: UpdateJob; running: boolean; timeZone: string }) {
+  if (running && job.state === 'RUNNING') {
+    return (
+      <p className={styles.updateLine} role="status">
+        <strong>Aktualizacja w toku{versionsText(job)}</strong> — etap: {JOB_STEP_TEXT[job.step]}. Aplikacja może być
+        przez chwilę niedostępna.
+      </p>
+    )
+  }
+  // RUNNING bez trwającej aktualizacji — przerwana (np. restart serwera); nie zgadujemy wyniku.
+  const problem = job.state === 'FAILED' || job.state === 'ROLLED_BACK' || job.state === 'RUNNING'
+  const when = formatDateTime(job.finishedAt ?? job.startedAt, timeZone)
+  const step = job.state === 'FAILED' ? ` (etap: ${JOB_STEP_TEXT[job.step]})` : ''
+  return (
+    <p className={problem ? styles.WARNING : styles.muted}>
+      Ostatnia aktualizacja{versionsText(job)}, {when}: {JOB_STATE_TEXT[job.state]}
+      {step}.
+    </p>
+  )
+}
+
+/** Instalacja dostępnej wersji (D65): zlecenie usłudze serwera, postęp i wynik ostatniej. */
+function InstallSection({
+  state,
+  busy,
+  canChange,
+  watching,
+  onInstall,
+  timeZone,
+}: {
+  state: UpdatesState
+  busy: boolean
+  canChange: boolean
+  watching: boolean
+  onInstall: (version: string) => void
+  timeZone: string
+}) {
+  const [confirming, setConfirming] = useState<string | null>(null)
+  const { install, available } = state
+  const active = install.running || install.requested
+  const installable = available !== null && available.directUpgrade && install.supported && canChange && !active
+  const justInstalled =
+    watching && !active && install.last?.state === 'SUCCESS' && install.last.toVersion === state.currentVersion
+  return (
+    <section className={styles.installBox} aria-label="Instalacja aktualizacji">
+      {install.requested && !install.running ? (
+        <p className={styles.updateLine} role="status">
+          <strong>Instalacja zlecona</strong> — czeka na uruchomienie na serwerze.
+        </p>
+      ) : null}
+      {install.last ? <LastJob job={install.last} running={install.running} timeZone={timeZone} /> : null}
+      {justInstalled ? (
+        <div className={styles.updateActions}>
+          <span>Zainstalowano wersję {state.currentVersion}.</span>
+          <button type="button" className={styles.button} onClick={() => window.location.reload()}>
+            Wczytaj nową wersję strony
+          </button>
+        </div>
+      ) : null}
+      {available !== null && installable ? (
+        confirming === available.version ? (
+          <div className={styles.confirmBox} role="group" aria-label="Potwierdzenie instalacji">
+            <p>
+              Zainstalować wersję {available.version}? Najpierw powstanie kopia zapasowa. Aplikacja będzie niedostępna
+              przez kilka–kilkanaście minut; jeśli coś się nie uda, serwer sam wróci do wersji {state.currentVersion}.
+            </p>
+            <div className={styles.updateActions}>
+              <button
+                type="button"
+                className={`${styles.button} ${styles.primary}`}
+                disabled={busy}
+                onClick={() => {
+                  setConfirming(null)
+                  onInstall(available.version)
+                }}
+              >
+                Zainstaluj teraz
+              </button>
+              <button type="button" className={styles.button} disabled={busy} onClick={() => setConfirming(null)}>
+                Anuluj
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className={styles.updateActions}>
+            <button
+              type="button"
+              className={`${styles.button} ${styles.primary}`}
+              disabled={busy}
+              onClick={() => setConfirming(available.version)}
+            >
+              Zainstaluj wersję {available.version}
+            </button>
+          </div>
+        )
+      ) : null}
+      {available !== null && !install.supported ? (
+        <p className={styles.muted}>
+          Na tym serwerze instalacja z aplikacji jest niedostępna. Zainstaluj poleceniem: <code>{UPDATE_COMMAND}</code>
+        </p>
+      ) : (
+        <p className={styles.muted}>
+          Aktualizację można też zainstalować na serwerze poleceniem <code>{UPDATE_COMMAND}</code> — robi kopię zapasową i
+          przy błędzie wraca do poprzedniej wersji.
+        </p>
+      )}
+    </section>
+  )
+}
+
+/** Ustawienia → Aktualizacje (D15, D63, D65). Dostęp sprawdza serwer — tylko OWNER. */
 export function UpdatesPanel({
   fetchFn,
   onExpired,
@@ -67,7 +195,10 @@ export function UpdatesPanel({
   const csrfToken = auth?.session.csrfToken ?? null
   const [override, setOverride] = useState<Override | null>(null)
   const [busy, setBusy] = useState(false)
+  const [checking, setChecking] = useState(false)
   const [message, setMessage] = useState<{ error: boolean; text: string } | null>(null)
+  // Instalacja zlecona w tej karcie — po sukcesie proponujemy wczytanie nowej wersji strony.
+  const [watching, setWatching] = useState(false)
 
   const { state, reload } = usePeriodic<Loaded>(
     'updates',
@@ -85,9 +216,16 @@ export function UpdatesPanel({
 
   if (state.status === 'loading') return <WidgetState status={{ kind: 'loading' }} />
   if (state.status === 'error') return <WidgetState status={{ kind: 'error', onRetry: reload }} />
-  if (state.data.kind === 'forbidden') return null
+  if (state.data.kind === 'forbidden') {
+    return (
+      <WidgetState
+        status={{ kind: 'empty', message: 'Aktualizacje są dostępne tylko dla właściciela organizacji (rola OWNER).' }}
+      />
+    )
+  }
   const loaded = state.data
   const data = override?.base === loaded ? override.data : loaded.data
+  const active = data.install.running || data.install.requested
 
   const run = async (action: (token: string) => Promise<ChangeResult>, done: (next: UpdatesState) => string) => {
     if (csrfToken === null) return
@@ -103,8 +241,9 @@ export function UpdatesPanel({
     setMessage({ error: false, text: done(result.data) })
   }
 
-  const check = () =>
-    run(
+  const check = async () => {
+    setChecking(true)
+    await run(
       (token) => checkUpdates(token, fetchFn),
       (next) =>
         next.lastCheckedAt === data.lastCheckedAt
@@ -113,20 +252,31 @@ export function UpdatesPanel({
             ? 'Sprawdzono.'
             : 'Nie udało się sprawdzić aktualizacji.',
     )
+    setChecking(false)
+  }
   const toggle = () =>
     run(
       (token) => setAutomaticCheck(!data.automatic, token, fetchFn),
       (next) => (next.automatic ? 'Automatyczne sprawdzanie włączone.' : 'Automatyczne sprawdzanie wyłączone.'),
     )
+  const install = (version: string) =>
+    run(
+      (token) => installUpdate(version, token, fetchFn),
+      () => {
+        setWatching(true)
+        return 'Zlecono instalację. Postęp pojawi się powyżej.'
+      },
+    )
 
   const time = (iso: string | null, empty: string): string => (iso === null ? empty : formatDateTime(iso, timeZone))
+  const failedNotice = active
+    ? 'Serwer jest chwilowo niedostępny — to normalne w trakcie aktualizacji. Odświeżam co kilka sekund.'
+    : 'Nie udało się odświeżyć — stan z poprzedniego pobrania.'
 
   return (
     <Panel title="Aktualizacje">
-      <WidgetState
-        status={{ kind: 'ready' }}
-        staleNotice={state.failed ? 'Nie udało się odświeżyć — stan z poprzedniego pobrania.' : null}
-      >
+      <WidgetState status={{ kind: 'ready' }} staleNotice={state.failed ? failedNotice : null}>
+        {active ? <ActivePoller onTick={reload} /> : null}
         <dl className={styles.list}>
           <div className={styles.row}>
             <dt>Zainstalowana wersja</dt>
@@ -159,6 +309,14 @@ export function UpdatesPanel({
         {data.configured ? (
           <>
             <AvailableVersion state={data} timeZone={timeZone} />
+            <InstallSection
+              state={data}
+              busy={busy}
+              canChange={csrfToken !== null}
+              watching={watching}
+              onInstall={(version) => void install(version)}
+              timeZone={timeZone}
+            />
             {csrfToken === null ? null : (
               <div className={styles.updateActions}>
                 <label className={styles.checkbox}>
@@ -166,7 +324,7 @@ export function UpdatesPanel({
                   Sprawdzaj automatycznie raz w tygodniu
                 </label>
                 <button type="button" className={styles.button} disabled={busy} onClick={() => void check()}>
-                  {busy ? 'Sprawdzanie…' : 'Sprawdź aktualizacje'}
+                  {checking ? 'Sprawdzanie…' : 'Sprawdź aktualizacje'}
                 </button>
               </div>
             )}

@@ -48,6 +48,10 @@ class Settings(BaseSettings):
         pattern=r"^https://",
     )
     update_timeout_s: float = Field(default=15.0, gt=0, le=60)
+    # Instalacja z aplikacji (D65): katalog flagi (zapis) i stanu (odczyt) zamontowane przez
+    # instalator; brak — przycisk „Zainstaluj” niedostępny (np. dev bez systemd).
+    update_request_dir: Path | None = None
+    update_status_dir: Path | None = None
 
     def database_url(self) -> URL:
         """URL dla SQLAlchemy (asyncpg). Hasło nie pojawia się w ``repr``/logach URL."""

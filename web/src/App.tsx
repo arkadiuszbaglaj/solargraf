@@ -4,6 +4,7 @@ import { useDataSource } from './data/DataSourceContext'
 import { useAsync } from './hooks/useAsync'
 import { useNow } from './hooks/useNow'
 import { ClockSkewBanner } from './layout/ClockSkewBanner'
+import { SettingsTabs } from './layout/SettingsTabs'
 import { Sidebar } from './layout/Sidebar'
 import { Topbar } from './layout/Topbar'
 import { UpdateBanner } from './layout/UpdateBanner'
@@ -13,6 +14,7 @@ import { DeviceHistoryPage } from './pages/DeviceHistoryPage'
 import { DevicesPage } from './pages/DevicesPage'
 import { ServerHealthPage } from './pages/ServerHealthPage'
 import { SitesPage } from './pages/SitesPage'
+import { UpdatesPage } from './pages/UpdatesPage'
 import styles from './App.module.css'
 
 export function App({
@@ -20,7 +22,7 @@ export function App({
   page = 'dashboard',
   siteId: routeSiteId = '',
   deviceId: routeDeviceId = '',
-}: { now?: Date; page?: Page | 'devices' | 'history'; siteId?: string; deviceId?: string } = {}) {
+}: { now?: Date; page?: Page | 'devices' | 'history' | 'updates'; siteId?: string; deviceId?: string } = {}) {
   const source = useDataSource()
   const tickingNow = useNow()
   const now = fixedNow ?? tickingNow
@@ -37,7 +39,7 @@ export function App({
       <a className={styles.skip} href="#main">
         Przejdź do treści
       </a>
-      <Sidebar open={menuOpen} id={menuId} current={page === 'devices' || page === 'history' ? 'sites' : page} />
+      <Sidebar open={menuOpen} id={menuId} current={page === 'devices' || page === 'history' ? 'sites' : page === 'updates' ? 'server' : page} />
       <div className={styles.content}>
         <Topbar
           {...(page === 'sites'
@@ -48,7 +50,13 @@ export function App({
                 ? { title: 'Historia', subtitle: 'Historia pomiarów urządzenia', showSiteSwitcher: false }
                 : page === 'server'
                   ? { title: 'Stan serwera', subtitle: 'Zasoby, składniki i ocena stabilności', showSiteSwitcher: false }
-                  : {})}
+                  : page === 'updates'
+                    ? {
+                        title: 'Aktualizacje',
+                        subtitle: 'Wersja aplikacji, sprawdzanie i instalacja aktualizacji',
+                        showSiteSwitcher: false,
+                      }
+                    : {})}
           sites={sites}
           siteId={site?.id ?? ''}
           onSiteChange={setSelected}
@@ -63,8 +71,11 @@ export function App({
         <main id="main" className={styles.main} tabIndex={-1}>
           {page === 'sites' ? (
             <SitesPage />
-          ) : page === 'server' ? (
-            <ServerHealthPage />
+          ) : page === 'server' || page === 'updates' ? (
+            <>
+              <SettingsTabs current={page} />
+              {page === 'server' ? <ServerHealthPage /> : <UpdatesPage />}
+            </>
           ) : page === 'devices' ? (
             <DevicesPage siteId={routeSiteId} />
           ) : page === 'history' ? (
