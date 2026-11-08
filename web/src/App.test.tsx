@@ -79,6 +79,8 @@ describe('Dashboard (DEMO)', () => {
     expect(document.activeElement?.getAttribute('href')).toBe('/instalacje')
     expect(document.activeElement?.getAttribute('aria-current')).toBeNull()
     await userEvent.tab()
+    expect(document.activeElement?.getAttribute('href')).toBe('/wykresy')
+    await userEvent.tab()
     // Przycisk menu (widoczny na małych ekranach) i select instalacji są osiągalne z klawiatury.
     expect(document.activeElement?.getAttribute('aria-controls')).toBeTruthy()
     await userEvent.tab()
@@ -88,8 +90,24 @@ describe('Dashboard (DEMO)', () => {
   it('nieaktywne pozycje menu są oznaczone i nie są linkami', () => {
     renderApp()
     const nav = screen.getByRole('navigation', { name: 'Główna nawigacja' })
-    expect(within(nav).getAllByRole('link').map((l) => l.textContent)).toEqual(['Dashboard', 'Instalacje'])
+    expect(within(nav).getAllByRole('link').map((l) => l.textContent)).toEqual([
+      'Dashboard',
+      'Instalacje',
+      'Wykresy i historia',
+    ])
     expect(within(nav).getByText('Alarmy').closest('[aria-disabled="true"]')).toBeTruthy()
+  })
+
+  it('strona wykresów w DEMO: aktywna pozycja menu i komunikat zamiast danych', async () => {
+    render(
+      <DataSourceProvider source={new DemoDataSource({ now: () => NOON, latencyMs: 0 })}>
+        <App now={NOON} page="charts" />
+      </DataSourceProvider>,
+    )
+    expect(await screen.findByText('Historia pomiarów wymaga serwera — niedostępna w trybie DEMO.')).toBeTruthy()
+    const nav = screen.getByRole('navigation', { name: 'Główna nawigacja' })
+    expect(within(nav).getByRole('link', { name: 'Wykresy i historia' }).getAttribute('aria-current')).toBe('page')
+    expect(screen.getByRole('heading', { level: 1, name: 'Wykresy i historia' })).toBeTruthy()
   })
 })
 

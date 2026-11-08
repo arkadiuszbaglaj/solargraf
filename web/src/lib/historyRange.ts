@@ -116,3 +116,45 @@ export function shiftAnchor(anchor: string, period: Period, step: -1 | 1): strin
 export function today(now: Date, timeZone: string): string {
   return localDate(now, timeZone)
 }
+
+/** Najdłuższy zakres własny w dniach — jak limit energii i eksportu (D48, D57). */
+export const MAX_CUSTOM_DAYS = 400
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+function isValidDate(date: string): boolean {
+  if (!DATE_RE.test(date)) return false
+  const [y, m, d] = parse(date)
+  const t = new Date(Date.UTC(y, m - 1, d))
+  return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d
+}
+
+/**
+ * Zakres własny (D66): dni od `fromDate` do `toDate` włącznie, granice o północy w strefie
+ * instalacji. Zwraca komunikat błędu dla niepoprawnych dat, odwróconej kolejności albo zakresu
+ * dłuższego niż `MAX_CUSTOM_DAYS`.
+ */
+export function customRange(
+  fromDate: string,
+  toDate: string,
+  timeZone: string,
+): { kind: 'ok'; range: HistoryRange } | { kind: 'invalid'; message: string } {
+  if (!isValidDate(fromDate) || !isValidDate(toDate)) {
+    return { kind: 'invalid', message: 'Podaj obie daty.' }
+  }
+  const start = parse(fromDate)
+  const last = parse(toDate)
+  const days = Math.round((utc(last).getTime() - utc(start).getTime()) / 86_400_000) + 1
+  if (days < 1) return { kind: 'invalid', message: 'Data „od” musi być wcześniejsza niż „do” albo taka sama.' }
+  if (days > MAX_CUSTOM_DAYS) {
+    return { kind: 'invalid', message: `Zakres może mieć najwyżej ${MAX_CUSTOM_DAYS} dni.` }
+  }
+  return {
+    kind: 'ok',
+    range: {
+      from: localMidnight(start, timeZone),
+      to: localMidnight(addDays(last, 1), timeZone),
+      label: days === 1 ? DATE.format(utc(start)) : `${SHORT.format(utc(start))} – ${SHORT.format(utc(last))}`,
+    },
+  }
+}

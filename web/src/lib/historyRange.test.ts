@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { rangeFor, shiftAnchor, today } from './historyRange'
+import { customRange, rangeFor, shiftAnchor, today } from './historyRange'
 
 const TZ = 'Europe/Warsaw'
 const hours = (r: { from: Date; to: Date }) => (r.to.getTime() - r.from.getTime()) / 3_600_000
@@ -40,5 +40,30 @@ describe('zakresy historii (D47)', () => {
 
   it('dzisiejsza data w strefie instalacji', () => {
     expect(today(new Date('2026-11-06T23:30:00Z'), TZ)).toBe('2026-11-07')
+  })
+})
+
+describe('zakres własny (D66)', () => {
+  it('obejmuje dni włącznie, od północy lokalnej', () => {
+    const r = customRange('2026-10-24', '2026-10-26', TZ)
+    if (r.kind !== 'ok') throw new Error(r.message)
+    expect(r.range.from.toISOString()).toBe('2026-10-23T22:00:00.000Z')
+    expect(r.range.to.toISOString()).toBe('2026-10-26T23:00:00.000Z')
+    expect(hours(r.range)).toBe(73) // doba zmiany czasu ma 25 h
+    expect(r.range.label).toBe('24.10.2026 – 26.10.2026')
+  })
+
+  it('jeden dzień ma etykietę dnia', () => {
+    const r = customRange('2026-11-07', '2026-11-07', TZ)
+    expect(r.kind === 'ok' && r.range.label).toBe('7 listopada 2026')
+  })
+
+  it('odrzuca brak dat, złą kolejność, nieistniejącą datę i zbyt długi zakres', () => {
+    expect(customRange('', '2026-11-07', TZ).kind).toBe('invalid')
+    expect(customRange('2026-02-30', '2026-03-01', TZ).kind).toBe('invalid')
+    expect(customRange('2026-11-08', '2026-11-07', TZ).kind).toBe('invalid')
+    expect(customRange('2025-01-01', '2026-02-04', TZ).kind).toBe('ok') // 400 dni
+    const long = customRange('2025-01-01', '2026-02-05', TZ)
+    expect(long.kind === 'invalid' && long.message).toBe('Zakres może mieć najwyżej 400 dni.')
   })
 })

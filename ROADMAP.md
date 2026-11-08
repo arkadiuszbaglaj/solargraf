@@ -58,6 +58,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 - [ ] Normalizacja jednostek oraz walidacja zakresów.
 - [x] Agregaty 5 min / godzina / dzień z liczbą próbek i pokryciem; usługa `worker`, API historii (P4.1, D46).
 - [x] Wykresy dzień/tydzień/miesiąc/rok — historia urządzenia w UI (P4.2, D47).
+- [x] Zakładka „Wykresy i historia” instalacji: moc PV, zużycia, sieci, baterii i SoC, zakres własny (D66).
 - [ ] Zatwierdzone wzory KPI (O3) i bilansu energii — KPI D27 i energia za okres w API i UI (P4.3, D48); energia i KPI instalacji z jednego źródła na serię (D51); suma po urządzeniach — po decyzji o rolach.
 - [x] Obsługa luk, zmian czasu, strefy czasowej i resetów liczników (D46, D48).
 - [x] Retencja przez partycje i tworzenie kolejnych partycji (P4.4, D49).
