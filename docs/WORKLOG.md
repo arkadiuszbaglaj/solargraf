@@ -355,6 +355,14 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: aktualizacja między różnymi wersjami (np. 0.1.0 → 0.2.0) sprawdzona dopiero przy następnym wydaniu; nie testowane na RPi.
 - Następne małe zadanie: P7.4b — plik-flaga, usługa systemd, API i zakładka Ustawienia → Aktualizacje.
 
+- Data: 2026-11-08
+- Etap: P7.4b — instalacja aktualizacji z aplikacji, zakładka Ustawienia → Aktualizacje (D65)
+- Zmiany: server — `updates/install.py` (flaga `O_EXCL|O_NOFOLLOW`, plik stanu walidowany modelem, RUNNING > 3 h = przerwana), pole `install` w `GET /api/system/updates`, `POST /api/system/updates/install` (OWNER, CSRF, tylko dostępna wersja bez aktualizacji pośredniej, 409 gdy trwa/zlecona, audyt `UPDATE_INSTALL_REQUESTED`); compose — montowanie `run/update-request` (zapis, uid 10001, 0700) i `run/update-status` (root, tylko odczyt); install.sh — `ensure_run_dirs`, jednostki `solargraf-update.path`/`.service`, `update --from-request` (usuwa flagę, ignoruje treść, tylko manifest), plik stanu z etapami (CHECK/BACKUP/BUILD/START/ROLLBACK/CLEANUP/DONE), hak `post-switch` nowej wersji, sprzątanie jednostek przy uninstall. Web — zakładki Ustawień (Stan serwera | Aktualizacje, `/ustawienia/aktualizacje`), panel aktualizacji przeniesiony ze Stanu serwera, przycisk „Zainstaluj wersję X” z potwierdzeniem, postęp co 5 s, wynik ostatniej aktualizacji, polecenie terminalowe; baner prowadzi do nowej zakładki.
+- Testy uruchomione i wyniki: server — ruff, mypy --strict, pytest (189 passed lokalnie; integracyjne z bazą w CI); web — lint, tsc, vitest 296 passed; podgląd z atrapą API (SIMULATED/testowe wartości) na komputerze i telefonie. Scenariusz flaga → systemd → stan → API — w CI.
+- Decyzje zatwierdzone: D65 (bez zmian zakresu).
+- Ryzyka / rzeczy nieweryfikowane: pełna instalacja nowszej wersji z przycisku sprawdzi się dopiero przy wydaniu 0.2.0; nie testowane na RPi; przy ręcznie zmienionym katalogu instalacji kopia sprzed P7.4b nie ma `SOLARGRAF_RUN_DIR` (restore uzupełnia).
+- Następne małe zadanie: wydanie 0.2.0 (podniesienie wersji, podpisany manifest) i próba aktualizacji z przycisku na serwerze testowym.
+
 ## Szablon kolejnego wpisu
 
 - Data:

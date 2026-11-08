@@ -30,6 +30,7 @@ from solargraf_server.sites import router as sites_router
 from solargraf_server.system.api import router as system_router
 from solargraf_server.updates import service as update_service
 from solargraf_server.updates.api import router as updates_router
+from solargraf_server.updates.install import InstallDirs
 from solargraf_server.updates.release_key import RELEASE_PUBLIC_KEY
 
 
@@ -83,6 +84,11 @@ def create_app(settings: Settings, readiness_check: ReadinessCheck | None = None
     # Podmieniane w testach (bez sieci i z kluczem testowym).
     app.state.update_fetch = update_service.fetch_https
     app.state.update_public_key = RELEASE_PUBLIC_KEY
+    app.state.update_dirs = (
+        InstallDirs(request=settings.update_request_dir, status=settings.update_status_dir)
+        if settings.update_request_dir and settings.update_status_dir
+        else None
+    )
     return app
 
 

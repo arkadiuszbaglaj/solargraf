@@ -561,6 +561,7 @@ show_plan() {
 	say "- polecenie $CLI_LINK"
 	say "- jednorazowy link do pierwszego konta"
 	say "- codzienna kopia zapasowa o 3:00 w $INSTALL_DIR/backups (o ile nie wyłączono)"
+	say "- usługa aktualizacji zlecanej w aplikacji (systemd, $INSTALL_DIR/run)"
 }
 
 cmd_install() {
@@ -596,6 +597,7 @@ cmd_install() {
 	copy_sources
 	write_env
 	apply_update_check
+	ensure_run_dirs
 	say "== Budowa obrazów i uruchomienie (pierwsza budowa może potrwać kilka–kilkanaście minut)"
 	compose up -d --build --remove-orphans "${CORE_SERVICES[@]}"
 	wait_healthy
@@ -609,6 +611,7 @@ cmd_install() {
 	export_ca
 	ln -sf "$INSTALL_DIR/src/deploy/install.sh" "$CLI_LINK"
 	install_backup_timer
+	install_update_units
 	say "Polecenie: $CLI_LINK (status, update, backup, restore, uninstall, setup-link, simulator on|off)."
 
 	say ""
@@ -710,6 +713,7 @@ cmd_uninstall() {
 			docker image rm -f "$image:local" "$image:previous" >/dev/null 2>&1 || true
 		done
 		remove_backup_timer
+		remove_update_units
 		rm -f "$CLI_LINK"
 		LOG_FILE=""
 		# Kopii zapasowych nie usuwamy (D17, D62).
@@ -724,6 +728,7 @@ cmd_uninstall() {
 		confirm "Zatrzymać i usunąć kontenery aplikacji? Dane i sekrety zostaną zachowane." || die "Przerwano."
 		compose down --remove-orphans
 		remove_backup_timer
+		remove_update_units
 		rm -f "$CLI_LINK"
 		say "Usunięto kontenery. Dane (wolumeny) i $INSTALL_DIR zostały zachowane."
 		say "Ponowna instalacja: sudo $INSTALL_DIR/src/deploy/install.sh install"
@@ -886,6 +891,7 @@ cmd_restore() {
 	fi
 	# Adresy z kopii mogą dotyczyć innego hosta — odświeżamy je jak przy instalacji.
 	write_env
+	ensure_run_dirs
 	compose up -d db
 	wait_db
 	compose exec -T db pg_restore -U "$PRODUCT" -d "$PRODUCT" --no-owner --exit-on-error --single-transaction \
@@ -1012,6 +1018,7 @@ manifest_target() {
 	0) ;;
 	"$TARGET_NO_NEWER")
 		say "Brak nowszej wersji — aktualizacja nie jest potrzebna."
+		UPDATE_PHASE="no-update"
 		exit 0
 		;;
 	"$TARGET_INTERMEDIATE") die "Najnowsza wersja wymaga aktualizacji pośredniej — szczegóły powyżej." ;;
@@ -1020,18 +1027,55 @@ manifest_target() {
 	[[ "$UPDATE_TARGET" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "Nieoczekiwana odpowiedź przy sprawdzaniu wersji."
 }
 
+# --- stan aktualizacji dla UI (D65) ---
+#
+# Plik JSON w katalogu należącym do roota (API montuje go tylko do odczytu). Pola tylko
+# z zamkniętych zbiorów i numery wersji po walidacji — bez ścieżek, komunikatów i sekretów.
+UPDATE_STARTED_AT=""
+UPDATE_STEP="CHECK"
+FROM_REQUEST=0
+
+json_version() {
+	if [[ "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then printf '"%s"' "$1"; else printf 'null'; fi
+}
+
+write_update_status() {
+	local state="$1" step="$2" dir="$INSTALL_DIR/run/update-status" finished="null"
+	[ "$state" != "RUNNING" ] || UPDATE_STEP="$step"
+	[ "$DRY_RUN" -eq 0 ] && [ -n "$UPDATE_STARTED_AT" ] && [ -d "$dir" ] || return 0
+	[ "$state" = "RUNNING" ] || finished="\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\""
+	(
+		umask 022
+		printf '{"state":"%s","step":"%s","from_version":%s,"to_version":%s,"started_at":"%s","finished_at":%s}\n' \
+			"$state" "$step" "$(json_version "$UPDATE_FROM")" "$(json_version "$UPDATE_TO")" \
+			"$UPDATE_STARTED_AT" "$finished" >"$dir/status.json.tmp"
+	)
+	mv -f "$dir/status.json.tmp" "$dir/status.json"
+}
+
 update_trap() {
 	local status=$?
 	trap - EXIT
 	set +e
-	if [ "$UPDATE_PHASE" = "switched" ]; then
-		rollback_update
+	case "$UPDATE_PHASE" in
+	switched)
+		write_update_status RUNNING ROLLBACK
+		if rollback_update; then
+			write_update_status ROLLED_BACK DONE
+		else
+			write_update_status FAILED ROLLBACK
+		fi
 		status=1
-	fi
+		;;
+	no-update) write_update_status NO_UPDATE DONE ;;
+	done) ;;
+	*) [ "$status" -eq 0 ] || write_update_status FAILED "$UPDATE_STEP" ;;
+	esac
 	cleanup
 	exit "$status"
 }
 
+# Wraca do poprzedniej wersji; kod 0 tylko, gdy aplikacja po powrocie zgłasza gotowość.
 rollback_update() {
 	local revision image
 	say ""
@@ -1040,6 +1084,7 @@ rollback_update() {
 	compose down --remove-orphans >/dev/null 2>&1
 	rm -rf "$INSTALL_DIR/src"
 	mv "$INSTALL_DIR/src.previous" "$INSTALL_DIR/src"
+	post_switch_hook || true
 	for image in $APP_IMAGES; do
 		if docker image inspect "$image:previous" >/dev/null 2>&1; then
 			docker image tag "$image:previous" "$image:local"
@@ -1050,7 +1095,7 @@ rollback_update() {
 		if ! "$INSTALL_DIR/src/deploy/install.sh" restore "$UPDATE_BACKUP" --yes --dir "$INSTALL_DIR"; then
 			printf 'BŁĄD: Nie udało się odtworzyć kopii. Zrób to ręcznie: sudo %s restore %s\n' "$CLI_LINK" "$UPDATE_BACKUP" >&2
 			log_line "BŁĄD: powrót — odtworzenie kopii nie powiodło się"
-			return 0
+			return 1
 		fi
 	else
 		compose up -d --remove-orphans "${CORE_SERVICES[@]}"
@@ -1064,6 +1109,80 @@ rollback_update() {
 	else
 		printf 'BŁĄD: Po przywróceniu wersji %s aplikacja nie zgłasza gotowości. Logi: docker compose -p %s logs\n' "$UPDATE_FROM" "$PRODUCT" >&2
 		log_line "BŁĄD: powrót — brak gotowości"
+		return 1
+	fi
+}
+
+# Kod wersji, która właśnie trafiła do src, przygotowuje swoje katalogi i jednostki systemd
+# (np. nowe montowania w compose.yaml). Starsze wersje bez tego polecenia — pomijamy.
+post_switch_hook() {
+	local script="$INSTALL_DIR/src/deploy/install.sh"
+	if grep -q '^	post-switch) cmd_post_switch ;;$' "$script"; then
+		"$script" post-switch --dir "$INSTALL_DIR"
+	fi
+}
+
+cmd_post_switch() {
+	require_root
+	require_installation
+	LOG_FILE="$INSTALL_DIR/install.log"
+	ensure_run_dirs
+	install_update_units
+}
+
+# --- instalacja aktualizacji z UI: katalogi i usługa systemd (D65) ---
+
+readonly UPDATE_UNIT="$PRODUCT-update"
+# Użytkownik kontenera API (server/Dockerfile) — tylko on może zapisać flagę.
+readonly API_UID=10001
+
+# run/update-request — 0700, właściciel: użytkownik API (flaga); run/update-status — root, 0755
+# (stan, API tylko czyta). Root nigdy nie pisze do katalogu kontrolowanego przez API.
+ensure_run_dirs() {
+	local run="$INSTALL_DIR/run"
+	install -d -m 0755 -o root -g root "$run" "$run/update-status"
+	install -d -m 0700 -o "$API_UID" -g "$API_UID" "$run/update-request"
+	if ! grep -qx "SOLARGRAF_RUN_DIR=$run" "$INSTALL_DIR/.env"; then
+		env_set SOLARGRAF_RUN_DIR "$run"
+	fi
+}
+
+install_update_units() {
+	if ! have systemctl || [ ! -d /run/systemd/system ]; then
+		warn "Brak systemd — instalacja aktualizacji z aplikacji niedostępna. Aktualizuj poleceniem: sudo $CLI_LINK update"
+		return 0
+	fi
+	cat >"$SYSTEMD_DIR/$UPDATE_UNIT.service" <<EOF
+[Unit]
+Description=$PRODUCT (nazwa robocza) — aktualizacja zlecona w aplikacji
+After=docker.service
+
+[Service]
+Type=oneshot
+TimeoutStartSec=3h
+ExecStart="$INSTALL_DIR/src/deploy/install.sh" update --from-request --dir "$INSTALL_DIR"
+EOF
+	cat >"$SYSTEMD_DIR/$UPDATE_UNIT.path" <<EOF
+[Unit]
+Description=$PRODUCT (nazwa robocza) — oczekiwanie na zlecenie aktualizacji z aplikacji
+
+[Path]
+PathExists=$INSTALL_DIR/run/update-request/update
+Unit=$UPDATE_UNIT.service
+
+[Install]
+WantedBy=paths.target
+EOF
+	systemctl daemon-reload
+	systemctl enable --now "$UPDATE_UNIT.path" >/dev/null 2>&1
+	say "Aktualizacja z aplikacji: włączona (Ustawienia → Aktualizacje, tylko właściciel)."
+}
+
+remove_update_units() {
+	if have systemctl && [ -f "$SYSTEMD_DIR/$UPDATE_UNIT.path" ]; then
+		systemctl disable --now "$UPDATE_UNIT.path" >/dev/null 2>&1 || true
+		rm -f "$SYSTEMD_DIR/$UPDATE_UNIT.path" "$SYSTEMD_DIR/$UPDATE_UNIT.service"
+		systemctl daemon-reload
 	fi
 }
 
@@ -1084,19 +1203,33 @@ cmd_update() {
 		require_root
 	fi
 	require_installation
+	if [ "$FROM_REQUEST" -eq 1 ]; then
+		# Zlecenie z aplikacji (usługa systemd): flaga tylko uruchamia, jej treść jest ignorowana;
+		# wersja wyłącznie z podpisanego manifestu, bez --ref i bez paczki.
+		rm -f "$INSTALL_DIR/run/update-request/update"
+		if [ "$REF_GIVEN" -eq 1 ] || [ "$DRY_RUN" -eq 1 ]; then
+			die "--from-request nie łączy się z --ref ani --dry-run."
+		fi
+		ASSUME_YES=1
+	fi
 	if [ "$DRY_RUN" -eq 0 ]; then
 		LOG_FILE="$INSTALL_DIR/install.log"
 		exec 9>"$INSTALL_DIR/update.lock"
 		flock -n 9 || die "Aktualizacja już trwa."
 	fi
-	log_line "--- update"
+	log_line "--- update (z aplikacji: $FROM_REQUEST)"
 	UPDATE_FROM="$(app_version "$INSTALL_DIR/src")"
 	[ -n "$UPDATE_FROM" ] || UPDATE_FROM="nieznana"
+	if [ "$DRY_RUN" -eq 0 ]; then
+		UPDATE_STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+		trap update_trap EXIT
+		write_update_status RUNNING CHECK
+	fi
 
 	# Źródło: paczka, z której uruchomiono skrypt; --ref; albo podpisany manifest.
 	SRC_DIR="$(local_source)"
 	local expected=""
-	if [ -n "$SRC_DIR" ] && [ "$SRC_DIR" != "$INSTALL_DIR/src" ]; then
+	if [ "$FROM_REQUEST" -eq 0 ] && [ -n "$SRC_DIR" ] && [ "$SRC_DIR" != "$INSTALL_DIR/src" ]; then
 		SRC_LABEL="$SRC_DIR"
 	else
 		SRC_DIR=""
@@ -1109,6 +1242,8 @@ cmd_update() {
 		SRC_LABEL="$(source_url)"
 		if [ "$DRY_RUN" -eq 0 ]; then
 			download_sources
+			# download_sources ustawia własne sprzątanie — przywracamy pułapkę aktualizacji.
+			trap update_trap EXIT
 		fi
 	fi
 	if [ -n "$SRC_DIR" ]; then
@@ -1141,6 +1276,7 @@ cmd_update() {
 	[ "$free_mb" -ge "$MIN_DISK_MB" ] || die "Za mało miejsca w /var/lib: ${free_mb} MB (minimum ${MIN_DISK_MB} MB)."
 
 	say "== Kopia zapasowa"
+	write_update_status RUNNING BACKUP
 	compose up -d db
 	wait_db
 	UPDATE_BACKUP="$(make_backup pre-update)"
@@ -1164,14 +1300,16 @@ cmd_update() {
 		--exclude='./deploy/.env' -cf - . | tar -C "$INSTALL_DIR/src.new" -xf -
 	chmod 0755 "$INSTALL_DIR/src.new/deploy/install.sh"
 
-	# Od tej chwili każde wyjście z błędem (die, set -e) przywraca poprzednią wersję.
-	trap update_trap EXIT
+	# Od tej chwili każde wyjście z błędem (die, set -e) przywraca poprzednią wersję (update_trap).
 	mv "$INSTALL_DIR/src" "$INSTALL_DIR/src.previous"
 	UPDATE_PHASE="switched"
 	mv "$INSTALL_DIR/src.new" "$INSTALL_DIR/src"
+	post_switch_hook
 
 	say "== Budowa obrazów i uruchomienie"
+	write_update_status RUNNING BUILD
 	compose build
+	write_update_status RUNNING START
 	compose up -d --remove-orphans "${CORE_SERVICES[@]}"
 	wait_healthy
 	compose up -d agent
@@ -1180,7 +1318,9 @@ cmd_update() {
 	fi
 	UPDATE_PHASE="done"
 	ln -sf "$INSTALL_DIR/src/deploy/install.sh" "$CLI_LINK"
+	write_update_status RUNNING CLEANUP
 	cleanup_after_update
+	write_update_status SUCCESS DONE
 	say ""
 	say "Zaktualizowano $PRODUCT: $UPDATE_FROM → $UPDATE_TO. Kopia sprzed aktualizacji: $UPDATE_BACKUP"
 }
@@ -1204,6 +1344,7 @@ main() {
 		--yes | -y) ASSUME_YES=1 ;;
 		--purge) PURGE=1 ;;
 		--auto) BACKUP_KIND="auto" ;;
+		--from-request) FROM_REQUEST=1 ;;
 		--no-auto-backup) AUTO_BACKUP=0 ;;
 		--auto-backup) AUTO_BACKUP=1 ;;
 		--no-update-check) UPDATE_CHECK=0 ;;
@@ -1255,6 +1396,7 @@ main() {
 	simulator) cmd_simulator ;;
 	backup) cmd_backup ;;
 	update) cmd_update ;;
+	post-switch) cmd_post_switch ;;
 	restore) cmd_restore ;;
 	uninstall) cmd_uninstall ;;
 	"" | -h | --help | help) usage ;;

@@ -303,6 +303,7 @@ jobs:
           ca="$DIR/solargraf-ca.crt"
           compose() { sudo docker compose -p solargraf -f "$DIR/src/deploy/compose.yaml" --env-file "$DIR/.env" "$@"; }
           count() { compose exec -T db psql -U solargraf -d solargraf -tAc "$1"; }
+          job() { sudo cat "$DIR/run/update-status/status.json"; }
           sites="$(count 'SELECT count(*) FROM sites')"
           test "$sites" -gt 0
           revision="$(count 'SELECT version_num FROM alembic_version')"
@@ -310,6 +311,7 @@ jobs:
           # Podpisany manifest z GitHuba: zainstalowana wersja jest najnowsza.
           sudo solargraf update --yes | tee upd-manifest.txt
           grep -q 'Brak nowszej wersji' upd-manifest.txt
+          job | jq -e '.state == "NO_UPDATE" and .finished_at != null'
           sudo find "$DIR/backups" -name '*-pre-update.tar.gz' 2>/dev/null | grep -q . && { echo 'Niespełniony warunek'; exit 1; }
 
           # --dry-run niczego nie zmienia.
@@ -321,6 +323,7 @@ jobs:
           sudo SOLARGRAF_SOURCE_URL=http://127.0.0.1:8765/src.tar.gz solargraf update --ref main --yes | tee upd-ok.txt
           grep -q 'Zaktualizowano solargraf' upd-ok.txt
           grep -q 'Sprzątanie' upd-ok.txt
+          job | jq -e '.state == "SUCCESS" and .step == "DONE" and .from_version == "0.1.0"'
           sudo find "$DIR/backups" -name '*-pre-update.tar.gz' | grep -q .
           sudo test -f "$DIR/src.previous/deploy/compose.yaml"
           docker image inspect solargraf-api:previous >/dev/null
@@ -348,6 +351,7 @@ jobs:
           grep -q 'przywracam wersję' upd-bad.txt
           grep -q 'Migracje zmieniły bazę' upd-bad.txt
           grep -q 'aplikacja działa' upd-bad.txt
+          job | jq -e '.state == "ROLLED_BACK"'
           sudo test ! -e "$DIR/src/server/alembic/versions/9999_ci_update_fail.py"
           if sudo grep -q 'entrypoint' "$DIR/src/deploy/compose.yaml"; then echo 'Niespełniony warunek'; exit 1; fi
           test "$(count 'SELECT version_num FROM alembic_version')" = "$revision"
@@ -362,6 +366,33 @@ jobs:
             if [ "$i" -eq 45 ]; then compose logs --no-color agent; exit 1; fi
             sleep 2
           done
+      - name: Aktualizacja zlecona w aplikacji (D65) — flaga z kontenera API, usługa systemd, stan w API
+        run: |
+          ca="$DIR/solargraf-ca.crt"
+          compose() { sudo docker compose -p solargraf -f "$DIR/src/deploy/compose.yaml" --env-file "$DIR/.env" "$@"; }
+          systemctl is-enabled solargraf-update.path
+          test "$(sudo stat -c '%u %a' "$DIR/run/update-request")" = "10001 700"
+          test "$(sudo stat -c '%u %a' "$DIR/run/update-status")" = "0 755"
+          # API nie zapisze stanu (montowanie tylko do odczytu).
+          if compose exec -T api python -c "open('/run/solargraf/update-status/x', 'w')"; then echo 'Niespełniony warunek'; exit 1; fi
+          csrf="$(curl -fsS --cacert "$ca" -c ui-jar.txt -H 'Content-Type: application/json'             -d '{"email":"ci@example.pl","password":"ci-instalator-haslo-1"}' https://localhost/api/auth/login | jq -r .csrf_token)"
+          curl -fsS --cacert "$ca" -b ui-jar.txt https://localhost/api/system/updates | jq -e '.install.supported == true and .install.running == false'
+          # Brak nowszej wersji — endpoint odmawia, flaga nie powstaje.
+          test "$(curl -s -o /dev/null -w '%{http_code}' --cacert "$ca" -b ui-jar.txt -H "X-CSRF-Token: $csrf"             -H 'Content-Type: application/json' -d '{"version":"99.0.0"}' https://localhost/api/system/updates/install)" = "409"
+          sudo test ! -e "$DIR/run/update-request/update"
+          # Flaga zapisana przez użytkownika API uruchamia usługę hosta; ta sprawdza manifest i zapisuje stan.
+          before="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          compose exec -T api python -c "open('/run/solargraf/update-request/update', 'x').close()"
+          for i in $(seq 1 60); do
+            state="$(sudo cat "$DIR/run/update-status/status.json" | jq -r --arg b "$before" 'select(.started_at >= $b) | .state')"
+            echo "stan: ${state:-?}"
+            [ "$state" = "NO_UPDATE" ] && break
+            if [ "$i" -eq 60 ]; then sudo journalctl -u solargraf-update.service --no-pager | tail -50; exit 1; fi
+            sleep 2
+          done
+          sudo test ! -e "$DIR/run/update-request/update"
+          curl -fsS --cacert "$ca" -b ui-jar.txt https://localhost/api/system/updates | jq -e '.install.last.state == "NO_UPDATE" and .install.requested == false'
+          sudo journalctl -u solargraf-update.service --no-pager | grep -q 'Brak nowszej wersji'
       - name: Kopia automatyczna (D62) — timer systemd i retencja 7 kopii
         run: |
           systemctl is-enabled solargraf-backup.timer
@@ -450,6 +481,7 @@ jobs:
           sudo "$DIR/src/deploy/install.sh" uninstall --purge --yes
           if docker volume inspect solargraf_db-data >/dev/null 2>&1; then echo 'Niespełniony warunek'; exit 1; fi
           if systemctl is-enabled solargraf-backup.timer 2>/dev/null; then echo 'Niespełniony warunek'; exit 1; fi
+          if systemctl is-enabled solargraf-update.path 2>/dev/null; then echo 'Niespełniony warunek'; exit 1; fi
           # Kopie zapasowe zostają (D17, D62); bez nich znika cały katalog.
           sudo test ! -e "$DIR/src"
           sudo test ! -e "$DIR/.env"

@@ -1,4 +1,4 @@
-import type { CheckError } from '../api/updates'
+import type { CheckError, JobState, JobStep } from '../api/updates'
 
 /** Opis wyniku sprawdzenia — bez szczegółów technicznych (D63: błąd nie jest alarmem). */
 export const CHECK_ERROR_TEXT: Record<CheckError, string> = {
@@ -7,6 +7,26 @@ export const CHECK_ERROR_TEXT: Record<CheckError, string> = {
   TOO_LARGE: 'nieprawidłowa odpowiedź serwera wydań',
   INVALID_MANIFEST: 'nieprawidłowa odpowiedź serwera wydań',
   INVALID_SIGNATURE: 'informacja o wersji ma nieprawidłowy podpis i została odrzucona',
+}
+
+/** Etap aktualizacji wykonywanej na serwerze (D65). */
+export const JOB_STEP_TEXT: Record<JobStep, string> = {
+  CHECK: 'sprawdzanie wersji',
+  BACKUP: 'kopia zapasowa',
+  BUILD: 'budowanie nowej wersji',
+  START: 'migracje bazy i uruchamianie',
+  ROLLBACK: 'przywracanie poprzedniej wersji',
+  CLEANUP: 'sprzątanie',
+  DONE: 'zakończono',
+}
+
+/** Wynik ostatniej aktualizacji; RUNNING bez trwającej aktualizacji oznacza przerwanie. */
+export const JOB_STATE_TEXT: Record<JobState, string> = {
+  RUNNING: 'przerwana — brak informacji o zakończeniu',
+  SUCCESS: 'zakończona powodzeniem',
+  FAILED: 'nie powiodła się',
+  ROLLED_BACK: 'nie powiodła się — przywrócono poprzednią wersję',
+  NO_UPDATE: 'brak nowszej wersji do zainstalowania',
 }
 
 const POSTPONE_KEY = 'solargraf.updateBanner.postponed'

@@ -30,6 +30,7 @@ from solargraf_server.maintenance import Retention, apply_retention
 from solargraf_server.models import Membership, MembershipSite, Organization, Role, Site, User
 from solargraf_server.system.host import METRICS, HostSampler
 from solargraf_server.system.monitor import MonitorTargets, run_monitor
+from solargraf_server.updates.install import InstallDirs
 from solargraf_server.updates.service import Fetch, run_scheduled
 
 pytestmark = pytest.mark.skipif(
@@ -991,6 +992,60 @@ class TestUpdateCheck:
         assert resp.status_code == 409
         actions = {a for (a,) in _sql("SELECT action FROM audit_events")}
         assert {"UPDATES_CHECKED", "UPDATE_DISMISSED"} <= actions
+
+    def test_install_request(self, world: World, as_user: AsUser, tmp_path: Path) -> None:
+        owner, csrf = as_user("owner_a")
+        headers = {"X-CSRF-Token": csrf}
+        url = "/api/system/updates/install"
+        fetch, _ = _fake_fetch(_manifest("9.0.0"))
+        _configure(owner, fetch)
+        app = cast(FastAPI, owner.app)
+        app.state.update_dirs = None
+        idle = {"supported": False, "requested": False, "running": False, "last": None}
+        assert owner.get("/api/system/updates").json()["install"] == idle
+        owner.post("/api/system/updates/check", headers=headers)
+        # Serwer bez usługi hosta: tylko polecenie w terminalu.
+        assert owner.post(url, json={"version": "9.0.0"}, headers=headers).status_code == 409
+        dirs = InstallDirs(request=tmp_path / "request", status=tmp_path / "status")
+        dirs.request.mkdir()
+        dirs.status.mkdir()
+        app.state.update_dirs = dirs
+        assert owner.post(url, json={"version": "9.0.0"}).status_code == 403  # bez CSRF
+        assert owner.post(url, json={"version": "8.0.0"}, headers=headers).status_code == 409
+        flag = dirs.request / "update"
+        assert not flag.exists()
+        resp = owner.post(url, json={"version": "9.0.0"}, headers=headers)
+        assert resp.status_code == 200
+        assert resp.json()["install"]["requested"] is True
+        assert flag.read_bytes() == b""
+        assert owner.post(url, json={"version": "9.0.0"}, headers=headers).status_code == 409
+        assert ("UPDATE_INSTALL_REQUESTED",) in _sql("SELECT action FROM audit_events")
+        # Usługa hosta zabrała flagę i zapisuje stan; trwająca aktualizacja blokuje kolejne.
+        flag.unlink()
+        started = datetime.now(UTC).isoformat()
+        status_file = dirs.status / "status.json"
+        status_file.write_text(
+            json.dumps(
+                {
+                    "state": "RUNNING",
+                    "step": "BUILD",
+                    "from_version": "0.1.0",
+                    "to_version": "9.0.0",
+                    "started_at": started,
+                    "finished_at": None,
+                }
+            )
+        )
+        body = owner.get("/api/system/updates").json()["install"]
+        assert (body["supported"], body["requested"], body["running"]) == (True, False, True)
+        assert (body["last"]["step"], body["last"]["to_version"]) == ("BUILD", "9.0.0")
+        assert owner.post(url, json={"version": "9.0.0"}, headers=headers).status_code == 409
+        # Nieczytelny plik stanu — brak danych, nie zgadujemy.
+        status_file.write_text('{"state": "HACKED"}')
+        assert owner.get("/api/system/updates").json()["install"]["last"] is None
+        admin, admin_csrf = as_user("admin_a")
+        resp = admin.post(url, json={"version": "9.0.0"}, headers={"X-CSRF-Token": admin_csrf})
+        assert resp.status_code == 403
 
     def test_settings_and_permissions(self, world: World, as_user: AsUser) -> None:
         owner, csrf = as_user("owner_a")

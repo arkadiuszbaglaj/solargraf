@@ -4,7 +4,7 @@ import type { UpdatesState } from '../api/updates'
 import { useOptionalSession } from '../auth/SessionContext'
 import { usePeriodic } from '../hooks/usePeriodic'
 import { isPostponed, postpone } from '../lib/updates'
-import { SERVER_HEALTH_PATH } from '../paths'
+import { UPDATES_PATH } from '../paths'
 import styles from './UpdateBanner.module.css'
 
 /** Stan zmienia worker najwyżej raz na dobę. */
@@ -63,7 +63,7 @@ function OwnerUpdateBanner({ fetchFn, csrfToken }: { fetchFn: typeof fetch; csrf
           Dostępna jest wersja {a.version}
           {a.security ? ' z poprawkami bezpieczeństwa' : ''}.
         </strong>{' '}
-        Zainstalowana: {state.data.currentVersion}. <a href={SERVER_HEALTH_PATH}>Szczegóły i instrukcja</a>
+        Zainstalowana: {state.data.currentVersion}. <a href={UPDATES_PATH}>Szczegóły i instalacja</a>
       </p>
       <div className={styles.actions}>
         {a.security ? (

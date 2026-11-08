@@ -4,8 +4,9 @@ import { describe, expect, it, vi } from 'vitest'
 import type { Role, Session } from '../api/auth'
 import { getSystemHealth, getSystemMetrics, parseSystemHealth, parseSystemMetrics } from '../api/system'
 import { SessionProvider } from '../auth/SessionContext'
+import { SettingsTabs } from '../layout/SettingsTabs'
 import { Sidebar } from '../layout/Sidebar'
-import { SERVER_HEALTH_PATH, routeFor } from '../Root'
+import { SERVER_HEALTH_PATH, UPDATES_PATH, routeFor } from '../Root'
 import { ServerHealthPage } from './ServerHealthPage'
 import { forecastText, toHistory } from './ServerHistory'
 
@@ -283,6 +284,19 @@ describe('trasa i menu', () => {
   it('rozpoznaje adres strony', () => {
     expect(routeFor(SERVER_HEALTH_PATH)).toBe('server')
     expect(routeFor(`${SERVER_HEALTH_PATH}/`)).toBe('server')
+  })
+
+  it('zakładki Ustawień: Stan serwera i Aktualizacje (D65)', () => {
+    expect(routeFor(UPDATES_PATH)).toBe('updates')
+    expect(routeFor(`${UPDATES_PATH}/`)).toBe('updates')
+    render(<SettingsTabs current="updates" />)
+    const nav = screen.getByRole('navigation', { name: 'Ustawienia' })
+    const server = within(nav).getByRole('link', { name: 'Stan serwera' })
+    const updates = within(nav).getByRole('link', { name: 'Aktualizacje' })
+    expect(server.getAttribute('href')).toBe(SERVER_HEALTH_PATH)
+    expect(server.getAttribute('aria-current')).toBeNull()
+    expect(updates.getAttribute('href')).toBe(UPDATES_PATH)
+    expect(updates.getAttribute('aria-current')).toBe('page')
   })
 
   it('link „Ustawienia” tylko dla roli OWNER', () => {

@@ -61,6 +61,14 @@ services:
     labels: *labels
     environment:
       <<: [*db-env, *update-env]
+      # Instalacja aktualizacji z aplikacji (D65): flaga dla usługi hosta i jej stan.
+      SOLARGRAF_UPDATE_REQUEST_DIR: /run/solargraf/update-request
+      SOLARGRAF_UPDATE_STATUS_DIR: /run/solargraf/update-status
+    volumes:
+      # Katalogi przygotowuje instalator (run/update-request — użytkownik API, 0700;
+      # run/update-status — root). Stan tylko do odczytu; nic więcej z hosta.
+      - ${SOLARGRAF_RUN_DIR:-/opt/solargraf/run}/update-request:/run/solargraf/update-request
+      - ${SOLARGRAF_RUN_DIR:-/opt/solargraf/run}/update-status:/run/solargraf/update-status:ro
     <<: *hardening
     depends_on:
       migrate:

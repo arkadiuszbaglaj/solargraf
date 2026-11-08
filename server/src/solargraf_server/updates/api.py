@@ -6,6 +6,8 @@
 - ``PUT /api/system/updates/settings`` — automatyczne sprawdzanie raz w tygodniu: włącz/wyłącz.
 - ``POST /api/system/updates/dismiss`` — ukrycie zwykłej wersji; wersji z poprawkami bezpieczeństwa
   nie da się ukryć trwale (UI odkłada komunikat tylko do kolejnego logowania).
+- ``POST /api/system/updates/install`` — zlecenie instalacji dostępnej wersji (D65): tylko
+  plik-flaga dla usługi hosta; wersję wybiera skrypt hosta z podpisanego manifestu.
 """
 
 from __future__ import annotations
@@ -22,8 +24,8 @@ from solargraf_server.auth.deps import AuthContext, DbSession, get_settings, utc
 from solargraf_server.config import Settings
 from solargraf_server.models.updates import UpdateStatus
 from solargraf_server.system.api import require_owner, require_owner_csrf
+from solargraf_server.updates import install, service
 from solargraf_server.updates import manifest as mf
-from solargraf_server.updates import service
 
 router = APIRouter(prefix="/api/system/updates", tags=["system"])
 
@@ -41,6 +43,20 @@ class UpdatesOut(BaseModel):
     next_check_at: datetime | None
     available: mf.Availability | None
     dismissed: bool
+    install: InstallOut
+
+
+class InstallIn(BaseModel):
+    version: str = Field(max_length=32)
+
+
+class InstallOut(BaseModel):
+    # False — serwer bez usługi aktualizacji (np. bez systemd) — tylko polecenie w terminalu.
+    supported: bool
+    # Zlecenie czeka na uruchomienie usługi hosta.
+    requested: bool
+    running: bool
+    last: install.Job | None
 
 
 class SettingsIn(BaseModel):
@@ -51,7 +67,22 @@ class DismissIn(BaseModel):
     version: str = Field(max_length=32)
 
 
-def _out(row: UpdateStatus, public_key: str | None) -> UpdatesOut:
+def _install_out(dirs: install.InstallDirs | None) -> InstallOut:
+    job = install.read_job(dirs)
+    return InstallOut(
+        supported=install.supported(dirs),
+        requested=install.requested(dirs),
+        running=install.running(job, utcnow()),
+        last=job,
+    )
+
+
+def _dirs(request: Request) -> install.InstallDirs | None:
+    dirs: install.InstallDirs | None = request.app.state.update_dirs
+    return dirs
+
+
+def _out(row: UpdateStatus, public_key: str | None, dirs: install.InstallDirs | None) -> UpdatesOut:
     manifest = service.current_manifest(row)
     available = mf.availability(manifest, __version__) if manifest else None
     return UpdatesOut(
@@ -66,6 +97,7 @@ def _out(row: UpdateStatus, public_key: str | None) -> UpdatesOut:
         dismissed=available is not None
         and not available.security
         and row.dismissed_version == available.version,
+        install=_install_out(dirs),
     )
 
 
@@ -83,7 +115,7 @@ async def get_updates(
 ) -> UpdatesOut:
     row = await service.status_row(db, settings.update_check)
     await db.commit()
-    return _out(row, _public_key(request))
+    return _out(row, _public_key(request), _dirs(request))
 
 
 @router.post("/check", response_model=UpdatesOut)
@@ -98,7 +130,7 @@ async def check_updates(
     # Limit częstotliwości: wcześniejsze kliknięcie zwraca ostatni wynik bez połączenia.
     if row.last_checked_at is not None and now - row.last_checked_at < MANUAL_CHECK_INTERVAL:
         await db.commit()
-        return _out(row, _public_key(request))
+        return _out(row, _public_key(request), _dirs(request))
     await auth_service.audit(db, "UPDATES_CHECKED", user_id=auth.user.id)
     await service.check_now(
         db,
@@ -109,7 +141,7 @@ async def check_updates(
         now=now,
         fetch=request.app.state.update_fetch,
     )
-    return _out(row, _public_key(request))
+    return _out(row, _public_key(request), _dirs(request))
 
 
 @router.put("/settings", response_model=UpdatesOut)
@@ -132,7 +164,7 @@ async def update_settings(
             target=f"automatic={body.automatic}",
         )
     await db.commit()
-    return _out(row, _public_key(request))
+    return _out(row, _public_key(request), _dirs(request))
 
 
 @router.post("/dismiss", response_model=UpdatesOut)
@@ -155,4 +187,37 @@ async def dismiss_update(
     row.dismissed_version = body.version
     await auth_service.audit(db, "UPDATE_DISMISSED", user_id=auth.user.id, target=body.version)
     await db.commit()
-    return _out(row, _public_key(request))
+    return _out(row, _public_key(request), _dirs(request))
+
+
+@router.post("/install", response_model=UpdatesOut)
+async def install_update(
+    body: InstallIn,
+    request: Request,
+    db: DbSession,
+    settings: Annotated[Settings, Depends(get_settings)],
+    auth: Annotated[AuthContext, Depends(require_owner_csrf)],
+) -> UpdatesOut:
+    """Zlecenie instalacji wersji widocznej w UI. Treść żądania nie trafia do hosta."""
+    dirs = _dirs(request)
+    if dirs is None or not install.supported(dirs):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Instalacja z aplikacji jest niedostępna na tym serwerze — użyj polecenia w terminalu.",
+        )
+    row = await service.status_row(db, settings.update_check)
+    manifest = service.current_manifest(row)
+    available = mf.availability(manifest, __version__) if manifest else None
+    if available is None or available.version != body.version:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Ta wersja nie jest dostępna do instalacji.")
+    if not available.direct_upgrade:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Ta wersja wymaga wcześniejszej aktualizacji pośredniej."
+        )
+    if install.running(install.read_job(dirs), utcnow()) or not install.request_install(dirs):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Aktualizacja jest już zlecona albo trwa.")
+    await auth_service.audit(
+        db, "UPDATE_INSTALL_REQUESTED", user_id=auth.user.id, target=body.version
+    )
+    await db.commit()
+    return _out(row, _public_key(request), dirs)
