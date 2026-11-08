@@ -124,8 +124,11 @@ export function ConnectionTestResult({ run }: { run: TestRun }) {
   }
   const { test } = run
   const good = test.readings.filter((r) => r.quality === 'GOOD').length
-  const verdict =
-    test.result === 'OK'
+  // Agent odmówił testu (adres zajęty, nieznany profil) — to nie awaria urządzenia.
+  const skipped = test.errorCode === 'TARGET_IN_USE' || test.errorCode === 'UNKNOWN_PROFILE'
+  const verdict = skipped
+    ? { kind: 'warn', text: 'Test nie został wykonany.' }
+    : test.result === 'OK'
       ? { kind: 'ok', text: 'Połączenie działa — odczytano wszystkie parametry profilu.' }
       : test.result === 'PARTIAL'
         ? { kind: 'warn', text: 'Połączenie działa, ale części parametrów nie odczytano.' }
