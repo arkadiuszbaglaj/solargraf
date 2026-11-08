@@ -1,8 +1,15 @@
 .panels {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  /* Dwie kolumny (2×2 dla czterech paneli) — bez osieroconego panelu w ostatnim rzędzie. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-4);
-  align-items: start;
+  align-items: stretch;
+}
+
+@media (max-width: 699px) {
+  .panels {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .age {

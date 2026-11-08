@@ -68,7 +68,7 @@ function SelfConsumptionCard({ today }: { today: TodayState | undefined }) {
       value={view.value}
       unavailableReason={view.unavailableReason}
       notice={view.notice}
-      secondary="Dziś: (produkcja PV − oddanie) / produkcja PV"
+      secondary="Dziś: część produkcji PV zużyta na miejscu"
       stale={false}
     />
   )
@@ -134,7 +134,7 @@ export function LiveKpiRow({
             label="Zużycie domu"
             icon={Home}
             v={home}
-            today={`Dziś: ${todayEnergy(today, 'load')} (z mocy)`}
+            today={`Dziś (z mocy): ${todayEnergy(today, 'load')}`}
           />
           <KpiCard
             label="Sieć"

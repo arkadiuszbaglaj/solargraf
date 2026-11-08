@@ -11,7 +11,6 @@
   align-items: start;
 }
 
-.flow,
 .chart,
 .side {
   display: flex;
@@ -21,54 +20,78 @@
 }
 
 /*
- * Z diagramem przepływu (D54) i szczegółami (D56): po lewej przepływ | wykres, pod nimi
- * szczegóły; po prawej urządzenia i alarmy. Kolumna boczna nie rozpycha wiersza lewej części.
+ * Dashboard z danymi na żywo: siatka 12 kolumn. Szeroki ekran — przepływ (4) | wykres (5) |
+ * urządzenia (3), niżej szczegóły (9) | alarmy (3). Komórki rozciągają panel na wysokość rzędu.
  */
-.withFlow {
-  grid-template-columns: minmax(0, 3fr) minmax(16rem, 1fr);
+.layout {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--space-4);
 }
 
-.main {
+.cell {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
   min-width: 0;
 }
 
-.mainTop {
-  display: grid;
-  grid-template-columns: minmax(18rem, 1fr) minmax(0, 2fr);
-  gap: var(--space-4);
-  align-items: start;
+.cell > * {
+  flex: 1 1 auto;
 }
 
-.details:empty {
+.flowCell {
+  grid-column: span 4;
+}
+
+.chartCell {
+  grid-column: span 5;
+}
+
+.devicesCell {
+  grid-column: span 3;
+}
+
+.detailsCell {
+  grid-column: span 9;
+  min-width: 0;
+}
+
+.detailsCell:empty {
   display: none;
 }
 
-@media (max-width: 1499px) {
-  .withFlow {
-    grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr);
+.alarmsCell {
+  grid-column: span 3;
+}
+
+/* Średni ekran: przepływ | wykres, urządzenia | alarmy, szczegóły na całą szerokość. */
+@media (max-width: 1399px) {
+  .flowCell {
+    grid-column: span 5;
   }
 
-  .mainTop {
-    grid-template-columns: minmax(0, 1fr);
+  .chartCell {
+    grid-column: span 7;
+  }
+
+  .devicesCell,
+  .alarmsCell {
+    grid-column: span 6;
+  }
+
+  .detailsCell {
+    grid-column: span 12;
+    order: 1;
   }
 }
 
-/* Telefon i wąskie okno: jedna kolumna — przepływ, wykres, urządzenia i alarmy, szczegóły. */
+/* Wąskie okno i telefon: jedna kolumna — przepływ, wykres, urządzenia, alarmy, szczegóły. */
 @media (max-width: 1099px) {
-  .grid,
-  .withFlow {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .withFlow .main,
-  .withFlow .mainTop {
-    display: contents;
-  }
-
-  .withFlow .details {
-    order: 1;
+  .flowCell,
+  .chartCell,
+  .devicesCell,
+  .alarmsCell,
+  .detailsCell {
+    grid-column: 1 / -1;
   }
 }
