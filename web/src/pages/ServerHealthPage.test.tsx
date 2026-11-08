@@ -7,7 +7,7 @@ import { SessionProvider } from '../auth/SessionContext'
 import { SettingsTabs } from '../layout/SettingsTabs'
 import { Sidebar } from '../layout/Sidebar'
 import { SERVER_HEALTH_PATH, UPDATES_PATH, routeFor } from '../Root'
-import { ServerHealthPage } from './ServerHealthPage'
+import { ServerHealthPage, lastUpdateRows } from './ServerHealthPage'
 import { forecastText, toHistory } from './ServerHistory'
 
 vi.mock('../components/HistoryChartView', () => ({
@@ -217,11 +217,42 @@ describe('ServerHealthPage', () => {
     expect(navigate).toHaveBeenCalledWith('/login?reason=expired')
   })
 
+  it('ostatnia aktualizacja i odzyskane miejsce; brak danych to „niedostępne”', async () => {
+    const last = {
+      state: 'SUCCESS',
+      step: 'DONE',
+      from_version: '0.7.0',
+      to_version: '0.7.1',
+      started_at: '2026-11-08T21:50:00Z',
+      finished_at: '2026-11-08T22:00:00Z',
+      reclaimed_mb: 1234,
+    }
+    const withJob = { ...UPDATES, install: { supported: true, requested: false, running: false, last } }
+    const fetchFn = vi.fn<typeof fetch>((input) =>
+      Promise.resolve(json(200, String(input).startsWith('/api/system/updates') ? withJob : HEALTH)),
+    )
+    renderPage(fetchFn)
+    await screen.findByText('Ostrzeżenie')
+    expect(dd('Ostatnia aktualizacja')).toMatch(/^0\.7\.0 → 0\.7\.1, .*23:00/)
+    expect(dd('Odzyskane miejsce przy sprzątaniu')).toBe('1234 MB')
+    expect(lastUpdateRows(null, 'UTC')).toEqual({ update: 'brak zapisu', reclaimed: 'niedostępne' })
+    expect(lastUpdateRows('unavailable', 'UTC').update).toBe('niedostępne')
+  })
+
+  it('niedostępne dane o aktualizacji nie blokują strony', async () => {
+    renderPage(routes([200, HEALTH]))
+    await screen.findByText('Ostrzeżenie')
+    expect(dd('Ostatnia aktualizacja')).toBe('niedostępne')
+    expect(dd('Odzyskane miejsce przy sprzątaniu')).toBe('niedostępne')
+  })
+
   it('błąd z możliwością ponowienia', async () => {
-    const fetchFn = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(json(500, {}))
-      .mockResolvedValueOnce(json(200, HEALTH))
+    let healthCalls = 0
+    const fetchFn = vi.fn<typeof fetch>((input) => {
+      if (String(input).startsWith('/api/system/updates')) return Promise.resolve(json(200, UPDATES))
+      healthCalls += 1
+      return Promise.resolve(healthCalls === 1 ? json(500, {}) : json(200, HEALTH))
+    })
     renderPage(fetchFn)
     await userEvent.click(await screen.findByRole('button', { name: 'Spróbuj ponownie' }))
     expect(await screen.findByText('Ostrzeżenie')).toBeTruthy()

@@ -1037,6 +1037,8 @@ FROM_REQUEST=0
 # Przyczyna błędu dla UI — tylko z zamkniętego zbioru (LOW_DISK) i liczby po walidacji.
 UPDATE_REASON=""
 UPDATE_FREE_MB=""
+# MB odzyskane przy sprzątaniu po udanej aktualizacji (raport w pliku stanu i w UI).
+UPDATE_RECLAIMED_MB=""
 
 json_version() {
 	if [[ "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then printf '"%s"' "$1"; else printf 'null'; fi
@@ -1047,6 +1049,11 @@ json_reason() {
 		printf '"reason":"LOW_DISK","free_mb":%s,"required_mb":%s' "$UPDATE_FREE_MB" "$MIN_DISK_MB"
 	else
 		printf '"reason":null,"free_mb":null,"required_mb":null'
+	fi
+	if [[ "$UPDATE_RECLAIMED_MB" =~ ^[0-9]+$ ]]; then
+		printf ',"reclaimed_mb":%s' "$UPDATE_RECLAIMED_MB"
+	else
+		printf ',"reclaimed_mb":null'
 	fi
 }
 
@@ -1213,8 +1220,9 @@ cleanup_after_update() {
 	docker image prune -f --filter "label=$PRODUCT_LABEL" >/dev/null 2>&1 || true
 	docker builder prune -f --filter until=168h >/dev/null 2>&1 || true
 	after="$(update_free_mb)"
+	UPDATE_RECLAIMED_MB="$(reclaimed_mb "$before" "$after")"
 	say "Sprzątanie: usunięto starsze i osierocone obrazy aplikacji oraz cache budowania starszy niż 7 dni (poprzednia wersja zostaje)."
-	say "Sprzątanie: odzyskano $(reclaimed_mb "$before" "$after") MB (wolne w /var/lib: $before → $after MB)."
+	say "Sprzątanie: odzyskano $UPDATE_RECLAIMED_MB MB (wolne w /var/lib: $before → $after MB)."
 	log_line "sprzątanie: wolne $before → $after MB"
 }
 

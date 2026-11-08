@@ -2,13 +2,17 @@ import type { ReactNode } from 'react'
 import { assignLocation, loginUrl } from '../api/auth'
 import type { ComponentState, HealthLevel, SystemHealth } from '../api/system'
 import { getSystemHealth } from '../api/system'
+import type { UpdateJob } from '../api/updates'
+import { getUpdates } from '../api/updates'
 import { Panel } from '../components/Panel'
 import { WidgetState } from '../components/WidgetState'
 import { usePeriodic } from '../hooks/usePeriodic'
 import { MISSING, formatBytes, formatDateTime, formatNumber, formatQuantity, formatUptime } from '../lib/format'
+import { JOB_STATE_TEXT } from '../lib/updates'
 import styles from './ServerHealthPage.module.css'
 import { ServerHistory } from './ServerHistory'
 import { SystemAlarmsPanel } from './SystemAlarmsPanel'
+import { versionsText } from './UpdatesPanel'
 
 /** Pomiar w workerze jest co 60 s (D60) — częściej nie ma czego odświeżać. */
 export const HEALTH_REFRESH_MS = 60_000
@@ -30,7 +34,21 @@ const UNAVAILABLE = 'niedostępne'
 
 class SessionExpired extends Error {}
 
-type PageData = { kind: 'ok'; data: SystemHealth } | { kind: 'forbidden' }
+/** Ostatnia aktualizacja z pliku stanu skryptu; `unavailable` — nie udało się jej odczytać. */
+type LastUpdate = UpdateJob | null | 'unavailable'
+
+type PageData = { kind: 'ok'; data: SystemHealth; lastUpdate: LastUpdate } | { kind: 'forbidden' }
+
+/** Wynik ostatniej aktualizacji i odzyskane miejsce (D17) — wiersze „Szczegółów systemu”. */
+export function lastUpdateRows(last: LastUpdate, timeZone: string): { update: string; reclaimed: string } {
+  if (last === 'unavailable') return { update: UNAVAILABLE, reclaimed: UNAVAILABLE }
+  if (last === null) return { update: 'brak zapisu', reclaimed: UNAVAILABLE }
+  const when = formatDateTime(last.finishedAt ?? last.startedAt, timeZone)
+  const update = `${versionsText(last).trim() || 'wersja nieznana'}, ${when}: ${JOB_STATE_TEXT[last.state]}`
+  const reclaimed =
+    last.state === 'SUCCESS' && last.reclaimedMb !== null ? `${formatNumber(last.reclaimedMb, 0)} MB` : UNAVAILABLE
+  return { update, reclaimed }
+}
 
 /** Czas serwera prezentujemy w strefie przeglądarki — nie należy do żadnej instalacji. */
 export function browserTimeZone(): string {
@@ -99,14 +117,17 @@ function HealthView({
   failed,
   timeZone,
   alarms,
+  lastUpdate,
 }: {
   health: SystemHealth
   failed: boolean
   timeZone: string
+  lastUpdate: LastUpdate
   /** Panel alarmów serwera — obok oceny (na wąskim ekranie pod nią). */
   alarms: ReactNode
 }) {
   const m = health.metrics
+  const updateRows = lastUpdateRows(lastUpdate, timeZone)
   const time = (iso: string | null): string => (iso === null ? MISSING : formatDateTime(iso, timeZone))
   const staleNotice = health.stale
     ? 'Ocena jest nieaktualna — usługa obliczeń (worker) nie zapisała nowej oceny. Poniższe wartości mogą być stare.'
@@ -219,6 +240,8 @@ function HealthView({
             <Row label="Niedobór napięcia" value={undervoltageText(m.undervoltage_now)} />
             <Row label="Czas pracy hosta" value={shown(formatUptime(m.uptime_s))} />
             <Row label="Czas serwera" value={time(health.serverTime)} />
+            <Row label="Ostatnia aktualizacja" value={updateRows.update} />
+            <Row label="Odzyskane miejsce przy sprzątaniu" value={updateRows.reclaimed} />
           </dl>
         </Panel>
       </div>
@@ -239,13 +262,16 @@ export function ServerHealthPage({
   const { state, reload } = usePeriodic<PageData>(
     'server-health',
     async (_now, signal) => {
-      const result = await getSystemHealth(fetchFn, signal)
+      const [result, updates] = await Promise.all([getSystemHealth(fetchFn, signal), getUpdates(fetchFn, signal)])
       if (result.kind === 'anonymous') {
         navigate(loginUrl('expired'))
         throw new SessionExpired()
       }
       if (result.kind === 'error') throw new Error('health')
-      return result
+      if (result.kind === 'forbidden') return result
+      // Brak danych o aktualizacji nie blokuje strony — wiersze pokazują „niedostępne”.
+      const lastUpdate: LastUpdate = updates.kind === 'ok' ? updates.data.install.last : 'unavailable'
+      return { ...result, lastUpdate }
     },
     HEALTH_REFRESH_MS,
   )
@@ -263,6 +289,7 @@ export function ServerHealthPage({
     <div className={styles.page}>
       <HealthView
         health={state.data.data}
+        lastUpdate={state.data.lastUpdate}
         failed={state.failed}
         timeZone={timeZone}
         alarms={<SystemAlarmsPanel fetchFn={fetchFn} onExpired={() => navigate(loginUrl('expired'))} timeZone={timeZone} />}
