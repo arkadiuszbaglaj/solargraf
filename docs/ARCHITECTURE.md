@@ -170,7 +170,7 @@ API (D63, tylko OWNER, zmiany z CSRF):
 
 UI (P7.3b): panel „Aktualizacje” na stronie Ustawienia → Stan serwera i baner nad treścią każdej strony — oba tylko dla roli OWNER (jak API). Ukrycie zwykłej wersji zapisuje serwer (dla wszystkich właścicieli); odłożenie wersji z poprawkami bezpieczeństwa trzyma przeglądarka w `sessionStorage` do zamknięcia karty albo wylogowania.
 
-Wydanie: `tools/release.py version X.Y.Z` (wersja we wszystkich pakietach), tag `vX.Y.Z`, `tools/release.py manifest --key …` i dołączenie `manifest.json` oraz `manifest.json.sig` do wydania na GitHubie.
+Wydanie (D67): PR z `tools/release.py version X.Y.Z` (wersja we wszystkich pakietach) i sekcją `## X.Y.Z` w `CHANGELOG.md`. Po merge do `main` workflow `.github/workflows/release.yml` sam tworzy tag `vX.Y.Z`, podpisuje manifest kluczem z sekretu repozytorium `RELEASE_SIGNING_KEY` (`tools/release.py manifest --key-env`), sprawdza podpis kluczem wbudowanym w aplikację (`tools/release.py verify`) i publikuje wydanie z `manifest.json` i `manifest.json.sig`. Istniejące wydanie nie jest nadpisywane. Ręczny podpis (`--key PLIK`) zostaje jako zapasowy.
 
 ## Monitor serwera
 
