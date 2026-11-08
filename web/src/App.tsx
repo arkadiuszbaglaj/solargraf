@@ -6,6 +6,7 @@ import { useNow } from './hooks/useNow'
 import { ClockSkewBanner } from './layout/ClockSkewBanner'
 import { Sidebar } from './layout/Sidebar'
 import { Topbar } from './layout/Topbar'
+import { UpdateBanner } from './layout/UpdateBanner'
 import type { Page } from './layout/Sidebar'
 import { DashboardPage } from './pages/DashboardPage'
 import { DeviceHistoryPage } from './pages/DeviceHistoryPage'
@@ -58,6 +59,7 @@ export function App({
           menuId={menuId}
         />
         {source.origin === 'DEMO' ? null : <ClockSkewBanner />}
+        {source.origin === 'DEMO' ? null : <UpdateBanner />}
         <main id="main" className={styles.main} tabIndex={-1}>
           {page === 'sites' ? (
             <SitesPage />

@@ -6,11 +6,11 @@ import { DataSourceProvider } from './data/DataSourceContext'
 import { DemoDataSource } from './data/demo/DemoDataSource'
 import { LoginPage } from './pages/LoginPage'
 import { SetupPage, takeTokenFromLocation } from './pages/SetupPage'
+import { SERVER_HEALTH_PATH } from './paths'
 
 export type Route = 'setup' | 'login' | 'sites' | 'devices' | 'history' | 'server' | 'app'
 
-/** Ustawienia → Stan serwera (D60). */
-export const SERVER_HEALTH_PATH = '/ustawienia/serwer'
+export { SERVER_HEALTH_PATH }
 
 const DEVICES_PATH = /^\/instalacje\/([0-9a-f-]{36})\/urzadzenia\/?$/i
 

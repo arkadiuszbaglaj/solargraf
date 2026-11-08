@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { Session, SessionResult } from '../api/auth'
 import { assignLocation, getSession, loginUrl, logout as postLogout } from '../api/auth'
 import { WidgetState } from '../components/WidgetState'
+import { clearPostponed } from '../lib/updates'
 import { SessionProvider } from './SessionContext'
 
 /** Co ile sprawdzamy, czy sesja nadal jest ważna (24 h bezczynności, 14 dni bezwzględnie — D30). */
@@ -90,6 +91,7 @@ export function AuthGate({
   const session = state.session
   const logout = () => {
     setLoggingOut(true)
+    clearPostponed()
     void postLogout(session.csrfToken, fetchFn).then(() => navigate('/login'))
   }
   return <SessionProvider value={{ session, logout, loggingOut }}>{children}</SessionProvider>

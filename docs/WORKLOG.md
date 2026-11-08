@@ -323,6 +323,14 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: brak klucza właściciela — do jego wygenerowania sprawdzanie jest wyłączone (NOT_CONFIGURED); pobieranie z GitHuba (przekierowania) nie sprawdzone na żywo.
 - Następne małe zadanie: klucz podpisu właściciela, P7.3b — UI.
 
+- Data: 2026-11-08
+- Etap: P7.3 — klucz podpisu i UI aktualizacji (P7.3b, D63)
+- Zmiany: klucz podpisu wygenerowany przez właściciela (`tools/release.py keygen`, plik poza repozytorium), klucz publiczny w `updates/release_key.py` — sprawdzanie aktywne. Web: klient `api/updates.ts` z walidacją; panel „Aktualizacje” w Stanie serwera (wersja, daty i wynik sprawdzenia, dostępna wersja z opisem i odnośnikiem, przełącznik automatycznego sprawdzania, przycisk „Sprawdź aktualizacje”); baner dla OWNER (zwykła wersja — ukrycie na serwerze, wersja z poprawkami bezpieczeństwa — odłożenie do wylogowania/zamknięcia karty).
+- Testy uruchomione i wyniki: web — lint, tsc, vitest 276 passed; podgląd z atrapą API (SIMULATED) na komputerze i telefonie.
+- Decyzje zatwierdzone: brak nowych.
+- Ryzyka / rzeczy nieweryfikowane: do pierwszego wydania (tag `v0.1.0` + manifest) sprawdzenie kończy się błędem NETWORK — bez alarmu; pobieranie z GitHuba nie sprawdzone na żywo.
+- Następne małe zadanie: pierwsze wydanie `v0.1.0` z podpisanym manifestem (za zgodą właściciela).
+
 ## Szablon kolejnego wpisu
 
 - Data:
@@ -333,4 +341,3 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane:
 - Następne małe zadanie:
 
-- 2026-11-08: klucz podpisu wydań wygenerowany przez właściciela (`tools/release.py keygen`, plik poza repozytorium); klucz publiczny w `updates/release_key.py` — sprawdzanie aktualizacji aktywne. Do pierwszego wydania (tag `v0.1.0` + manifest) sprawdzenie kończy się błędem NETWORK (brak pliku w wydaniach), co nie jest alarmem.

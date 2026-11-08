@@ -87,10 +87,28 @@ const METRICS = {
 
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status })
 
-/** Atrapa API: odpowiedź zależna od adresu (stan albo historia). */
+// Stan aktualizacji bez nowej wersji (szczegóły — UpdatesPanel.test.tsx).
+const UPDATES = {
+  current_version: '0.1.0',
+  configured: true,
+  automatic: true,
+  last_checked_at: '2026-11-07T11:00:00Z',
+  last_success_at: '2026-11-07T11:00:00Z',
+  last_error: null,
+  next_check_at: '2026-11-14T11:00:00Z',
+  available: null,
+  dismissed: false,
+}
+
+/** Atrapa API: odpowiedź zależna od adresu (stan, historia albo aktualizacje). */
 const routes = (health: [number, unknown], metrics: [number, unknown] = [200, METRICS]) =>
   vi.fn<typeof fetch>((input) => {
-    const [status, body] = String(input).startsWith('/api/system/metrics') ? metrics : health
+    const url = String(input)
+    const [status, body] = url.startsWith('/api/system/metrics')
+      ? metrics
+      : url.startsWith('/api/system/updates')
+        ? [health[0], UPDATES]
+        : health
     return Promise.resolve(json(status, body))
   })
 const fetchReturning = (status: number, body: unknown = {}) =>
