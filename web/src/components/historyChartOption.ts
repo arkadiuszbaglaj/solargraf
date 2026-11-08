@@ -13,6 +13,9 @@ export function displayUnit(unit: string): { unit: string; factor: number; digit
   if (unit === 'Wh') return { unit: 'kWh', factor: 1 / 1000, digits: 1 }
   if (unit === 'Hz') return { unit, factor: 1, digits: 2 }
   if (unit === '%') return { unit, factor: 1, digits: 0 }
+  // Kody jednostek z katalogu metryk (API) → zapis dla ludzi.
+  if (unit === 'degC') return { unit: '°C', factor: 1, digits: 1 }
+  if (unit === 'count') return { unit: '', factor: 1, digits: 0 }
   return { unit, factor: 1, digits: 1 }
 }
 
@@ -23,6 +26,7 @@ export function formatValue(value: number | null, unit: string): string {
     minimumFractionDigits: d.digits,
     maximumFractionDigits: d.digits,
   }).format(value * d.factor)
+  if (d.unit === '') return text
   return d.unit === '%' ? `${text}%` : `${text} ${d.unit}`
 }
 

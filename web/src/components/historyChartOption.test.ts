@@ -44,6 +44,8 @@ describe('wykres historii (D47)', () => {
     expect(formatValue(123456, 'Wh')).toBe('123,5 kWh')
     expect(formatValue(230.04, 'V')).toBe('230,0 V')
     expect(formatValue(null, 'W')).toBe('—')
+    expect(formatValue(25, 'degC')).toBe('25,0 °C')
+    expect(formatValue(312, 'count')).toBe('312')
   })
 
   it('podpowiedź pokazuje min, max i pokrycie', () => {
