@@ -1,44 +1,96 @@
 .card {
   display: flex;
-  gap: var(--space-3);
+  flex-direction: column;
+  gap: var(--space-2);
   padding: var(--space-4);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
   min-width: 0;
+  height: 100%;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* Ikona w przyciemnionym kółku koloru akcentu — spójny znak rozpoznawczy kart. */
+.iconWrap {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
 }
 
 .icon {
-  flex: none;
   color: var(--color-accent);
-}
-
-.body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
 }
 
 .label {
   font-size: var(--font-size-sm);
   font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+/* Telefon: dwie karty w rzędzie — mniejsza etykieta, by długie słowa mieściły się w całości. */
+@media (max-width: 599px) {
+  .card {
+    padding: var(--space-3);
+  }
+
+  .label {
+    font-size: var(--font-size-xs);
+    letter-spacing: 0;
+  }
+
+  .value {
+    font-size: var(--font-size-lg);
+  }
 }
 
 .value {
   font-size: var(--font-size-xl);
-  font-weight: 650;
+  font-weight: 700;
+  line-height: 1.15;
   font-variant-numeric: tabular-nums;
 }
 
 .detail {
   font-size: var(--font-size-sm);
   color: var(--color-accent);
+  font-weight: 600;
 }
 
 .secondary {
   font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* Wiek odczytu zawsze na dole karty — karty w rzędzie mają równą wysokość i wyrównaną stopkę. */
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  margin-top: auto;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+
+.age {
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
 

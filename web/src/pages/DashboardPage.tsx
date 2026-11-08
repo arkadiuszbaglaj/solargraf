@@ -37,23 +37,24 @@ function LiveDashboard({ site }: { site: Site }) {
   return (
     <div className={styles.page}>
       <LiveKpiRow live={live} today={today} />
-      {/* Szczegóły pod przepływem i wykresem, obok kolumny urządzeń i alarmów (bez pustego pasa). */}
-      <div className={`${styles.grid} ${styles.withFlow}`}>
-        <div className={styles.main}>
-          <div className={styles.mainTop}>
-            <div className={styles.flow}>
-              <EnergyFlowPanel live={live} />
-            </div>
-            <div className={styles.chart}>
-              <TodayPowerChart siteId={site.id} timeZone={site.timezone} />
-            </div>
-          </div>
-          <div className={styles.details}>
-            <SiteDetailsPanels live={live} siteId={site.id} timeZone={site.timezone} today={today} />
-          </div>
+      {/*
+        Siatka 12 kolumn: przepływ | wykres dnia | urządzenia, niżej szczegóły | alarmy.
+        Panele w jednym rzędzie mają równą wysokość — bez pustych pól między kolumnami.
+      */}
+      <div className={styles.layout}>
+        <div className={`${styles.cell} ${styles.flowCell}`}>
+          <EnergyFlowPanel live={live} />
         </div>
-        <div className={styles.side}>
+        <div className={`${styles.cell} ${styles.chartCell}`}>
+          <TodayPowerChart siteId={site.id} timeZone={site.timezone} />
+        </div>
+        <div className={`${styles.cell} ${styles.devicesCell}`}>
           <SiteDevicesPanel siteId={site.id} />
+        </div>
+        <div className={styles.detailsCell}>
+          <SiteDetailsPanels live={live} siteId={site.id} timeZone={site.timezone} today={today} />
+        </div>
+        <div className={`${styles.cell} ${styles.alarmsCell}`}>
           <SiteAlarmsPanel siteId={site.id} timeZone={site.timezone} />
         </div>
       </div>

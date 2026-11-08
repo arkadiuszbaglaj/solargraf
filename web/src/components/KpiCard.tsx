@@ -29,17 +29,23 @@ export function KpiCard({
 }) {
   return (
     <article className={`${styles.card} ${stale ? styles.stale : ''}`}>
-      <Icon className={styles.icon} aria-hidden="true" size={22} />
-      <div className={styles.body}>
+      <header className={styles.header}>
+        <span className={styles.iconWrap} aria-hidden="true">
+          <Icon className={styles.icon} size={18} />
+        </span>
         <h3 className={styles.label}>{label}</h3>
-        <p className={styles.value}>{value}</p>
-        {unavailableReason ? <p className={styles.detail}>{unavailableReason}</p> : null}
-        {notice ? <p className={styles.notice}>{notice}</p> : null}
-        {detail ? <p className={styles.detail}>{detail}</p> : null}
-        {secondary ? <p className={styles.secondary}>{secondary}</p> : null}
-        {age ? <p className={styles.secondary}>{age}</p> : null}
-        {stale ? <p className={styles.staleText}>Wartość nieaktualna</p> : null}
-      </div>
+      </header>
+      <p className={styles.value}>{value}</p>
+      {unavailableReason ? <p className={styles.detail}>{unavailableReason}</p> : null}
+      {notice ? <p className={styles.notice}>{notice}</p> : null}
+      {detail ? <p className={styles.detail}>{detail}</p> : null}
+      {secondary ? <p className={styles.secondary}>{secondary}</p> : null}
+      {age || stale ? (
+        <footer className={styles.footer}>
+          {age ? <p className={styles.age}>{age}</p> : null}
+          {stale ? <p className={styles.staleText}>Wartość nieaktualna</p> : null}
+        </footer>
+      ) : null}
     </article>
   )
 }
