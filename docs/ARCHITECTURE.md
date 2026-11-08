@@ -252,7 +252,7 @@ Dla ostrożnych administratorów ta sama instalacja w wersji z weryfikacją: pob
 
 ## Aktualizacja i sprzątanie plików instalacyjnych
 
-Decyzja: `DECISIONS.md` D17; liczba zachowanych wersji: O12.
+Decyzja: `DECISIONS.md` D17; liczba zachowanych wersji: D73 (jedna poprzednia).
 
 Aktualizację wykonuje polecenie `update` narzędzia na hoście (sekcja wyżej), uruchamiane przez administratora (aplikacja w kontenerze tylko informuje o nowej wersji — D15). Kolejność:
 
