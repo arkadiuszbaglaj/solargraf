@@ -40,7 +40,7 @@ pytestmark = pytest.mark.skipif(
 SERVER_DIR = Path(__file__).resolve().parent.parent
 PASSWORD = "haslo-testowe-izolacji"
 TABLES = (
-    "update_status, system_metric_samples, system_components, system_status, "
+    "update_status, system_alarms, system_metric_samples, system_components, system_status, "
     "alarms, aggregates, aggregate_dirty, measurements, polling_runs, agent_batches, devices, "
     "connections, agents, "
     "membership_sites, sites, audit_events, auth_sessions, setup_tokens, memberships, users, "
@@ -867,6 +867,106 @@ class TestSystemMonitor:
         assert deleted["system_metric_samples"] == 1
         [(count,)] = _sql("SELECT count(*) FROM system_metric_samples")
         assert count == len(METRICS)  # bieżąca próbka zostaje
+
+
+# --- alarmy systemowe (P7.1d, D68) ---
+
+
+class _MemorySampler(HostSampler):
+    """Host testowy z zadaną zajętością RAM (%); inne metryki niedostępne (None)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.memory_percent: float | None = 50.0
+
+    def sample(self) -> dict[str, float | None]:
+        values: dict[str, float | None] = dict.fromkeys(METRICS)
+        if self.memory_percent is not None:
+            values["mem_total_bytes"] = 1000.0
+            values["mem_used_bytes"] = self.memory_percent * 10
+        return values
+
+
+def _system_alarms() -> list[tuple[object, ...]]:
+    return _sql("SELECT code, severity, closed_at IS NULL FROM system_alarms ORDER BY opened_at")
+
+
+class TestSystemAlarms:
+    def test_alarm_follows_condition_with_hysteresis(self, world: World) -> None:
+        sampler = _MemorySampler()
+        _monitor(sampler)
+        assert _system_alarms() == []
+        sampler.memory_percent = 95.0  # > 90% — warunek włącza się od razu
+        _monitor(sampler)
+        _monitor(sampler)  # kolejne wykrycie odświeża, nie dubluje
+        assert _system_alarms() == [("MEMORY_HIGH", "WARNING", True)]
+        sampler.memory_percent = None  # brak pomiaru nie zamyka
+        _monitor(sampler)
+        sampler.memory_percent = 50.0  # < 85% — zamknięcie po 2 pomiarach
+        _monitor(sampler)
+        assert _system_alarms() == [("MEMORY_HIGH", "WARNING", True)]
+        _monitor(sampler)
+        assert _system_alarms() == [("MEMORY_HIGH", "WARNING", False)]
+        sampler.memory_percent = 95.0  # ponowne wystąpienie — nowy alarm
+        _monitor(sampler)
+        assert _system_alarms() == [
+            ("MEMORY_HIGH", "WARNING", False),
+            ("MEMORY_HIGH", "WARNING", True),
+        ]
+
+    def test_owner_lists_and_acknowledges(self, world: World, as_user: AsUser) -> None:
+        sampler = _MemorySampler()
+        sampler.memory_percent = 95.0
+        _monitor(sampler)
+        owner, csrf = as_user("owner_a")
+        body = owner.get("/api/system/alarms").json()
+        assert body["worker_stale"] is False
+        [alarm] = body["alarms"]
+        assert (alarm["code"], alarm["severity"], alarm["closed_at"]) == (
+            "MEMORY_HIGH",
+            "WARNING",
+            None,
+        )
+        assert alarm["acknowledged_at"] is None
+        url = f"/api/system/alarms/{alarm['id']}/acknowledge"
+        assert owner.post(url).status_code == 403  # bez CSRF
+        acked = owner.post(url, headers=_headers(csrf)).json()
+        assert acked["acknowledged_at"] is not None
+        assert acked["acknowledged_by"]
+        again = owner.post(url, headers=_headers(csrf)).json()
+        assert again["acknowledged_at"] == acked["acknowledged_at"]  # autor i czas bez zmian
+        actions = [r[0] for r in _sql("SELECT action FROM audit_events")]
+        assert actions.count("SYSTEM_ALARM_ACKNOWLEDGED") == 1
+        # Potwierdzenie nie zamyka alarmu.
+        assert _system_alarms() == [("MEMORY_HIGH", "WARNING", True)]
+        missing = f"/api/system/alarms/{uuid.uuid4()}/acknowledge"
+        assert owner.post(missing, headers=_headers(csrf)).status_code == 404
+        for user in ("admin_a", "scoped_viewer_a"):
+            c, user_csrf = as_user(user)
+            assert c.get("/api/system/alarms").status_code == 403
+            assert c.post(url, headers=_headers(user_csrf)).status_code == 403
+        with TestClient(create_app(Settings())) as anonymous:  # type: ignore[call-arg]
+            assert anonymous.get("/api/system/alarms").status_code == 401
+
+    def test_stale_worker_is_reported(self, world: World, as_user: AsUser) -> None:
+        _monitor(_MemorySampler())
+        _sql("UPDATE system_status SET evaluated_at = now() - interval '10 minutes'")
+        owner, _ = as_user("owner_a")
+        body = owner.get("/api/system/alarms").json()
+        assert body["worker_stale"] is True
+        assert body["worker_stale_since"] is not None
+
+    def test_retention_removes_only_old_closed(self, world: World) -> None:
+        _sql(
+            "INSERT INTO system_alarms (id, code, severity, message, opened_at, last_seen_at, "
+            "closed_at) VALUES "
+            "(gen_random_uuid(), 'DISK_HIGH', 'WARNING', 'stary', now() - interval '400 days', "
+            "now() - interval '400 days', now() - interval '399 days'), "
+            "(gen_random_uuid(), 'DISK_FULL', 'CRITICAL', 'otwarty', now() - interval '400 days', "
+            "now(), NULL)"
+        )
+        assert _retention(datetime.now(UTC))["system_alarms"] == 1
+        assert _sql("SELECT code FROM system_alarms") == [("DISK_FULL",)]
 
 
 # --- sprawdzanie aktualizacji (D63) ------------------------------------------------------

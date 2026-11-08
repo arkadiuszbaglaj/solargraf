@@ -26,6 +26,7 @@ from solargraf_server.models.system import (
     SystemStatus,
 )
 from solargraf_server.system import host
+from solargraf_server.system.alarms import sync_alarms
 from solargraf_server.system.stability import ComponentState, Evaluation, level_of
 
 log = logging.getLogger(__name__)
@@ -168,5 +169,7 @@ async def run_monitor(
         .values(id=STATUS_ROW_ID, **payload)
         .on_conflict_do_update(index_elements=["id"], set_=payload)
     )
+    # Alarmy systemowe (D68) w tej samej transakcji co ocena — zawsze zgodne z przyczynami.
+    await sync_alarms(db, reasons, now)
     await db.commit()
     return evaluation

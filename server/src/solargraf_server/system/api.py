@@ -7,19 +7,22 @@ niedostępny, a ocena za krytyczną (metryki są wtedy nieaktualne, nie zerowe).
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import ColumnElement, DateTime, Interval, exists, func, literal, select
+from sqlalchemy import ColumnElement, DateTime, Interval, case, exists, func, literal, or_, select
 from sqlalchemy.orm import InstrumentedAttribute
 
 from solargraf_server import __version__
+from solargraf_server.auth import service as auth_service
 from solargraf_server.auth.deps import AuthContext, DbSession, current_auth, require_csrf
-from solargraf_server.models import Membership, Role
+from solargraf_server.models import Membership, Role, User
 from solargraf_server.models.system import (
     STATUS_ROW_ID,
+    SystemAlarm,
     SystemComponent,
     SystemMetricSample,
     SystemStatus,
@@ -340,3 +343,108 @@ async def system_metrics(
         ),
         server_time=now,
     )
+
+
+# --- alarmy systemowe (P7.1d, D68) ------------------------------------------------------
+
+ALARMS_CLOSED_WINDOW = timedelta(days=7)
+ALARMS_LIMIT = 200
+ALARM_NOT_FOUND = "Nie znaleziono alarmu."
+
+
+class SystemAlarmOut(BaseModel):
+    id: uuid.UUID
+    code: str
+    severity: Severity
+    message: str
+    opened_at: datetime
+    last_seen_at: datetime
+    closed_at: datetime | None
+    acknowledged_at: datetime | None
+    # Nazwa wyświetlana potwierdzającego; bez e-maila.
+    acknowledged_by: str | None
+
+
+class SystemAlarmsOut(BaseModel):
+    alarms: list[SystemAlarmOut]
+    # True — worker nie mierzy (ocena starsza niż próg): lista może być nieaktualna.
+    worker_stale: bool
+    # Od kiedy brak oceny workera; None — ocena aktualna albo jeszcze nigdy nie mierzył.
+    worker_stale_since: datetime | None
+    server_time: datetime
+
+
+def _alarm_out(alarm: SystemAlarm, acknowledged_by: str | None) -> SystemAlarmOut:
+    return SystemAlarmOut(
+        id=alarm.id,
+        code=alarm.code,
+        severity=Severity(alarm.severity),
+        message=alarm.message,
+        opened_at=alarm.opened_at,
+        last_seen_at=alarm.last_seen_at,
+        closed_at=alarm.closed_at,
+        acknowledged_at=alarm.acknowledged_at,
+        acknowledged_by=acknowledged_by,
+    )
+
+
+@router.get("/alarms", response_model=SystemAlarmsOut)
+async def system_alarms(
+    db: DbSession, _: Annotated[AuthContext, Depends(require_owner)]
+) -> SystemAlarmsOut:
+    """Otwarte i zamknięte w ostatnich 7 dniach; kolejność jak alarmy instalacji (D55)."""
+    now = utcnow()
+    group = case(
+        (SystemAlarm.closed_at.is_(None) & SystemAlarm.acknowledged_at.is_(None), 0),
+        (SystemAlarm.closed_at.is_(None), 1),
+        else_=2,
+    )
+    rank = case((SystemAlarm.severity == Severity.CRITICAL.value, 0), else_=1)
+    rows = await db.execute(
+        select(SystemAlarm, User.display_name)
+        .outerjoin(User, User.id == SystemAlarm.acknowledged_by)
+        .where(
+            or_(
+                SystemAlarm.closed_at.is_(None),
+                SystemAlarm.closed_at >= now - ALARMS_CLOSED_WINDOW,
+            )
+        )
+        .order_by(group, rank, SystemAlarm.opened_at.desc(), SystemAlarm.id)
+        .limit(ALARMS_LIMIT)
+    )
+    status_row = await db.get(SystemStatus, STATUS_ROW_ID)
+    stale = status_row is not None and now - status_row.evaluated_at > STATUS_STALE_AFTER
+    return SystemAlarmsOut(
+        alarms=[_alarm_out(alarm, name) for alarm, name in rows.all()],
+        worker_stale=stale,
+        worker_stale_since=status_row.evaluated_at if stale and status_row else None,
+        server_time=now,
+    )
+
+
+@router.post("/alarms/{alarm_id}/acknowledge", response_model=SystemAlarmOut)
+async def acknowledge_system_alarm(
+    alarm_id: uuid.UUID,
+    db: DbSession,
+    auth: Annotated[AuthContext, Depends(require_owner_csrf)],
+) -> SystemAlarmOut:
+    """Potwierdzenie nie zamyka alarmu; ponowne nie zmienia autora. Wpis w audycie."""
+    alarm = await db.scalar(select(SystemAlarm).where(SystemAlarm.id == alarm_id).with_for_update())
+    if alarm is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, ALARM_NOT_FOUND)
+    if alarm.acknowledged_at is None:
+        alarm.acknowledged_at = utcnow()
+        alarm.acknowledged_by = auth.user.id
+        await auth_service.audit(
+            db,
+            "SYSTEM_ALARM_ACKNOWLEDGED",
+            user_id=auth.user.id,
+            target=f"system_alarm:{alarm.id}",
+        )
+        await db.commit()
+    name = (
+        await db.scalar(select(User.display_name).where(User.id == alarm.acknowledged_by))
+        if alarm.acknowledged_by is not None
+        else None
+    )
+    return _alarm_out(alarm, name)

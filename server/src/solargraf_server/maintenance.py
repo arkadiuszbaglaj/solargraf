@@ -167,6 +167,7 @@ _DELETES: dict[str, tuple[str, str]] = {
     "agent_batches": ("agent_batches", "received_at < :c"),
     "alarms": ("alarms", "closed_at IS NOT NULL AND closed_at < :c"),
     "system_metric_samples": ("system_metric_samples", "sampled_at < :c"),
+    "system_alarms": ("system_alarms", "closed_at IS NOT NULL AND closed_at < :c"),
 }
 
 
@@ -210,6 +211,8 @@ async def apply_retention(db: AsyncSession, now: datetime, policy: Retention) ->
     report.deleted["agent_batches"] = await _delete_batches(db, "agent_batches", runs_cutoff)
     alarms_cutoff = now - timedelta(days=policy.alarms_days)
     report.deleted["alarms"] = await _delete_batches(db, "alarms", alarms_cutoff)
+    # Zamknięte alarmy systemowe (D68) — ta sama retencja co alarmy instalacji; otwarte nigdy.
+    report.deleted["system_alarms"] = await _delete_batches(db, "system_alarms", alarms_cutoff)
     system_cutoff = now - timedelta(days=policy.system_days)
     report.deleted["system_metric_samples"] = await _delete_batches(
         db, "system_metric_samples", system_cutoff

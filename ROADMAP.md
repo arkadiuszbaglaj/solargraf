@@ -93,7 +93,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 - [ ] Instalator w wersji produkcyjnej (D18, O13, O14): podpis i suma kontrolna skryptu, obrazy z podpisanego manifestu, polecenia `update`, `backup`/`restore`, `logs`, tryb nieinteraktywny, paczka offline (do decyzji).
 - [ ] Aktualizacja z backupem przed migracją i rollbackiem.
 - [ ] Sprzątanie po udanej aktualizacji (D17, O12): stare obrazy aplikacji, osierocone warstwy, cache budowania, archiwa wydań; etykiety produktu na obrazach; `--dry-run`; raport odzyskanego miejsca.
-- [ ] Monitor serwera w Ustawieniach (D16, D60): [x] pomiar, stan składników, ocena stabilności i API (P7.1a); [x] strona „Stan serwera” (P7.1b); [x] historia i czas do zapełnienia dysku (P7.1c, D61); [ ] alarmy systemowe (P7.1d).
+- [x] Monitor serwera w Ustawieniach (D16, D60): [x] pomiar, stan składników, ocena stabilności i API (P7.1a); [x] strona „Stan serwera” (P7.1b); [x] historia i czas do zapełnienia dysku (P7.1c, D61); [x] alarmy systemowe (P7.1d, D68).
 - [ ] TLS w LAN (Caddy), instrukcja VPN.
 - [ ] Weryfikacja pliku licencji offline i limity (O5).
 - [x] Sprawdzanie aktualizacji (D15, D63): wersja 0.1.0 z jednego miejsca, podpisany manifest, sprawdzanie ręczne i co tydzień, API, narzędzie wydania (P7.3a); klucz podpisu właściciela; komunikat i ustawienia w UI (P7.3b); pierwsze wydanie `v0.1.0` z manifestem.

@@ -15,7 +15,12 @@ from solargraf_server.models.devices import (
 )
 from solargraf_server.models.orgs import Membership, Organization, Role, User
 from solargraf_server.models.sites import DEFAULT_TIMEZONE, MembershipSite, Site
-from solargraf_server.models.system import SystemComponent, SystemMetricSample, SystemStatus
+from solargraf_server.models.system import (
+    SystemAlarm,
+    SystemComponent,
+    SystemMetricSample,
+    SystemStatus,
+)
 from solargraf_server.models.telemetry import (
     NO_CHANNEL,
     AgentBatch,
@@ -61,6 +66,7 @@ __all__ = [
     "RunResult",
     "SetupToken",
     "Site",
+    "SystemAlarm",
     "SystemComponent",
     "SystemMetricSample",
     "SystemStatus",
