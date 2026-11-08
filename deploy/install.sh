@@ -636,7 +636,8 @@ cmd_status() {
 		say "Symulator (SIMULATED): wyłączony"
 	fi
 	local last
-	last="$(find "$(backup_dir)" -maxdepth 1 -type f -name "$PRODUCT-backup-*.tar.gz" 2>/dev/null | sort | tail -n1)"
+	# Katalog kopii może jeszcze nie istnieć — to nie błąd.
+	last="$(find "$(backup_dir)" -maxdepth 1 -type f -name "$PRODUCT-backup-*.tar.gz" 2>/dev/null | sort | tail -n1 || true)"
 	say "Ostatnia kopia: ${last:-brak}"
 	if have systemctl && systemctl is-enabled --quiet "$TIMER_UNIT.timer" 2>/dev/null; then
 		say "Kopia automatyczna: włączona (codziennie o 3:00)"
