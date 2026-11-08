@@ -395,6 +395,14 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: tag `v0.3.0`, podpisany manifest i instalacja z przycisku na serwerze testowym czekają na właściciela (klucz prywatny).
 - Następne małe zadanie: podpisany manifest i wydanie `v0.3.0`, aktualizacja serwera testowego przyciskiem w aplikacji.
 
+- Data: 2026-11-08
+- Etap: automatyczne wydanie (D67)
+- Zmiany: workflow `.github/workflows/release.yml` (tag, podpis manifestu kluczem z sekretu `RELEASE_SIGNING_KEY`, weryfikacja kluczem aplikacji, publikacja wydania; bez nadpisywania istniejących). `tools/release.py`: `manifest --key-env`, opis z `CHANGELOG.md` (nowy plik), polecenia `verify` i `notes`.
+- Testy uruchomione i wyniki: pytest 409 passed (111 skipped bez bazy), ruff, mypy --strict — zielone lokalnie; workflow wydania uruchomi się dopiero z sekretem.
+- Decyzje zatwierdzone: D67 (wariant A, zmienia D63) — właściciel 2026-11-08.
+- Ryzyka / rzeczy nieweryfikowane: pierwsze uruchomienie workflow (v0.3.0) po dodaniu sekretu przez właściciela.
+- Następne małe zadanie: sekret `RELEASE_SIGNING_KEY`, ręczne uruchomienie workflow → `v0.3.0`, instalacja przyciskiem na serwerze testowym.
+
 ## Szablon kolejnego wpisu
 
 - Data:

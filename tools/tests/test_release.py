@@ -46,3 +46,68 @@ def test_signed_manifest_verifies_with_server_code(tmp_path: Path) -> None:
 def test_invalid_version_is_refused() -> None:
     with pytest.raises(SystemExit, match="MAJOR"):
         release.set_version("1.0")
+
+
+CHANGELOG_SAMPLE = """# Zmiany
+
+Wstęp.
+
+## 0.3.0
+
+- Wykresy.
+- Luki.
+
+## 0.2.0 (2026-11-08)
+
+- Przepływ.
+"""
+
+
+def test_changelog_notes_take_only_the_version_section() -> None:
+    assert release.changelog_notes("0.3.0", CHANGELOG_SAMPLE) == "- Wykresy.\n- Luki."
+    assert release.changelog_notes("0.2.0", CHANGELOG_SAMPLE) == "- Przepływ."
+    with pytest.raises(SystemExit, match=r"Brak opisu wersji 0\.4\.0"):
+        release.changelog_notes("0.4.0", CHANGELOG_SAMPLE)
+    with pytest.raises(SystemExit, match="ponad 2000"):
+        release.changelog_notes("0.3.0", "## 0.3.0\n" + "x" * 2001)
+
+
+def test_changelog_describes_current_version() -> None:
+    """Workflow wydania (D67) nie opublikuje wersji bez opisu — pilnujemy tego w PR."""
+    assert release.changelog_notes(release.read_versions()[release.SOURCE])
+
+
+def test_key_from_environment_signs_verifiable_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    public = release.keygen(tmp_path / "klucz.pem")
+    # Sekret w CI bywa wklejony bez końcowej nowej linii albo z CRLF.
+    pem = (tmp_path / "klucz.pem").read_text().strip().replace("\n", "\r\n")
+    monkeypatch.setenv("TEST_SIGNING_KEY", pem)
+    release.sign_manifest(
+        release.load_private_key_env("TEST_SIGNING_KEY"),
+        version="0.3.0",
+        min_upgrade_from="0.1.0",
+        notes="Test.",
+        info_url="https://example.com/wydanie",
+        security=False,
+        released_at=datetime(2026, 12, 1, tzinfo=UTC),
+        out=tmp_path / "dist",
+    )
+    assert release.verify_release(tmp_path / "dist", "0.3.0", public).version == "0.3.0"
+    with pytest.raises(SystemExit, match=r"oczekiwano 0\.4\.0"):
+        release.verify_release(tmp_path / "dist", "0.4.0", public)
+    other = release.keygen(tmp_path / "inny.pem")
+    with pytest.raises(SystemExit, match="INVALID_SIGNATURE"):
+        release.verify_release(tmp_path / "dist", "0.3.0", other)
+    with pytest.raises(SystemExit, match="klucza publicznego"):
+        release.verify_release(tmp_path / "dist", "0.3.0", None)
+
+
+def test_missing_or_broken_key_in_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("TEST_SIGNING_KEY", raising=False)
+    with pytest.raises(SystemExit, match="Brak klucza podpisu"):
+        release.load_private_key_env("TEST_SIGNING_KEY")
+    monkeypatch.setenv("TEST_SIGNING_KEY", "nie-klucz")
+    with pytest.raises(SystemExit, match="Nie udało się odczytać"):
+        release.load_private_key_env("TEST_SIGNING_KEY")

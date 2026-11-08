@@ -1,0 +1,76 @@
+name: Wydanie
+
+# D67: po zmianie wersji w main publikuje wydanie vX.Y.Z z podpisanym manifestem (D63).
+# Klucz prywatny podpisu — sekret repozytorium RELEASE_SIGNING_KEY (PEM), tylko w kroku podpisu.
+# Istniejące wydanie nie jest nadpisywane. Ręcznie: Actions → Wydanie → Run workflow.
+on:
+  push:
+    branches: [main]
+    paths:
+      - server/src/solargraf_server/__init__.py
+  workflow_dispatch:
+
+# Akcje przypięte do SHA commita (komentarz = wersja), jak w ci.yml.
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Tag, podpisany manifest, wydanie
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.5"
+      - name: Instalacja zależności (lockfile)
+        run: uv sync --locked
+      - name: Wersja i czy wydanie już istnieje
+        id: version
+        run: |
+          uv run --frozen python tools/release.py version
+          version=$(uv run --frozen python -c "import solargraf_server; print(solargraf_server.__version__)")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if gh release view "v$version" > /dev/null 2>&1 || git ls-remote --exit-code --tags origin "refs/tags/v$version" > /dev/null; then
+            echo "Wydanie lub tag v$version już istnieje — pomijam."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Podpisany manifest
+        if: steps.version.outputs.exists == 'false'
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: >-
+          uv run --frozen python tools/release.py manifest
+          --key-env RELEASE_SIGNING_KEY
+          --info-url "https://github.com/${GITHUB_REPOSITORY}/releases/tag/v${VERSION}"
+          --out dist
+      - name: Weryfikacja podpisu kluczem wbudowanym w aplikację
+        if: steps.version.outputs.exists == 'false'
+        run: uv run --frozen python tools/release.py verify --dir dist
+      - name: Publikacja wydania
+        if: steps.version.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          {
+            echo "Wydanie ${VERSION} SolarGraf (nazwa robocza)."
+            echo
+            uv run --frozen python tools/release.py notes
+            echo
+            echo '`manifest.json` i `manifest.json.sig` (podpis Ed25519) służą aplikacji do sprawdzania nowej wersji (D63).'
+          } > release-notes.md
+          gh release create "v${VERSION}" dist/manifest.json dist/manifest.json.sig \
+            --target "${GITHUB_SHA}" --title "v${VERSION}" --notes-file release-notes.md --latest

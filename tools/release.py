@@ -3,7 +3,14 @@
     uv run python tools/release.py version            # bieżąca wersja i spójność plików
     uv run python tools/release.py version 0.2.0      # ustawia wersję we wszystkich pakietach
     uv run python tools/release.py keygen --out ŚCIEŻKA_POZA_REPOZYTORIUM
-    uv run python tools/release.py manifest --key KLUCZ --notes "…" --info-url https://… --out dist/
+    uv run python tools/release.py manifest --key KLUCZ --info-url https://… --out dist/
+    uv run python tools/release.py manifest --key-env RELEASE_SIGNING_KEY --info-url https://…
+    uv run python tools/release.py verify --dir dist/   # podpis kluczem wbudowanym w aplikację
+    uv run python tools/release.py notes                # opis bieżącej wersji z CHANGELOG.md
+
+Wydanie publikuje workflow `.github/workflows/release.yml` (D67) po zmianie wersji w `main`;
+klucz prywatny jest wtedy sekretem repozytorium i trafia do narzędzia tylko przez zmienną
+środowiskową (nigdy na dysk). Opis wydania i manifestu pochodzi z sekcji wersji w CHANGELOG.md.
 
 Źródłem wersji jest ``solargraf_server.__version__``; pozostałe pliki muszą mieć tę samą wartość
 (sprawdza to test). Klucz prywatny nigdy nie trafia do repozytorium ani na ekran.
@@ -22,10 +29,14 @@ from pathlib import Path
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+from solargraf_server.updates import manifest as mf
 from solargraf_server.updates.manifest import Manifest, manifest_json, parse_version
+from solargraf_server.updates.release_key import RELEASE_PUBLIC_KEY
 
 ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / "server/src/solargraf_server/__init__.py"
+CHANGELOG = ROOT / "CHANGELOG.md"
+NOTES_MAX = 2000  # jak ``Manifest.notes``
 # (plik, wzorzec z jedną grupą na numer wersji)
 VERSION_FILES: tuple[tuple[Path, str], ...] = (
     (SOURCE, r'^__version__ = "([^"]+)"$'),
@@ -88,10 +99,64 @@ def keygen(out: Path) -> str:
 
 
 def load_private_key(path: Path) -> Ed25519PrivateKey:
-    key = serialization.load_pem_private_key(path.read_bytes(), password=None)
+    return load_private_key_pem(path.read_bytes())
+
+
+def load_private_key_env(name: str) -> Ed25519PrivateKey:
+    """Klucz PEM ze zmiennej środowiskowej (sekret CI) — bez zapisu na dysk."""
+    pem = os.environ.get(name, "").strip()
+    if not pem:
+        raise SystemExit(f"Brak klucza podpisu w zmiennej {name} (sekret repozytorium).")
+    return load_private_key_pem(pem.encode() + b"\n")
+
+
+def load_private_key_pem(data: bytes) -> Ed25519PrivateKey:
+    try:
+        key = serialization.load_pem_private_key(data, password=None)
+    except (ValueError, TypeError):
+        raise SystemExit("Nie udało się odczytać klucza prywatnego (PEM bez hasła).") from None
     if not isinstance(key, Ed25519PrivateKey):
         raise SystemExit("To nie jest klucz Ed25519.")
     return key
+
+
+def changelog_notes(version: str, text: str | None = None) -> str:
+    """Treść sekcji ``## X.Y.Z`` z CHANGELOG.md (bez nagłówka), do następnej sekcji ``## ``."""
+    if text is None:
+        text = CHANGELOG.read_text(encoding="utf-8")
+    lines: list[str] | None = None
+    for line in text.splitlines():
+        if line.startswith("## "):
+            if lines is not None:
+                break
+            if line[3:].strip().split()[0:1] == [version]:
+                lines = []
+            continue
+        if lines is not None:
+            lines.append(line)
+    notes = "\n".join(lines or []).strip()
+    if not notes:
+        raise SystemExit(f"Brak opisu wersji {version} w CHANGELOG.md (sekcja „## {version}”).")
+    if len(notes) > NOTES_MAX:
+        raise SystemExit(f"Opis wersji {version} w CHANGELOG.md ma ponad {NOTES_MAX} znaków.")
+    return notes
+
+
+def verify_release(directory: Path, version: str, public_key: str | None) -> Manifest:
+    """Sprawdza manifest i podpis tak jak aplikacja (klucz wbudowany) oraz numer wersji."""
+    if public_key is None:
+        raise SystemExit("Aplikacja nie ma klucza publicznego — manifest nie zostałby przyjęty.")
+    try:
+        manifest = mf.verify(
+            (directory / "manifest.json").read_bytes(),
+            (directory / "manifest.json.sig").read_bytes(),
+            mf.load_public_key(public_key),
+        )
+    except mf.ManifestRejected as exc:
+        raise SystemExit(f"Manifest odrzucony: {exc.code.value}.") from None
+    if manifest.version != version:
+        raise SystemExit(f"Manifest ma wersję {manifest.version}, oczekiwano {version}.")
+    return manifest
 
 
 def sign_manifest(
@@ -134,12 +199,17 @@ def main(argv: list[str] | None = None) -> int:
     p_keygen = sub.add_parser("keygen", help="nowy klucz podpisu (tylko raz, poza repozytorium)")
     p_keygen.add_argument("--out", type=Path, required=True)
     p_manifest = sub.add_parser("manifest", help="podpisany manifest bieżącej wersji")
-    p_manifest.add_argument("--key", type=Path, required=True)
-    p_manifest.add_argument("--notes", required=True)
+    key_source = p_manifest.add_mutually_exclusive_group(required=True)
+    key_source.add_argument("--key", type=Path, help="plik PEM klucza prywatnego")
+    key_source.add_argument("--key-env", help="zmienna środowiskowa z kluczem PEM (CI)")
+    p_manifest.add_argument("--notes", help="domyślnie sekcja wersji z CHANGELOG.md")
     p_manifest.add_argument("--info-url", required=True)
     p_manifest.add_argument("--min-upgrade-from", default="0.1.0")
     p_manifest.add_argument("--security", action="store_true")
     p_manifest.add_argument("--out", type=Path, default=ROOT / "dist")
+    p_verify = sub.add_parser("verify", help="sprawdź podpisany manifest kluczem aplikacji")
+    p_verify.add_argument("--dir", type=Path, default=ROOT / "dist")
+    sub.add_parser("notes", help="opis bieżącej wersji z CHANGELOG.md")
     args = parser.parse_args(argv)
 
     if args.command == "version":
@@ -159,11 +229,19 @@ def main(argv: list[str] | None = None) -> int:
         print(public)
         return 0
     version = read_versions()[SOURCE]
+    if args.command == "notes":
+        print(changelog_notes(version))
+        return 0
+    if args.command == "verify":
+        verify_release(args.dir, version, RELEASE_PUBLIC_KEY)
+        print(f"Manifest {version}: podpis zgodny z kluczem aplikacji.")
+        return 0
+    key = load_private_key(args.key) if args.key else load_private_key_env(args.key_env)
     manifest_path, signature_path = sign_manifest(
-        load_private_key(args.key),
+        key,
         version=version,
         min_upgrade_from=args.min_upgrade_from,
-        notes=args.notes,
+        notes=args.notes if args.notes else changelog_notes(version),
         info_url=args.info_url,
         security=args.security,
         released_at=datetime.now(UTC).replace(microsecond=0),

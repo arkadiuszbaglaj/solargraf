@@ -1,7 +1,7 @@
 """Klucz publiczny podpisu manifestu wersji (D63): 32 bajty Ed25519 w base64.
 
-Klucz prywatny jest tylko u właściciela produktu (``tools/release.py keygen``) — nigdy
-w repozytorium.
+Klucz prywatny jest u właściciela produktu (``tools/release.py keygen``) i jako sekret repozytorium
+``RELEASE_SIGNING_KEY`` dla workflow wydania (D67) — nigdy w plikach repozytorium.
 ``None`` — klucz nie wygenerowany: aplikacja nie sprawdza aktualizacji (stan NOT_CONFIGURED)
 i nie wykonuje żadnych połączeń wychodzących w tym celu.
 Zmiana klucza oznacza, że instalacje ze starym kluczem odrzucą nowe manifesty — tylko po utracie
