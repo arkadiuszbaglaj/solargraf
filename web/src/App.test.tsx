@@ -81,6 +81,8 @@ describe('Dashboard (DEMO)', () => {
     await userEvent.tab()
     expect(document.activeElement?.getAttribute('href')).toBe('/wykresy')
     await userEvent.tab()
+    expect(document.activeElement?.getAttribute('href')).toBe('/urzadzenia')
+    await userEvent.tab()
     // Przycisk menu (widoczny na małych ekranach) i select instalacji są osiągalne z klawiatury.
     expect(document.activeElement?.getAttribute('aria-controls')).toBeTruthy()
     await userEvent.tab()
@@ -94,6 +96,7 @@ describe('Dashboard (DEMO)', () => {
       'Dashboard',
       'Instalacje',
       'Wykresy i historia',
+      'Urządzenia',
     ])
     expect(within(nav).getByText('Alarmy').closest('[aria-disabled="true"]')).toBeTruthy()
   })
@@ -108,6 +111,21 @@ describe('Dashboard (DEMO)', () => {
     const nav = screen.getByRole('navigation', { name: 'Główna nawigacja' })
     expect(within(nav).getByRole('link', { name: 'Wykresy i historia' }).getAttribute('aria-current')).toBe('page')
     expect(screen.getByRole('heading', { level: 1, name: 'Wykresy i historia' })).toBeTruthy()
+  })
+})
+
+describe('zakładka Urządzenia', () => {
+  it('w DEMO: aktywna pozycja menu, przełącznik instalacji i komunikat zamiast danych', async () => {
+    render(
+      <DataSourceProvider source={new DemoDataSource({ now: () => NOON, latencyMs: 0 })}>
+        <App now={NOON} page="devices" />
+      </DataSourceProvider>,
+    )
+    expect(await screen.findByText('Lista urządzeń wymaga serwera — niedostępna w trybie DEMO.')).toBeTruthy()
+    const nav = screen.getByRole('navigation', { name: 'Główna nawigacja' })
+    expect(within(nav).getByRole('link', { name: 'Urządzenia' }).getAttribute('aria-current')).toBe('page')
+    expect(screen.getByRole('heading', { level: 1, name: 'Urządzenia' })).toBeTruthy()
+    expect(screen.getByRole('combobox')).toBeTruthy()
   })
 })
 

@@ -8,6 +8,7 @@ import { useOptionalSession } from '../auth/SessionContext'
 import { Panel } from '../components/Panel'
 import { WidgetState } from '../components/WidgetState'
 import { useAsync } from '../hooks/useAsync'
+import { devicesUrl } from '../paths'
 import styles from './SitesPage.module.css'
 
 const ROLE_LABEL: Record<Role, string> = { OWNER: 'Właściciel', ADMIN: 'Administrator', VIEWER: 'Podgląd' }
@@ -70,7 +71,7 @@ export function SitesPage({
                     <td>{s.timezone}</td>
                     <td>{ROLE_LABEL[s.role]}</td>
                     <td>
-                      <a href={`/instalacje/${encodeURIComponent(s.id)}/urzadzenia`}>
+                      <a href={devicesUrl(s.id)}>
                         Urządzenia<span className="visually-hidden"> instalacji {s.name}</span>
                       </a>
                     </td>

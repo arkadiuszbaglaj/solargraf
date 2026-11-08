@@ -15,6 +15,7 @@ import { useAsync } from '../hooks/useAsync'
 import { type Period, rangeFor, shiftAnchor, today } from '../lib/historyRange'
 import { DeviceCsvExport } from './DeviceCsvExport'
 import { DeviceEnergyPanel, hasEnergySources } from './DeviceEnergyPanel'
+import { devicesUrl } from '../paths'
 import styles from './DeviceHistoryPage.module.css'
 
 // ECharts ładowany osobno — nie blokuje pierwszego renderu strony.
@@ -68,7 +69,7 @@ export function DeviceHistoryPage({
   if (state.data === null) return <WidgetState status={{ kind: 'empty', message: 'Nie znaleziono instalacji.' }} />
 
   const { site, device } = state.data
-  const back = `/instalacje/${encodeURIComponent(site.id)}/urzadzenia`
+  const back = devicesUrl(site.id, device?.id)
   return (
     <div className={styles.page}>
       <p>

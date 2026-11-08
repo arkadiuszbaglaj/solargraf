@@ -80,7 +80,17 @@ export function siteValue(
   const source = singleSource(devices, metric, channel)
   if (source.kind === 'none') return { kind: 'not-provided' }
   if (source.kind === 'many') return { kind: 'ambiguous', sources: source.count }
-  const { device } = source
+  return deviceValue(source.device, readings, metric, now, channel)
+}
+
+/** Ostatni odczyt metryki konkretnego urządzenia (lista urządzeń); te same reguły co `siteValue`. */
+export function deviceValue(
+  device: Pick<LiveDevice, 'id' | 'name' | 'freshnessThresholdSeconds'>,
+  readings: ReadingMap,
+  metric: string,
+  now: Date,
+  channel: number | null = null,
+): Extract<SiteValue, { kind: 'value' } | { kind: 'no-data' }> {
   const reading = readings.get(readingKey(device.id, metric, channel))
   if (!reading) return { kind: 'no-data', ageSeconds: null }
   // Zegar przeglądarki może się różnić od serwera — wiek nie bywa ujemny.

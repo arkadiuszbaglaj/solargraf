@@ -17,14 +17,16 @@ import { ServerHealthPage } from './pages/ServerHealthPage'
 import { SiteChartsPage } from './pages/SiteChartsPage'
 import { SitesPage } from './pages/SitesPage'
 import { UpdatesPage } from './pages/UpdatesPage'
+import { devicesUrl } from './paths'
 import styles from './App.module.css'
 
-type AppPage = Page | 'devices' | 'history' | 'updates'
+type AppPage = Page | 'history' | 'updates'
 
 /** Tytuł strony w pasku górnym; bez wpisu — dashboard z przełącznikiem instalacji. */
 const TOPBAR: Partial<Record<AppPage, { title: string; subtitle: string; showSiteSwitcher?: boolean }>> = {
   sites: { title: 'Instalacje', subtitle: 'Instalacje dostępne dla Twojego konta', showSiteSwitcher: false },
-  devices: { title: 'Urządzenia', subtitle: 'Urządzenia i połączenia instalacji', showSiteSwitcher: false },
+  // Urządzenia instalacji wybranej w przełączniku; adres niesie wybór (odświeżenie, linki).
+  devices: { title: 'Urządzenia', subtitle: 'Lista urządzeń i szczegółowe parametry' },
   history: { title: 'Historia', subtitle: 'Historia pomiarów urządzenia', showSiteSwitcher: false },
   // Wykresy instalacji (D66): instalację wybiera przełącznik w pasku górnym.
   charts: { title: 'Wykresy i historia', subtitle: 'Historia pomiarów instalacji' },
@@ -46,7 +48,7 @@ export function App({
   const tickingNow = useNow()
   const now = fixedNow ?? tickingNow
   const { state, reload } = useAsync((signal) => source.listSites(signal), [source])
-  const [selected, setSelected] = useState<string | null>(null)
+  const [selected, setSelected] = useState<string | null>(routeSiteId || null)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuId = useId()
 
@@ -58,13 +60,16 @@ export function App({
       <a className={styles.skip} href="#main">
         Przejdź do treści
       </a>
-      <Sidebar open={menuOpen} id={menuId} current={page === 'devices' || page === 'history' ? 'sites' : page === 'updates' ? 'server' : page} />
+      <Sidebar open={menuOpen} id={menuId} current={page === 'history' ? 'devices' : page === 'updates' ? 'server' : page} />
       <div className={styles.content}>
         <Topbar
           {...TOPBAR[page]}
           sites={sites}
           siteId={site?.id ?? ''}
-          onSiteChange={setSelected}
+          onSiteChange={(id) => {
+            setSelected(id)
+            if (page === 'devices') window.history.replaceState(null, '', devicesUrl(id))
+          }}
           now={now}
           origin={source.origin}
           menuOpen={menuOpen}
@@ -82,13 +87,19 @@ export function App({
               <SettingsTabs current={page} />
               {page === 'server' ? <ServerHealthPage /> : <UpdatesPage />}
             </>
-          ) : page === 'devices' ? (
-            <DevicesPage siteId={routeSiteId} />
           ) : page === 'history' ? (
             <DeviceHistoryPage siteId={routeSiteId} deviceId={routeDeviceId} now={now} />
           ) : state.status !== 'ready' ? (
             <WidgetState
               status={state.status === 'loading' ? { kind: 'loading' } : { kind: 'error', onRetry: reload }}
+            />
+          ) : site && page === 'devices' ? (
+            <DevicesPage
+              key={site.id}
+              siteId={site.id}
+              now={now}
+              origin={source.origin}
+              initialDeviceId={site.id === routeSiteId ? routeDeviceId : ''}
             />
           ) : site && page === 'charts' ? (
             <SiteChartsPage key={site.id} site={site} now={now} origin={source.origin} />
