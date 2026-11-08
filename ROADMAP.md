@@ -95,7 +95,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 - [ ] Monitor serwera w Ustawieniach (D16, D60): [x] pomiar, stan składników, ocena stabilności i API (P7.1a); [x] strona „Stan serwera” (P7.1b); [x] historia i czas do zapełnienia dysku (P7.1c, D61); [ ] alarmy systemowe (P7.1d).
 - [ ] TLS w LAN (Caddy), instrukcja VPN.
 - [ ] Weryfikacja pliku licencji offline i limity (O5).
-- [ ] Sprawdzanie aktualizacji (D15, D63): [x] wersja 0.1.0 z jednego miejsca, podpisany manifest, sprawdzanie ręczne i co tydzień, API, narzędzie wydania (P7.3a); [x] klucz podpisu właściciela; [x] komunikat i ustawienia w UI (P7.3b); [ ] pierwsze wydanie z manifestem.
+- [x] Sprawdzanie aktualizacji (D15, D63): wersja 0.1.0 z jednego miejsca, podpisany manifest, sprawdzanie ręczne i co tydzień, API, narzędzie wydania (P7.3a); klucz podpisu właściciela; komunikat i ustawienia w UI (P7.3b); pierwsze wydanie `v0.1.0` z manifestem.
 - [x] Backup/restore z testem odtworzenia (P7.2, D62).
 - [ ] Wymagania CRA: SBOM w wydaniu, polityka podatności, okres wsparcia (O9), dokumentacja techniczna.
 - [ ] Materiały RODO dla klientów; nazwa handlowa (O4).
