@@ -49,7 +49,7 @@ function LiveDashboard({ site }: { site: Site }) {
             </div>
           </div>
           <div className={styles.details}>
-            <SiteDetailsPanels live={live} />
+            <SiteDetailsPanels live={live} siteId={site.id} timeZone={site.timezone} today={today} />
           </div>
         </div>
         <div className={styles.side}>

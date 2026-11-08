@@ -25,8 +25,9 @@ export function wattHoursToKilowattHours(wattHours: number): number {
 /**
  * Formatuje wartość w jednostce kanonicznej do prezentacji.
  * W → kW (2 miejsca), Wh → kWh (1 miejsce); pozostałe jednostki bez konwersji.
+ * `voltDigits` — miejsca po przecinku dla V (np. 3 dla napięcia ogniwa); domyślnie 1.
  */
-export function formatQuantity(value: number | null, unit: Unit): string {
+export function formatQuantity(value: number | null, unit: Unit, voltDigits = 1): string {
   if (value === null || !Number.isFinite(value)) {
     return MISSING
   }
@@ -38,13 +39,15 @@ export function formatQuantity(value: number | null, unit: Unit): string {
     case '%':
       return `${number(value, 0)}%`
     case 'V':
-      return `${number(value, 1)} V`
+      return `${number(value, voltDigits)} V`
     case 'A':
       return `${number(value, 1)} A`
     case '°C':
       return `${number(value, 1)} °C`
     case 'Hz':
       return `${number(value, 2)} Hz`
+    case 'count':
+      return number(value, 0)
   }
 }
 

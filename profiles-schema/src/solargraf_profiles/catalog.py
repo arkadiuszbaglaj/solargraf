@@ -41,6 +41,8 @@ class Quantity(enum.StrEnum):
     FREQUENCY = "FREQUENCY"
     TEMPERATURE = "TEMPERATURE"
     RATIO = "RATIO"
+    # Liczba bezwymiarowa (np. cykle baterii).
+    COUNT = "COUNT"
 
 
 class Unit(enum.StrEnum):
@@ -54,6 +56,7 @@ class Unit(enum.StrEnum):
     HZ = "Hz"
     DEG_C = "degC"
     PERCENT = "%"
+    COUNT = "count"
 
 
 @dataclass(frozen=True)
@@ -74,6 +77,7 @@ UNITS: dict[Unit, UnitInfo] = {
     Unit.HZ: UnitInfo(Quantity.FREQUENCY, Decimal(1)),
     Unit.DEG_C: UnitInfo(Quantity.TEMPERATURE, Decimal(1)),
     Unit.PERCENT: UnitInfo(Quantity.RATIO, Decimal(1)),
+    Unit.COUNT: UnitInfo(Quantity.COUNT, Decimal(1)),
 }
 
 CANONICAL_UNIT: dict[Quantity, Unit] = {
@@ -84,6 +88,7 @@ CANONICAL_UNIT: dict[Quantity, Unit] = {
     Quantity.FREQUENCY: Unit.HZ,
     Quantity.TEMPERATURE: Unit.DEG_C,
     Quantity.RATIO: Unit.PERCENT,
+    Quantity.COUNT: Unit.COUNT,
 }
 
 
@@ -113,6 +118,7 @@ _METRICS = (
     MetricDefinition("pv_string_power", Quantity.POWER, "Moc stringu PV", channeled=True),
     MetricDefinition("pv_string_voltage", Quantity.VOLTAGE, "Napięcie stringu PV", channeled=True),
     MetricDefinition("pv_string_current", Quantity.CURRENT, "Prąd stringu PV", channeled=True),
+    MetricDefinition("pv_module_temperature", Quantity.TEMPERATURE, "Temperatura modułów PV"),
     MetricDefinition("pv_energy_total", Quantity.ENERGY, "Produkcja PV (licznik)", cumulative=True),
     MetricDefinition(
         "grid_power", Quantity.POWER, "Moc sieci", signed=True, sign_convention=_IMPORT
@@ -124,6 +130,7 @@ _METRICS = (
         "grid_export_energy_total", Quantity.ENERGY, "Eksport do sieci (licznik)", cumulative=True
     ),
     MetricDefinition("grid_voltage", Quantity.VOLTAGE, "Napięcie sieci", channeled=True),
+    MetricDefinition("grid_current", Quantity.CURRENT, "Prąd fazy sieci", channeled=True),
     MetricDefinition("grid_frequency", Quantity.FREQUENCY, "Częstotliwość sieci"),
     MetricDefinition("load_power", Quantity.POWER, "Moc zużycia domu"),
     MetricDefinition(
@@ -135,6 +142,16 @@ _METRICS = (
     MetricDefinition("battery_voltage", Quantity.VOLTAGE, "Napięcie baterii"),
     MetricDefinition("battery_soc", Quantity.RATIO, "Stan naładowania baterii"),
     MetricDefinition("battery_temperature", Quantity.TEMPERATURE, "Temperatura baterii"),
+    MetricDefinition("battery_capacity", Quantity.ENERGY, "Pojemność nominalna baterii"),
+    MetricDefinition("battery_cell_voltage_min", Quantity.VOLTAGE, "Najniższe napięcie ogniwa"),
+    MetricDefinition("battery_cell_voltage_max", Quantity.VOLTAGE, "Najwyższe napięcie ogniwa"),
+    MetricDefinition(
+        "battery_cell_temperature_min", Quantity.TEMPERATURE, "Najniższa temperatura ogniwa"
+    ),
+    MetricDefinition(
+        "battery_cell_temperature_max", Quantity.TEMPERATURE, "Najwyższa temperatura ogniwa"
+    ),
+    MetricDefinition("battery_cycle_count", Quantity.COUNT, "Liczba cykli baterii"),
     MetricDefinition(
         "battery_charge_energy_total",
         Quantity.ENERGY,

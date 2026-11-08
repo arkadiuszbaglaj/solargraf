@@ -42,3 +42,34 @@ points:
   - {metric: inverter_temperature, status: UNVERIFIED, source: simulator-map,
      register: {table: input, address: 12, type: s16}, scale: 0.1, unit: degC}
   - {metric: battery_temperature, status: UNSUPPORTED, source: simulator-map}
+  # Punkty paneli dashboardu (D69): prądy faz, BMS, temperatura modułów, pojemność.
+  - {metric: pv_module_temperature, status: UNVERIFIED, source: simulator-map,
+     register: {table: input, address: 13, type: s16}, scale: 0.1, unit: degC}
+  - {metric: grid_current, channel: 1, status: UNVERIFIED, source: simulator-map,
+     register: {table: input, address: 14, type: u16}, scale: 0.01, unit: A}
+  - {metric: grid_current, channel: 2, status: UNVERIFIED, source: simulator-map,
+     register: {table: input, address: 15, type: u16}, scale: 0.01, unit: A}
+  - {metric: grid_current, channel: 3, status: UNVERIFIED, source: simulator-map,
+     register: {table: input, address: 16, type: u16}, scale: 0.01, unit: A}
+  - {metric: battery_capacity, status: UNVERIFIED, source: simulator-map,
+     register: {table: input, address: 17, type: u16}, scale: 10, unit: Wh}
+  - {metric: battery_cell_voltage_min, status: UNVERIFIED, source: simulator-map,
+     register: {table: input, address: 18, type: u16}, scale: 0.001, unit: V}
+  - {metric: battery_cell_voltage_max, status: UNVERIFIED, source: simulator-map,
+     register: {table: input, address: 19, type: u16}, scale: 0.001, unit: V}
+  - {metric: battery_cell_temperature_min, status: UNVERIFIED, source: simulator-map,
+     register: {table: input, address: 20, type: s16}, scale: 0.1, unit: degC}
+  - {metric: battery_cell_temperature_max, status: UNVERIFIED, source: simulator-map,
+     register: {table: input, address: 21, type: s16}, scale: 0.1, unit: degC}
+  - {metric: battery_cycle_count, status: UNVERIFIED, source: simulator-map,
+     register: {table: input, address: 22, type: u16}, unit: count}
+  - {metric: grid_voltage, channel: 1, status: UNVERIFIED, source: simulator-map,
+     register: {table: input, address: 23, type: u16}, scale: 0.1, unit: V}
+  - {metric: grid_voltage, channel: 2, status: UNVERIFIED, source: simulator-map,
+     register: {table: input, address: 24, type: u16}, scale: 0.1, unit: V}
+  - {metric: grid_voltage, channel: 3, status: UNVERIFIED, source: simulator-map,
+     register: {table: input, address: 25, type: u16}, scale: 0.1, unit: V}
+  - {metric: battery_voltage, status: UNVERIFIED, source: simulator-map,
+     register: {table: input, address: 26, type: u16}, scale: 0.01, unit: V}
+  - {metric: battery_current, status: UNVERIFIED, source: simulator-map,
+     register: {table: input, address: 27, type: s16}, scale: 0.1, unit: A}

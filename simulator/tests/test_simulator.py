@@ -85,8 +85,8 @@ class TestRegisterMap:
     def test_gap_and_outside_profile_are_address_errors(self, profile: Profile) -> None:
         regs, metrics = RegisterMap(profile), Plant(PlantConfig(), now=NOON_UTC).metrics()
         for table, address, count in [
-            (RegisterTable.INPUT, 13, 1),  # za ostatnim punktem
-            (RegisterTable.INPUT, 12, 2),  # blok wychodzi poza mapę
+            (RegisterTable.INPUT, 28, 1),  # za ostatnim punktem
+            (RegisterTable.INPUT, 27, 2),  # blok wychodzi poza mapę
             (RegisterTable.HOLDING, 0, 1),  # profil nie używa holding
         ]:
             with pytest.raises(ModbusException) as exc:
@@ -103,7 +103,7 @@ class TestRegisterMap:
         metrics = Plant(PlantConfig(), now=NOON_UTC).metrics()
         metrics["load_power"] = Decimal(70_000)  # u16 W
         with pytest.raises(ModbusException) as exc:
-            RegisterMap(profile).read(metrics, RegisterTable.INPUT, 0, 13)
+            RegisterMap(profile).read(metrics, RegisterTable.INPUT, 0, 28)
         assert exc.value.code == ModbusException.SERVER_DEVICE_FAILURE
 
 
@@ -129,7 +129,7 @@ def run_with_client(profile: Profile, test: ClientTest, faults: Faults | None = 
 class TestServer:
     def test_reads_decode_to_model_values(self, profile: Profile) -> None:
         async def test(server: SimulatorServer, client: AsyncModbusTcpClient) -> None:
-            result = await client.read_input_registers(0, count=13, device_id=1)
+            result = await client.read_input_registers(0, count=28, device_id=1)
             assert not result.isError(), result
             words = result.registers
             expected = server.plant.metrics()
@@ -147,7 +147,7 @@ class TestServer:
 
     def test_errors_are_modbus_exceptions_not_zero(self, profile: Profile) -> None:
         async def test(server: SimulatorServer, client: AsyncModbusTcpClient) -> None:
-            outside = await client.read_input_registers(13, count=1, device_id=1)
+            outside = await client.read_input_registers(28, count=1, device_id=1)
             assert outside.isError()
             assert outside.exception_code == ModbusException.ILLEGAL_DATA_ADDRESS
             wrong_unit = await client.read_input_registers(0, count=1, device_id=7)

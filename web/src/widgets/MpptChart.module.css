@@ -1,0 +1,27 @@
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.voltage::before,
+.current::before {
+  content: '';
+  display: inline-block;
+  width: 0.9rem;
+  height: 3px;
+  margin-right: var(--space-1);
+  vertical-align: middle;
+  border-radius: 2px;
+}
+
+.voltage::before {
+  background: var(--chart-pv);
+}
+
+.current::before {
+  background: var(--chart-grid);
+}
