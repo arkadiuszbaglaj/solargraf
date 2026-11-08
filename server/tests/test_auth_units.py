@@ -136,6 +136,7 @@ def test_schema_compiles_for_postgresql_with_conventional_names() -> None:
         "system_metric_samples",
         "system_components",
         "system_status",
+        "system_alarms",
         "update_status",
     }
     assert "CONSTRAINT uq_users_email UNIQUE (email)" in ddl["users"]
@@ -145,6 +146,10 @@ def test_schema_compiles_for_postgresql_with_conventional_names() -> None:
     assert "CONSTRAINT ck_memberships_role CHECK" in ddl["memberships"]
     assert "CONSTRAINT ck_alarms_severity CHECK" in ddl["alarms"]
     assert "CONSTRAINT fk_alarms_site_id_sites FOREIGN KEY" in ddl["alarms"]
+    # Nazwy zgodne z migracją 0010.
+    assert "CONSTRAINT ck_system_alarms_severity CHECK" in ddl["system_alarms"]
+    assert "CONSTRAINT ck_system_alarms_closed_after_opened CHECK" in ddl["system_alarms"]
+    assert "CONSTRAINT fk_system_alarms_acknowledged_by_users FOREIGN KEY" in ddl["system_alarms"]
     assert "TIMESTAMP WITH TIME ZONE" in ddl["auth_sessions"]
     # Sesja nie przechowuje samego tokenu — tylko skrót.
     assert "token_hash" in ddl["auth_sessions"]

@@ -101,15 +101,23 @@ const UPDATES = {
   dismissed: false,
 }
 
-/** Atrapa API: odpowiedź zależna od adresu (stan, historia albo aktualizacje). */
-const routes = (health: [number, unknown], metrics: [number, unknown] = [200, METRICS]) =>
+const NO_ALARMS = { alarms: [], worker_stale: false, worker_stale_since: null, server_time: '2026-11-07T12:00:00Z' }
+
+/** Atrapa API: odpowiedź zależna od adresu (stan, historia, alarmy albo aktualizacje). */
+const routes = (
+  health: [number, unknown],
+  metrics: [number, unknown] = [200, METRICS],
+  alarms: [number, unknown] = [health[0], NO_ALARMS],
+) =>
   vi.fn<typeof fetch>((input) => {
     const url = String(input)
     const [status, body] = url.startsWith('/api/system/metrics')
       ? metrics
-      : url.startsWith('/api/system/updates')
-        ? [health[0], UPDATES]
-        : health
+      : url.startsWith('/api/system/alarms')
+        ? alarms
+        : url.startsWith('/api/system/updates')
+          ? [health[0], UPDATES]
+          : health
     return Promise.resolve(json(status, body))
   })
 const fetchReturning = (status: number, body: unknown = {}) =>

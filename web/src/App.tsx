@@ -6,6 +6,7 @@ import { useNow } from './hooks/useNow'
 import { ClockSkewBanner } from './layout/ClockSkewBanner'
 import { SettingsTabs } from './layout/SettingsTabs'
 import { Sidebar } from './layout/Sidebar'
+import { SystemAlarmBanner } from './layout/SystemAlarmBanner'
 import { Topbar } from './layout/Topbar'
 import { UpdateBanner } from './layout/UpdateBanner'
 import type { Page } from './layout/Sidebar'
@@ -71,6 +72,7 @@ export function App({
           menuId={menuId}
         />
         {source.origin === 'DEMO' ? null : <ClockSkewBanner />}
+        {source.origin === 'DEMO' ? null : <SystemAlarmBanner />}
         {source.origin === 'DEMO' ? null : <UpdateBanner />}
         <main id="main" className={styles.main} tabIndex={-1}>
           {page === 'sites' ? (

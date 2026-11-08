@@ -174,7 +174,9 @@ Wydanie (D67): PR z `tools/release.py version X.Y.Z` (wersja we wszystkich pakie
 
 ## Monitor serwera
 
-Decyzje: `DECISIONS.md` D16 i D60 (progi, histereza, sposób pomiaru). Widok „Stan serwera” w Ustawieniach, tylko dla roli OWNER.
+Decyzje: `DECISIONS.md` D16 i D60 (progi, histereza, sposób pomiaru), D68 (alarmy systemowe). Widok „Stan serwera” w Ustawieniach, tylko dla roli OWNER.
+
+**Alarmy systemowe (D68):** worker po każdej ocenie odwzorowuje aktywne przyczyny na tabelę `system_alarms` (otwarcie, odświeżenie, zamknięcie; jeden otwarty alarm na kod; histereza tylko w ocenie). `GET /api/system/alarms` i `POST /api/system/alarms/{id}/acknowledge` — tylko OWNER, potwierdzenie z CSRF i audytem `SYSTEM_ALARM_ACKNOWLEDGED`. Baner nad treścią każdej strony i panel „Alarmy serwera” na stronie „Stan serwera”.
 
 **Co pokazujemy:**
 

@@ -403,6 +403,14 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: pierwsze uruchomienie workflow (v0.3.0) po dodaniu sekretu przez właściciela.
 - Następne małe zadanie: sekret `RELEASE_SIGNING_KEY`, ręczne uruchomienie workflow → `v0.3.0`, instalacja przyciskiem na serwerze testowym.
 
+- Data: 2026-11-08
+- Etap: P7.1d — alarmy systemowe (D68)
+- Zmiany: migracja 0010 (`system_alarms`), `system/alarms.py` (`sync_alarms` w cyklu monitora), `GET /api/system/alarms` i potwierdzanie (OWNER, CSRF, audyt), retencja zamkniętych. UI: baner alarmów serwera nad treścią każdej strony (OWNER) i panel „Alarmy serwera” na stronie „Stan serwera”.
+- Testy uruchomione i wyniki: lokalnie pytest 189 passed (testy z bazą — w CI), ruff, mypy --strict; vitest 325/325, tsc, oxlint. Podgląd baneru i panelu na tymczasowej atrapie (usunięta).
+- Decyzje zatwierdzone: D68 (rekomendacje 1–5) — właściciel 2026-11-08.
+- Ryzyka / rzeczy nieweryfikowane: nie sprawdzone na serwerze testowym ani RPi; powiadomienia poza aplikacją — osobno.
+- Następne małe zadanie: kreator dodawania falownika z testem komunikacji.
+
 ## Szablon kolejnego wpisu
 
 - Data:
