@@ -4,6 +4,8 @@
 #   curl -fsSL https://raw.githubusercontent.com/arkadiuszbaglaj/solargraf/main/deploy/install.sh | sudo bash -s install
 #   sudo ./deploy/install.sh install [--yes] [--dry-run] [--dir DIR] [--address ADRES] [--ref REF]
 #   sudo solargraf status
+#   sudo solargraf backup [--to KATALOG]
+#   sudo solargraf restore PLIK [--yes]
 #   sudo solargraf uninstall [--purge] [--yes]
 #
 # Zasady (docs/SECURITY.md, „Instalator”): sekrety tylko w pliku 600, nigdy na ekranie ani
@@ -100,7 +102,9 @@ confirm() {
 usage() {
 	cat <<'EOF'
 Użycie:
-  install.sh install   [--yes] [--dry-run] [--dir KATALOG] [--address ADRES]
+  install.sh install   [--yes] [--dry-run] [--dir KATALOG] [--address ADRES] [--no-auto-backup]
+  install.sh backup    [--to KATALOG] [--dir KATALOG]   kopia bazy, sekretów i CA
+  install.sh restore PLIK [--yes] [--dir KATALOG]       odtworzenie kopii (zastępuje dane)
   install.sh status    [--dir KATALOG]
   install.sh setup-link [--dir KATALOG]   nowy jednorazowy link do pierwszego konta
   install.sh simulator on|off [--dir KATALOG]   symulator urządzenia do testów (SIMULATED)
@@ -111,7 +115,9 @@ Użycie:
   --dir       katalog instalacji (domyślnie /opt/solargraf)
   --address   adres IPv4 lub nazwa hosta w LAN (domyślnie wykrywany)
   --ref       gałąź lub tag z GitHuba przy instalacji przez curl (domyślnie main)
-  --purge     przy uninstall: usuń także dane (baza, certyfikaty, katalog)
+  --purge     przy uninstall: usuń także dane (baza, certyfikaty, katalog); kopie zostają
+  --to        katalog kopii (domyślnie KATALOG/backups)
+  --no-auto-backup / --auto-backup   wyłącz / włącz codzienną kopię o 3:00
 EOF
 }
 
@@ -545,6 +551,7 @@ show_plan() {
 	say "- lokalny agent \"$AGENT_NAME\" z tokenem w $INSTALL_DIR/.env"
 	say "- polecenie $CLI_LINK"
 	say "- jednorazowy link do pierwszego konta"
+	say "- codzienna kopia zapasowa o 3:00 w $INSTALL_DIR/backups (o ile nie wyłączono)"
 }
 
 cmd_install() {
@@ -591,7 +598,8 @@ cmd_install() {
 	fi
 	export_ca
 	ln -sf "$INSTALL_DIR/src/deploy/install.sh" "$CLI_LINK"
-	say "Polecenie: $CLI_LINK (status, uninstall, setup-link, simulator on|off)."
+	install_backup_timer
+	say "Polecenie: $CLI_LINK (status, backup, restore, uninstall, setup-link, simulator on|off)."
 
 	say ""
 	say "Gotowe. Adres aplikacji: https://${ADDRESS:-localhost}/"
@@ -626,6 +634,15 @@ cmd_status() {
 		say "Symulator (SIMULATED): włączony (wyłącz: sudo $CLI_LINK simulator off)"
 	else
 		say "Symulator (SIMULATED): wyłączony"
+	fi
+	local last
+	# Katalog kopii może jeszcze nie istnieć — to nie błąd.
+	last="$(find "$(backup_dir)" -maxdepth 1 -type f -name "$PRODUCT-backup-*.tar.gz" 2>/dev/null | sort | tail -n1 || true)"
+	say "Ostatnia kopia: ${last:-brak}"
+	if have systemctl && systemctl is-enabled --quiet "$TIMER_UNIT.timer" 2>/dev/null; then
+		say "Kopia automatyczna: włączona (codziennie o 3:00)"
+	else
+		say "Kopia automatyczna: wyłączona"
 	fi
 	df -h "$INSTALL_DIR" /var/lib
 }
@@ -680,16 +697,253 @@ cmd_uninstall() {
 			die "Przerwano."
 		compose down --volumes --remove-orphans
 		docker image rm -f solargraf-api:local solargraf-proxy:local solargraf-agent:local solargraf-simulator:local >/dev/null 2>&1 || true
+		remove_backup_timer
 		rm -f "$CLI_LINK"
 		LOG_FILE=""
-		rm -rf "$INSTALL_DIR"
-		say "Usunięto aplikację i dane."
+		# Kopii zapasowych nie usuwamy (D17, D62).
+		find "$INSTALL_DIR" -mindepth 1 -maxdepth 1 ! -name backups -exec rm -rf {} +
+		if [ -z "$(ls -A "$INSTALL_DIR/backups" 2>/dev/null)" ]; then
+			rm -rf "$INSTALL_DIR"
+			say "Usunięto aplikację i dane."
+		else
+			say "Usunięto aplikację i dane. Kopie zapasowe zostały w $INSTALL_DIR/backups."
+		fi
 	else
 		confirm "Zatrzymać i usunąć kontenery aplikacji? Dane i sekrety zostaną zachowane." || die "Przerwano."
 		compose down --remove-orphans
+		remove_backup_timer
 		rm -f "$CLI_LINK"
 		say "Usunięto kontenery. Dane (wolumeny) i $INSTALL_DIR zostały zachowane."
 		say "Ponowna instalacja: sudo $INSTALL_DIR/src/deploy/install.sh install"
+	fi
+}
+
+# --- kopia zapasowa i odtworzenie (D62) ------------------------------------------------------
+
+readonly BACKUP_KEEP_AUTO=7
+readonly BACKUP_FORMAT=1
+readonly BACKUP_MEMBERS="db.dump env caddy-pki.tar manifest.txt SHA256SUMS"
+readonly TIMER_UNIT="$PRODUCT-backup"
+readonly SYSTEMD_DIR="/etc/systemd/system"
+
+BACKUP_TO=""
+BACKUP_KIND="manual"
+RESTORE_FILE=""
+AUTO_BACKUP=""
+
+backup_dir() { printf '%s' "${BACKUP_TO:-$INSTALL_DIR/backups}"; }
+
+db_sql() { compose exec -T db psql -U "$PRODUCT" -d "$PRODUCT" -tAc "$1"; }
+
+# Gotowość przez TCP: tymczasowy serwer inicjalizacji obrazu postgres słucha tylko na gnieździe.
+wait_db() {
+	local waited=0
+	until compose exec -T db pg_isready -q -h 127.0.0.1 -U "$PRODUCT" -d "$PRODUCT" >/dev/null 2>&1; do
+		[ "$waited" -lt 120 ] || die "Baza danych nie zgłosiła gotowości. Logi: docker compose -p $PRODUCT logs db"
+		sleep 2
+		waited=$((waited + 2))
+	done
+}
+
+db_running() { [ -n "$(compose ps -q --status running db 2>/dev/null || true)" ]; }
+
+# Tworzy archiwum kopii i wypisuje jego ścieżkę na stdout (komunikaty na stderr).
+make_backup() {
+	local kind="$1" dir stamp name work revision version pki=1
+	dir="$(backup_dir)"
+	db_running || die "Baza danych nie działa — kopia niemożliwa. Uruchom aplikację: sudo $CLI_LINK install"
+	(umask 077 && mkdir -p "$dir")
+	chmod 700 "$dir"
+	stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+	name="$PRODUCT-backup-$stamp-$kind.tar.gz"
+	work="$(mktemp -d)"
+	chmod 700 "$work"
+	revision="$(db_sql 'SELECT version_num FROM alembic_version' 2>/dev/null | tr -d '[:space:]' || true)"
+	version="$(cat "$INSTALL_DIR/src/VERSION" 2>/dev/null || echo nieznana)"
+	if ! compose exec -T db pg_dump -U "$PRODUCT" -d "$PRODUCT" -Fc >"$work/db.dump"; then
+		rm -rf "$work"
+		die "Zrzut bazy (pg_dump) nie powiódł się."
+	fi
+	cp "$INSTALL_DIR/.env" "$work/env"
+	if ! compose exec -T proxy tar -C /data/caddy -cf - pki >"$work/caddy-pki.tar" 2>/dev/null; then
+		: >"$work/caddy-pki.tar"
+		pki=0
+		warn "Nie udało się skopiować CA proxy — po odtworzeniu przeglądarki będą wymagały nowego certyfikatu."
+	fi
+	{
+		printf 'format=%s\n' "$BACKUP_FORMAT"
+		printf 'product=%s\n' "$PRODUCT"
+		printf 'created_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+		printf 'kind=%s\n' "$kind"
+		printf 'app_version=%s\n' "$version"
+		printf 'db_revision=%s\n' "$revision"
+		printf 'caddy_pki=%s\n' "$pki"
+	} >"$work/manifest.txt"
+	(cd "$work" && sha256sum db.dump env caddy-pki.tar manifest.txt >SHA256SUMS)
+	(umask 077 && tar -C "$work" -czf "$dir/$name.part" db.dump env caddy-pki.tar manifest.txt SHA256SUMS)
+	rm -rf "$work"
+	chmod 600 "$dir/$name.part"
+	mv "$dir/$name.part" "$dir/$name"
+	log_line "utworzono kopię $dir/$name (rodzaj: $kind, rewizja: ${revision:-brak})"
+	printf '%s\n' "$dir/$name"
+}
+
+# Zostawia BACKUP_KEEP_AUTO najnowszych kopii automatycznych; ręcznych nie dotyka.
+prune_auto_backups() {
+	local dir old
+	dir="$(backup_dir)"
+	while IFS= read -r old; do
+		[ -n "$old" ] || continue
+		rm -f -- "$old"
+		log_line "usunięto starą kopię automatyczną $old"
+		printf 'Usunięto starą kopię automatyczną: %s\n' "$old" >&2
+	done < <(find "$dir" -maxdepth 1 -type f -name "$PRODUCT-backup-*-auto.tar.gz" | sort -r | tail -n +"$((BACKUP_KEEP_AUTO + 1))")
+}
+
+cmd_backup() {
+	require_root
+	require_installation
+	LOG_FILE="$INSTALL_DIR/install.log"
+	log_line "--- backup ($BACKUP_KIND)"
+	local file
+	file="$(make_backup "$BACKUP_KIND")"
+	say "Kopia zapasowa: $file"
+	if [ "$BACKUP_KIND" = "auto" ]; then
+		prune_auto_backups
+	fi
+	say "Kopia zawiera sekrety (.env). Przechowuj ją bezpiecznie i skopiuj na inny nośnik."
+}
+
+# Sprawdza archiwum przed jakąkolwiek zmianą: lista plików, sumy, format, rewizja migracji.
+verify_backup() {
+	local file="$1" work="$2" member revision known
+	[ -f "$file" ] || die "Brak pliku kopii: $file"
+	tar -tzf "$file" >/dev/null 2>&1 || die "Plik nie jest archiwum kopii: $file"
+	while IFS= read -r member; do
+		member="${member#./}"
+		case " $BACKUP_MEMBERS " in
+		*" $member "*) ;;
+		*) die "Nieoczekiwany plik w archiwum kopii: $member" ;;
+		esac
+	done < <(tar -tzf "$file")
+	tar -xzf "$file" -C "$work" --no-same-owner --no-same-permissions
+	for member in $BACKUP_MEMBERS; do
+		[ -f "$work/$member" ] || die "Niepełna kopia — brak $member."
+	done
+	(cd "$work" && sha256sum --quiet -c SHA256SUMS >/dev/null 2>&1) || die "Sumy kontrolne kopii się nie zgadzają — plik jest uszkodzony."
+	grep -qx "format=$BACKUP_FORMAT" "$work/manifest.txt" || die "Nieobsługiwany format kopii."
+	grep -qx "product=$PRODUCT" "$work/manifest.txt" || die "To nie jest kopia $PRODUCT."
+	revision="$(sed -n 's/^db_revision=//p' "$work/manifest.txt")"
+	[[ "$revision" =~ ^[A-Za-z0-9_]+$ ]] || die "Kopia nie zawiera rewizji migracji bazy."
+	known="$(sed -n 's/^revision: str = "\(.*\)"$/\1/p' "$INSTALL_DIR"/src/server/alembic/versions/*.py)"
+	if ! printf '%s\n' "$known" | grep -qx "$revision"; then
+		die "Kopia pochodzi z nowszej wersji aplikacji (rewizja bazy $revision). Najpierw zaktualizuj aplikację."
+	fi
+}
+
+cmd_restore() {
+	require_root
+	require_installation
+	LOG_FILE="$INSTALL_DIR/install.log"
+	[ -n "$RESTORE_FILE" ] || die "Użycie: $CLI_LINK restore PLIK [--yes]"
+	RESTORE_FILE="$(readlink -f "$RESTORE_FILE")"
+	log_line "--- restore $RESTORE_FILE"
+	TMP_DIR="$(mktemp -d)"
+	chmod 700 "$TMP_DIR"
+	trap cleanup EXIT
+	verify_backup "$RESTORE_FILE" "$TMP_DIR"
+	say "Kopia: $(sed -n 's/^created_at=//p' "$TMP_DIR/manifest.txt"), wersja $(sed -n 's/^app_version=//p' "$TMP_DIR/manifest.txt")."
+	confirm "Odtworzyć kopię? Bieżąca baza, sekrety i CA zostaną zastąpione (najpierw powstanie kopia bieżącego stanu)." ||
+		die "Przerwano."
+
+	say "== Kopia bieżącego stanu"
+	compose up -d db
+	wait_db
+	local safety
+	safety="$(make_backup pre-restore)"
+	say "Zapisano: $safety"
+
+	say "== Odtwarzanie bazy"
+	compose down --remove-orphans
+	docker volume rm "${PRODUCT}_db-data" >/dev/null
+	(umask 077 && cp "$TMP_DIR/env" "$INSTALL_DIR/.env")
+	chmod 600 "$INSTALL_DIR/.env"
+	if [ -z "$ADDRESS" ]; then
+		ADDRESS="$(detect_address)"
+	fi
+	# Adresy z kopii mogą dotyczyć innego hosta — odświeżamy je jak przy instalacji.
+	write_env
+	compose up -d db
+	wait_db
+	compose exec -T db pg_restore -U "$PRODUCT" -d "$PRODUCT" --no-owner --exit-on-error --single-transaction \
+		<"$TMP_DIR/db.dump" || die "Odtworzenie bazy nie powiodło się. Kopia sprzed odtworzenia jest w $(backup_dir)."
+
+	say "== Migracje i uruchomienie"
+	compose up -d --remove-orphans "${CORE_SERVICES[@]}"
+	wait_healthy
+	if grep -qx 'caddy_pki=1' "$TMP_DIR/manifest.txt"; then
+		# Certyfikaty serwera wystawione przez poprzednie CA są usuwane — Caddy wystawi nowe.
+		compose exec -T proxy sh -c 'rm -rf /data/caddy/pki /data/caddy/certificates/local && tar -C /data/caddy -xf -' \
+			<"$TMP_DIR/caddy-pki.tar"
+		compose restart proxy
+		wait_healthy
+		export_ca
+	fi
+	compose up -d agent
+	if simulator_enabled; then
+		compose up -d simulator
+	fi
+	say "Odtworzono kopię $RESTORE_FILE."
+}
+
+# Kopia automatyczna codziennie o 3:00 (D62). Wyłączenie zapamiętane w .env.
+auto_backup_enabled() { ! grep -q '^SOLARGRAF_AUTO_BACKUP=0$' "$INSTALL_DIR/.env"; }
+
+install_backup_timer() {
+	if [ "$AUTO_BACKUP" = "0" ]; then
+		env_set SOLARGRAF_AUTO_BACKUP 0
+	elif [ "$AUTO_BACKUP" = "1" ]; then
+		env_unset SOLARGRAF_AUTO_BACKUP
+	fi
+	if ! have systemctl || [ ! -d /run/systemd/system ]; then
+		warn "Brak systemd — kopia automatyczna niedostępna. Rób kopie ręcznie: sudo $CLI_LINK backup"
+		return 0
+	fi
+	if ! auto_backup_enabled; then
+		remove_backup_timer
+		say "Kopia automatyczna: wyłączona (włączenie: install --auto-backup)."
+		return 0
+	fi
+	cat >"$SYSTEMD_DIR/$TIMER_UNIT.service" <<EOF
+[Unit]
+Description=$PRODUCT (nazwa robocza) — automatyczna kopia zapasowa
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart="$INSTALL_DIR/src/deploy/install.sh" backup --auto --dir "$INSTALL_DIR"
+EOF
+	cat >"$SYSTEMD_DIR/$TIMER_UNIT.timer" <<EOF
+[Unit]
+Description=$PRODUCT (nazwa robocza) — codzienna kopia zapasowa o 3:00
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+	systemctl daemon-reload
+	systemctl enable --now "$TIMER_UNIT.timer" >/dev/null 2>&1
+	say "Kopia automatyczna: codziennie o 3:00 w $INSTALL_DIR/backups (7 ostatnich)."
+}
+
+remove_backup_timer() {
+	if have systemctl && [ -f "$SYSTEMD_DIR/$TIMER_UNIT.timer" ]; then
+		systemctl disable --now "$TIMER_UNIT.timer" >/dev/null 2>&1 || true
+		rm -f "$SYSTEMD_DIR/$TIMER_UNIT.timer" "$SYSTEMD_DIR/$TIMER_UNIT.service"
+		systemctl daemon-reload
 	fi
 }
 
@@ -702,11 +956,24 @@ main() {
 		SIM_ACTION="$1"
 		shift
 	fi
+	if [ "$command" = "restore" ] && [ $# -gt 0 ] && [[ "$1" != -* ]]; then
+		RESTORE_FILE="$1"
+		shift
+	fi
 	while [ $# -gt 0 ]; do
 		case "$1" in
 		--dry-run) DRY_RUN=1 ;;
 		--yes | -y) ASSUME_YES=1 ;;
 		--purge) PURGE=1 ;;
+		--auto) BACKUP_KIND="auto" ;;
+		--no-auto-backup) AUTO_BACKUP=0 ;;
+		--auto-backup) AUTO_BACKUP=1 ;;
+		--to)
+			[ $# -ge 2 ] || die "--to wymaga ścieżki."
+			case "$2" in /*) ;; *) die "--to musi być ścieżką bezwzględną." ;; esac
+			BACKUP_TO="${2%/}"
+			shift
+			;;
 		--dir)
 			[ $# -ge 2 ] || die "--dir wymaga ścieżki."
 			INSTALL_DIR="$2"
@@ -745,6 +1012,8 @@ main() {
 	status) cmd_status ;;
 	setup-link) cmd_setup_link ;;
 	simulator) cmd_simulator ;;
+	backup) cmd_backup ;;
+	restore) cmd_restore ;;
 	uninstall) cmd_uninstall ;;
 	"" | -h | --help | help) usage ;;
 	*) die "Nieznane polecenie: $command (zobacz --help)" ;;
