@@ -331,6 +331,14 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 - Ryzyka / rzeczy nieweryfikowane: do pierwszego wydania (tag `v0.1.0` + manifest) sprawdzenie kończy się błędem NETWORK — bez alarmu; pobieranie z GitHuba nie sprawdzone na żywo.
 - Następne małe zadanie: pierwsze wydanie `v0.1.0` z podpisanym manifestem (za zgodą właściciela).
 
+- Data: 2026-11-08
+- Etap: P7.3 — pierwsze wydanie `v0.1.0` (D63)
+- Zmiany: wydanie `v0.1.0` na GitHubie (tag na `42522a2`) z `manifest.json` i `manifest.json.sig` podpisanymi kluczem właściciela (`tools/release.py manifest`, notatka „Pierwsze wydanie.”).
+- Testy uruchomione i wyniki: pobranie z domyślnego adresu (`releases/latest/download`, z przekierowaniem) kodem aplikacji i weryfikacja wbudowanym kluczem — OK; dla 0.1.0 brak nowszej wersji; zmieniony manifest odrzucony (INVALID_SIGNATURE).
+- Decyzje zatwierdzone: publikacja `v0.1.0` — zgoda właściciela 2026-11-08.
+- Ryzyka / rzeczy nieweryfikowane: każde kolejne wydanie wymaga podniesienia wersji (`tools/release.py version`), nowego manifestu i oznaczenia jako „latest”; nie sprawdzone na serwerze testowym ani RPi.
+- Następne małe zadanie: P7.1d (alarmy systemowe) albo polecenie `update` instalatora.
+
 ## Szablon kolejnego wpisu
 
 - Data:
