@@ -4,6 +4,11 @@ Sekcja `## X.Y.Z` jest opisem wydania na GitHubie i w podpisanym manifeście (D6
 właściciel instalacji w Ustawienia → Aktualizacje. Najwyżej 2000 znaków na wersję. Nową sekcję
 dodaje się w tym samym PR co podniesienie wersji (`tools/release.py version X.Y.Z`).
 
+## 0.7.0
+
+- Kreator dodania urządzenia w trzech krokach: profil i adres, test komunikacji, nazwy i zapis. Przycisk „Testuj połączenie” zleca agentowi jednorazowy odczyt urządzenia pod podanym adresem i pokazuje wynik: czy połączenie działa, przyczynę błędu i odczytane wartości. Test niczego nie zapisuje do urządzenia ani do historii (D72).
+- Panel „Magazyn” pokazuje szacunkowy czas do pełnego naładowania albo do rozładowania przy obecnej mocy (bez rezerwy falownika i strat) (D71).
+
 ## 0.6.0
 
 - Nowa zakładka „Urządzenia”: kafle ze stanem urządzeń, wyszukiwarka i filtry typu oraz statusu, a dla wybranego urządzenia bieżące wartości wszystkich parametrów z wiekiem odczytu, wykres z ostatnich 24 godzin, 7 lub 30 dni, dane połączenia i profilu (także wersja firmware i numer seryjny, jeśli są znane) oraz włączanie i wyłączanie odczytu (D70).
