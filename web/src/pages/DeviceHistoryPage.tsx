@@ -156,7 +156,8 @@ function HistoryPanel({
           <select id={selectId} value={metricId(metric)} onChange={(e) => setSelected(e.target.value)}>
             {device.metrics.map((m) => (
               <option key={metricId(m)} value={metricId(m)}>
-                {metricLabel(m)} [{displayUnit(m.unit).unit}]
+                {metricLabel(m)}
+                {displayUnit(m.unit).unit ? ` [${displayUnit(m.unit).unit}]` : ''}
               </option>
             ))}
           </select>
@@ -200,7 +201,7 @@ function HistoryPanel({
                 history={state.data}
                 timeZone={tz}
                 range={range}
-                label={`Wykres: ${metricLabel(metric)} w ${unit}, ${range.label}.`}
+                label={`Wykres: ${metricLabel(metric)}${unit ? ` w ${unit}` : ''}, ${range.label}.`}
               />
             </Suspense>
             <p className="visually-hidden">
