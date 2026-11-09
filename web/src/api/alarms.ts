@@ -101,6 +101,8 @@ export interface AlarmSummary {
   criticalActive: number
   warningActive: number
   unacknowledged: number
+  /** W tym zamknięte, czekające tylko na potwierdzenie; null — starszy serwer bez tej liczby. */
+  unacknowledgedClosed: number | null
   closed: number
 }
 
@@ -137,7 +139,8 @@ export function parseAlarmPage(v: unknown): AlarmPage | null {
     !isCount(s.critical_active) ||
     !isCount(s.warning_active) ||
     !isCount(s.unacknowledged) ||
-    !isCount(s.closed)
+    !isCount(s.closed) ||
+    (s.unacknowledged_closed !== undefined && !isCount(s.unacknowledged_closed))
   ) {
     return null
   }
@@ -151,6 +154,7 @@ export function parseAlarmPage(v: unknown): AlarmPage | null {
       criticalActive: s.critical_active,
       warningActive: s.warning_active,
       unacknowledged: s.unacknowledged,
+      unacknowledgedClosed: isCount(s.unacknowledged_closed) ? s.unacknowledged_closed : null,
       closed: s.closed,
     },
   }
@@ -179,6 +183,9 @@ export const listAlarms = (
   fetchFn: typeof fetch = fetch,
   signal?: AbortSignal,
 ): Promise<Loaded<AlarmList>> => load(base(siteId), parseAlarmList, fetchFn, signal)
+
+/** Zdarzenie okna po potwierdzeniu alarmu — licznik w menu odświeża się od razu. */
+export const ALARMS_CHANGED_EVENT = 'solargraf:alarms-changed'
 
 export type AckResult = { ok: true; alarm: ApiAlarm } | { ok: false; message: string }
 

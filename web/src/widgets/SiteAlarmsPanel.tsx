@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { acknowledgeAlarm, listAlarms, type AlarmList, type ApiAlarm } from '../api/alarms'
+import { acknowledgeAlarm, ALARMS_CHANGED_EVENT, listAlarms, type AlarmList, type ApiAlarm } from '../api/alarms'
 import { useOptionalSession } from '../auth/SessionContext'
 import { Panel } from '../components/Panel'
 import { WidgetState, type WidgetStatus } from '../components/WidgetState'
@@ -96,8 +96,10 @@ export function useSiteAlarms<T extends AlarmList>(siteId: string, fetchFn: type
     setError(null)
     const result = await acknowledgeAlarm(siteId, alarm.id, csrfToken, fetchFn)
     setBusy(null)
-    if (result.ok) reload()
-    else setError(result.message)
+    if (result.ok) {
+      reload()
+      window.dispatchEvent(new Event(ALARMS_CHANGED_EVENT))
+    } else setError(result.message)
   }
 
   return { state, ready, reload, canAcknowledge, busy, error, acknowledge }

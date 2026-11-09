@@ -53,6 +53,36 @@
   cursor: not-allowed;
 }
 
+.badge {
+  margin-left: auto;
+  min-width: 1.5em;
+  padding: 0 var(--space-1);
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  line-height: 1.6;
+  text-align: center;
+  color: var(--color-surface);
+}
+
+.badgeCritical {
+  background: var(--color-danger);
+}
+
+.badgeWarning {
+  background: var(--color-warning);
+}
+
+/* Zamknięte alarmy czekające na potwierdzenie — kropka zamiast liczby. */
+.dot {
+  margin-left: auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--color-warning);
+  box-shadow: 0 0 0 2px var(--color-surface);
+}
+
 .soon {
   margin-left: auto;
   font-size: var(--font-size-xs);

@@ -913,6 +913,7 @@ class TestAlarmHistory:
             "critical_active": 1,
             "warning_active": 1,
             "unacknowledged": 1,
+            "unacknowledged_closed": 0,
             "closed": 1,
         }
         assert c.get(url, params={"days": 7}).json()["total"] == 4
@@ -920,6 +921,8 @@ class TestAlarmHistory:
         assert year["total"] == 6
         assert year["summary"]["closed"] == 4
         assert year["summary"]["unacknowledged"] == 2
+        # Zamknięty 3 dni temu bez potwierdzenia — niepotwierdzony, ale nieaktywny.
+        assert year["summary"]["unacknowledged_closed"] == 1
 
         # Filtry po stronie serwera; podsumowanie się nie zmienia.
         closed = c.get(url, params={"days": 30, "state": "closed"}).json()

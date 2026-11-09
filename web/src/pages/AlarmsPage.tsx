@@ -186,7 +186,17 @@ function Alarms({ site, fetchFn }: { site: Site; fetchFn: typeof fetch }) {
       <section className={styles.summary} aria-label="Podsumowanie alarmów">
         <KpiCard label="Krytyczne aktywne" icon={OctagonAlert} value={card(data?.summary.criticalActive)} stale={false} />
         <KpiCard label="Ostrzeżenia aktywne" icon={AlertTriangle} value={card(data?.summary.warningActive)} stale={false} />
-        <KpiCard label="Niepotwierdzone" icon={BellRing} value={card(data?.summary.unacknowledged)} stale={false} />
+        <KpiCard
+          label="Niepotwierdzone"
+          icon={BellRing}
+          value={card(data?.summary.unacknowledged)}
+          detail={
+            data?.summary.unacknowledgedClosed
+              ? `w tym już zamknięte: ${data.summary.unacknowledgedClosed}`
+              : null
+          }
+          stale={false}
+        />
         <KpiCard label={`Zamknięte (${span})`} icon={CheckCheck} value={card(data?.summary.closed)} stale={false} />
       </section>
       <Panel

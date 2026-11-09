@@ -64,7 +64,12 @@ export function App({
       <a className={styles.skip} href="#main">
         Przejdź do treści
       </a>
-      <Sidebar open={menuOpen} id={menuId} current={page === 'history' ? 'devices' : page === 'updates' ? 'server' : page} />
+      <Sidebar
+        open={menuOpen}
+        id={menuId}
+        current={page === 'history' ? 'devices' : page === 'updates' ? 'server' : page}
+        alarmSiteId={source.origin === 'DEMO' ? '' : (site?.id ?? '')}
+      />
       <div className={styles.content}>
         <Topbar
           {...TOPBAR[page]}

@@ -11,6 +11,7 @@ import {
 import { useOptionalSession } from '../auth/SessionContext'
 import { branding } from '../branding'
 import { ALARMS_PATH, DEVICES_TAB_PATH, REPORTS_PATH } from '../paths'
+import { AlarmNavBadge } from './AlarmNavBadge'
 import styles from './Sidebar.module.css'
 
 export type Page = 'dashboard' | 'sites' | 'charts' | 'devices' | 'alarms' | 'reports' | 'server'
@@ -36,7 +37,18 @@ const NAV: NavItem[] = [
   { label: 'Ustawienia', icon: Settings, page: 'server', href: '/ustawienia/serwer', ownerOnly: true },
 ]
 
-export function Sidebar({ open, id, current = 'dashboard' }: { open: boolean; id: string; current?: Page }) {
+export function Sidebar({
+  open,
+  id,
+  current = 'dashboard',
+  alarmSiteId = '',
+}: {
+  open: boolean
+  id: string
+  current?: Page
+  /** Instalacja, której alarmy pokazuje znacznik przy „Alarmy”; puste — bez znacznika (np. DEMO). */
+  alarmSiteId?: string
+}) {
   const auth = useOptionalSession()
   const isOwner = auth?.session.memberships.some((m) => m.role === 'OWNER') ?? false
   // Bez sesji (DEMO w serwerze deweloperskim) pozycja jest widoczna — dane i tak z serwera.
@@ -60,6 +72,7 @@ export function Sidebar({ open, id, current = 'dashboard' }: { open: boolean; id
                 >
                   <Icon size={18} aria-hidden="true" />
                   {label}
+                  {page === 'alarms' && alarmSiteId ? <AlarmNavBadge siteId={alarmSiteId} /> : null}
                 </a>
               ) : (
                 <span className={`${styles.link} ${styles.disabled}`} aria-disabled="true">
