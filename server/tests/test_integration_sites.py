@@ -867,6 +867,193 @@ class TestAlarms:
             assert c.get(f"/api/sites/{world.a1}/alarms").status_code == 401
 
 
+def _alarm_row(
+    site: uuid.UUID,
+    *,
+    severity: str = "WARNING",
+    closed_days_ago: float | None = None,
+    acknowledged: bool = False,
+) -> None:
+    _sql(
+        "INSERT INTO alarms (id, site_id, subject, code, severity, title, rule_version, "
+        "opened_at, last_seen_at, closed_at, acknowledged_at, clear_count) VALUES (:id, :s, :subj, "
+        "'DEVICE_STALE', :sev, 't', 1, now() - interval '400 days', now(), "
+        "CASE WHEN CAST(:d AS float) IS NULL THEN NULL "
+        "ELSE now() - make_interval(secs => CAST(:d AS float) * 86400) END, "
+        "CASE WHEN :ack THEN now() END, 0)",
+        id=uuid.uuid4(),
+        s=site,
+        subj=f"device:{uuid.uuid4()}",
+        sev=severity,
+        d=closed_days_ago,
+        ack=acknowledged,
+    )
+
+
+class TestAlarmHistory:
+    def test_period_filters_pages_and_summary(self, world: World, as_user: AsUser) -> None:
+        _alarm_row(world.a1, severity="CRITICAL")  # aktywny, niepotwierdzony
+        _alarm_row(world.a1, acknowledged=True)  # aktywny ostrzegawczy, potwierdzony
+        _alarm_row(world.a1, closed_days_ago=0.5, acknowledged=True)
+        _alarm_row(world.a1, closed_days_ago=3)
+        _alarm_row(world.a1, closed_days_ago=20, acknowledged=True)
+        _alarm_row(world.a1, closed_days_ago=200, acknowledged=True)
+        _alarm_row(world.b1, severity="CRITICAL")  # cudza instalacja
+        c, _ = as_user("owner_a")
+        url = f"/api/sites/{world.a1}/alarms"
+
+        day = c.get(url).json()
+        assert (day["days"], day["total"], day["has_more"], day["can_view_history"]) == (
+            1,
+            3,
+            False,
+            True,
+        )
+        assert day["summary"] == {
+            "critical_active": 1,
+            "warning_active": 1,
+            "unacknowledged": 1,
+            "closed": 1,
+        }
+        assert c.get(url, params={"days": 7}).json()["total"] == 4
+        year = c.get(url, params={"days": 365}).json()
+        assert year["total"] == 6
+        assert year["summary"]["closed"] == 4
+        assert year["summary"]["unacknowledged"] == 2
+
+        # Filtry po stronie serwera; podsumowanie się nie zmienia.
+        closed = c.get(url, params={"days": 30, "state": "closed"}).json()
+        assert closed["total"] == 3
+        assert all(a["closed_at"] is not None for a in closed["alarms"])
+        assert closed["summary"]["critical_active"] == 1
+        crit = c.get(url, params={"days": 365, "severity": "CRITICAL"}).json()
+        assert [a["severity"] for a in crit["alarms"]] == ["CRITICAL"]
+        unack = c.get(url, params={"days": 365, "state": "unacknowledged"}).json()
+        assert unack["total"] == 2
+        active = c.get(url, params={"state": "active"}).json()
+        assert active["total"] == 2
+
+        # Strony bez powtórzeń, w stałej kolejności.
+        first = c.get(url, params={"days": 365, "limit": 4}).json()
+        rest = c.get(url, params={"days": 365, "limit": 4, "offset": 4}).json()
+        assert (first["has_more"], rest["has_more"]) == (True, False)
+        ids = [a["id"] for a in first["alarms"] + rest["alarms"]]
+        assert len(ids) == len(set(ids)) == 6
+        assert first["alarms"][0]["severity"] == "CRITICAL"  # najpierw aktywne niepotwierdzone
+
+        assert c.get(url, params={"days": 14}).status_code == 422
+        assert c.get(url, params={"state": "x"}).status_code == 422
+
+    def test_viewer_sees_only_24_hours(self, world: World, as_user: AsUser) -> None:
+        _alarm_row(world.a1, closed_days_ago=3)
+        v, _ = as_user("scoped_viewer_a")
+        url = f"/api/sites/{world.a1}/alarms"
+        body = v.get(url).json()
+        assert (body["total"], body["can_view_history"], body["can_acknowledge"]) == (
+            0,
+            False,
+            False,
+        )
+        denied = v.get(url, params={"days": 7})
+        assert denied.status_code == 403
+        assert "właściciela i administratora" in denied.json()["detail"]
+
+
+# --- jakość odczytów (D76) ---
+
+
+def _device_id(site: uuid.UUID) -> uuid.UUID:
+    [(dev,)] = _sql("SELECT id FROM devices WHERE site_id = :s", s=site)
+    return uuid.UUID(str(dev))
+
+
+def _runs(site: uuid.UUID, rows: list[tuple[str, int, int, int]]) -> None:
+    """Przebiegi ``(result, minut_temu, ok, failed)`` jedynego urządzenia instalacji."""
+    dev = _device_id(site)
+    for result, minutes, ok, failed in rows:
+        bad = result != "OK"
+        _sql(
+            "INSERT INTO polling_runs (id, site_id, device_id, batch_id, started_at, finished_at, "
+            "result, error_code, error_detail, ok_points, failed_points) VALUES (:id, :s, :d, :b, "
+            "now() - make_interval(mins => :m), now() - make_interval(mins => :m), :r, "
+            ":code, :detail, :ok, :failed)",
+            id=uuid.uuid4(),
+            s=site,
+            d=dev,
+            b=uuid.uuid4(),
+            m=minutes,
+            r=result,
+            code="TIMEOUT" if bad else None,
+            detail="Urządzenie nie odpowiedziało w czasie." if bad else None,
+            ok=ok,
+            failed=failed,
+        )
+
+
+class TestReadHealth:
+    def test_partial_reads_open_and_close_warning(self, world: World, as_user: AsUser) -> None:
+        _seed_devices(world)
+        _runs(world.a1, [("PARTIAL", m, 18, 2) for m in (1, 2, 3)])
+        _runs(world.b1, [("PARTIAL", 1, 18, 2), ("OK", 2, 20, 0)])  # jeden pełny — bez alarmu
+        assert _evaluate_alarms() == (1, 0)
+        c, _ = as_user("owner_a")
+        [alarm] = c.get(f"/api/sites/{world.a1}/alarms").json()["alarms"]
+        assert (alarm["code"], alarm["severity"], alarm["title"]) == (
+            "DEVICE_PARTIAL_READ",
+            "WARNING",
+            "Niepełne odczyty: Falownik A1",
+        )
+        assert "do 2 z 20" in alarm["details"]
+        # Pełny odczyt w oknie: po dwóch czystych sprawdzeniach alarm się zamyka.
+        _runs(world.a1, [("OK", 0, 20, 0)])
+        assert _evaluate_alarms() == (0, 0)
+        assert _evaluate_alarms() == (0, 1)
+
+    def test_partial_alarm_does_not_open_next_to_stale(self, world: World) -> None:
+        _seed_devices(world)
+        _runs(world.a1, [("PARTIAL", m, 18, 2) for m in (1, 2, 3)])
+        _stale(world)
+        assert _evaluate_alarms() == (1, 0)
+        assert _sql("SELECT code FROM alarms") == [("DEVICE_STALE",)]
+
+    def test_polling_stats_for_every_member_without_addresses(
+        self, world: World, as_user: AsUser
+    ) -> None:
+        _seed_devices(world)
+        _runs(
+            world.a1,
+            [
+                ("OK", 1, 20, 0),
+                ("OK", 2, 20, 0),
+                ("PARTIAL", 3, 15, 5),
+                ("FAILED", 4, 0, 20),
+                ("FAILED", 60 * 25, 0, 20),  # poza oknem 24 h
+            ],
+        )
+        dev = _device_id(world.a1)
+        url = f"/api/sites/{world.a1}/devices/{dev}/polling-stats"
+        v, _ = as_user("scoped_viewer_a")
+        resp = v.get(url)
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert (body["runs_ok"], body["runs_partial"], body["runs_failed"]) == (2, 1, 1)
+        assert (body["ok_points"], body["failed_points"]) == (55, 25)
+        assert body["points_ok_ratio"] == 55 / 80
+        assert [e["result"] for e in body["recent_errors"]] == ["PARTIAL", "FAILED"]
+        assert body["recent_errors"][0]["error_detail"] == "Urządzenie nie odpowiedziało w czasie."
+        assert "logger.lan" not in resp.text
+
+        # Cudza instalacja i cudze urządzenie: 404; bez przebiegów — null zamiast 0 %.
+        other = _device_id(world.b1)
+        assert v.get(f"/api/sites/{world.b1}/devices/{other}/polling-stats").status_code == 404
+        assert v.get(f"/api/sites/{world.a1}/devices/{other}/polling-stats").status_code == 404
+        b, _ = as_user("owner_b")
+        empty = b.get(f"/api/sites/{world.b1}/devices/{other}/polling-stats").json()
+        assert empty["points_ok_ratio"] is None
+        assert empty["last_run_at"] is None
+        assert empty["recent_errors"] == []
+
+
 # --- monitor serwera (D60) ---
 
 

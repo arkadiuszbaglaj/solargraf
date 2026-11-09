@@ -117,7 +117,8 @@ UI:
 - `GET /api/sites/{site_id}/dashboard?from=...&to=...`
 - `GET /api/sites/{site_id}/devices`
 - `GET /api/sites/{site_id}/measurements?metric=...&from=...&to=...&resolution=...`
-- `GET /api/sites/{site_id}/alarms`
+- `GET /api/sites/{site_id}/alarms?days=1|7|30|90|365&state=…&severity=…&offset=…&limit=…` — dłużej niż 24 h tylko OWNER/ADMIN (D76)
+- `GET /api/sites/{site_id}/devices/{device_id}/polling-stats` — jakość odczytów z 24 h (D76)
 - `POST /api/sites/{site_id}/alarms/{alarm_id}/acknowledge`
 - `GET /api/sites/{site_id}/reports/energy?year=...&month=...` i `…/reports/energy.csv` — raport miesięczny/roczny, tylko OWNER/ADMIN (D74)
 - `GET /api/sites/{site_id}/live` — strumień SSE z ostatnimi wartościami

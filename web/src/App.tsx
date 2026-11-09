@@ -32,7 +32,7 @@ const TOPBAR: Partial<Record<AppPage, { title: string; subtitle: string; showSit
   history: { title: 'Historia', subtitle: 'Historia pomiarów urządzenia', showSiteSwitcher: false },
   // Wykresy instalacji (D66): instalację wybiera przełącznik w pasku górnym.
   charts: { title: 'Wykresy i historia', subtitle: 'Historia pomiarów instalacji' },
-  alarms: { title: 'Alarmy', subtitle: 'Aktywne alarmy instalacji i zamknięte w ostatnich 24 h' },
+  alarms: { title: 'Alarmy', subtitle: 'Aktywne alarmy instalacji i ich historia' },
   reports: { title: 'Raporty', subtitle: 'Bilans energii instalacji za miesiąc albo rok' },
   server: { title: 'Stan serwera', subtitle: 'Zasoby, składniki i ocena stabilności', showSiteSwitcher: false },
   updates: {

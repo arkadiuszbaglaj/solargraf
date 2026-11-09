@@ -5,10 +5,12 @@ from datetime import UTC, datetime, timedelta
 
 from solargraf_server.alarm_rules import (
     CLOSE_AFTER,
+    PARTIAL_MIN_RUNS,
     RULE_VERSION,
     AgentInfo,
     Condition,
     DeviceInfo,
+    RecentRuns,
     apply,
     conditions,
 )
@@ -33,6 +35,7 @@ def device(
     attempt_ago: float | None = 20,
     enabled: bool = True,
     agent_id: uuid.UUID | None = AGENT,
+    recent: RecentRuns | None = None,
 ) -> DeviceInfo:
     def ago(s: float | None) -> datetime | None:
         return None if s is None else NOW - timedelta(seconds=s)
@@ -43,6 +46,7 @@ def device(
         name=name,
         agent_id=agent_id,
         state=DeviceState(enabled, ago(attempt_ago), ago(success_ago), FRESH),
+        recent=recent,
     )
 
 
@@ -105,6 +109,39 @@ def test_disabled_agent_device_or_missing_agent_give_no_alarm() -> None:
     )
     # Połączenie bez agenta: stan nieznany (D38) — panel pokazuje „brak agenta”, alarmu nie ma.
     assert conditions([device("Falownik", success_ago=900, agent_id=None)], agent(), NOW) == []
+
+
+def test_partial_reads_open_warning_only_when_every_recent_run_missed_points() -> None:
+    all_partial = RecentRuns(runs=15, partial_runs=15, max_failed=3, max_points=20)
+    found = conditions([device("Falownik", recent=all_partial)], agent(), NOW)
+    assert codes(found) == [("DEVICE_PARTIAL_READ", "Niepełne odczyty: Falownik")]
+    [c] = found
+    assert c.severity is AlarmSeverity.WARNING
+    assert c.details is not None
+    assert "do 3 z 20" in c.details
+    assert "15 min" in c.details
+    assert RULE_VERSION == 2
+
+    # Jeden pełny przebieg w oknie wystarcza, by nie alarmować; za mało przebiegów — też nie.
+    one_ok = RecentRuns(runs=15, partial_runs=14, max_failed=3, max_points=20)
+    too_few = RecentRuns(PARTIAL_MIN_RUNS - 1, PARTIAL_MIN_RUNS - 1, 1, 20)
+    assert conditions([device("A", recent=one_ok), device("B", recent=too_few)], agent(), NOW) == []
+    assert conditions([device("C", recent=None)], agent(), NOW) == []
+
+
+def test_partial_reads_yield_to_read_error_stale_and_unreachable_agent() -> None:
+    partial = RecentRuns(runs=5, partial_runs=5, max_failed=1, max_points=10)
+    found = conditions(
+        [
+            device("Falownik", success_ago=400, attempt_ago=5, recent=partial),
+            device("Licznik", success_ago=400, attempt_ago=400, recent=partial),
+        ],
+        agent(),
+        NOW,
+    )
+    assert [c.code for c in found] == [AlarmCode.DEVICE_READ_ERROR, AlarmCode.DEVICE_STALE]
+    unreachable = conditions([device("Falownik", recent=partial)], agent(heartbeat_ago=121), NOW)
+    assert [c.code for c in unreachable] == [AlarmCode.AGENT_UNREACHABLE]
 
 
 def _alarm(subject: str, code: AlarmCode, clear_count: int = 0) -> Alarm:

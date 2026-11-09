@@ -13,15 +13,16 @@ export const ALARMS_REFRESH_MS = 30_000
 
 const browserFetch: typeof fetch = (...args) => fetch(...args)
 
-async function loadAlarms(
-  siteId: string,
-  fetchFn: typeof fetch,
-  signal: AbortSignal,
-  limit: number | undefined,
-): Promise<AlarmList> {
-  const result = await listAlarms(siteId, fetchFn, signal, limit)
+async function loadAlarms(siteId: string, fetchFn: typeof fetch, signal: AbortSignal): Promise<AlarmList> {
+  const result = await listAlarms(siteId, fetchFn, signal)
   if (result.kind !== 'ok') throw new Error('Nie udało się pobrać alarmów.')
   return result.data
+}
+
+/** Własne źródło listy (np. strona „Alarmy” z historią); `key` zmienia się razem z zapytaniem. */
+export interface AlarmSource<T extends AlarmList> {
+  key: string
+  load: (signal: AbortSignal) => Promise<T>
 }
 
 export function AlarmItem({
@@ -75,10 +76,10 @@ export function AlarmItem({
  * Alarmy instalacji (D55) z odświeżaniem co 30 s i po powrocie do karty oraz potwierdzaniem.
  * `canAcknowledge` tylko, gdy serwer na to pozwala i UI działa za logowaniem (token CSRF z sesji).
  */
-export function useSiteAlarms(siteId: string, fetchFn: typeof fetch, limit?: number) {
-  const { state, reload } = usePeriodic(
-    `alarms|${siteId}|${limit ?? ''}`,
-    (_now, signal) => loadAlarms(siteId, fetchFn, signal, limit),
+export function useSiteAlarms<T extends AlarmList>(siteId: string, fetchFn: typeof fetch, source: AlarmSource<T>) {
+  const { state, reload } = usePeriodic<T>(
+    `alarms|${siteId}|${source.key}`,
+    (_now, signal) => source.load(signal),
     ALARMS_REFRESH_MS,
   )
   const session = useOptionalSession()
@@ -112,7 +113,10 @@ export function SiteAlarmsPanel({
   timeZone: string
   fetchFn?: typeof fetch
 }) {
-  const { state, ready, reload, canAcknowledge, busy, error, acknowledge } = useSiteAlarms(siteId, fetchFn)
+  const { state, ready, reload, canAcknowledge, busy, error, acknowledge } = useSiteAlarms(siteId, fetchFn, {
+    key: 'dashboard',
+    load: (signal) => loadAlarms(siteId, fetchFn, signal),
+  })
 
   let status: WidgetStatus
   if (state.status === 'loading') status = { kind: 'loading' }

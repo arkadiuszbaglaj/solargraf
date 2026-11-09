@@ -49,7 +49,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 - [ ] Sterowniki: [x] Modbus TCP, [x] SunSpec (D59), [ ] Solarman V5.
 - [ ] Generator symulatora z profilu + profile czasowe PVGIS; wstrzykiwanie błędów. Zrobione: symulator Modbus TCP z profilu, prosty model wartości i wstrzykiwanie błędów (D40) — P3.2; opcjonalna usługa na serwerze (`solargraf simulator on|off`, D45) — P3.7; PVGIS później.
 - [ ] Pierwsze profile: ogólny SunSpec oraz pierwszy sprzęt z O2.
-- [ ] Zapis `PollingRun`, metryki zdrowia agenta, alarm braku danych.
+- [x] Zapis `PollingRun`, alarm „Niepełne odczyty” i jakość odczytów w panelu urządzenia (D76); brak danych pokrywają alarmy błędu odczytu i nieaktualności (D55). Metryki zdrowia samego agenta — później.
 
 **Akceptacja:** agent czyta symulator i zapisuje pomiary z jakością; brak połączenia nie tworzy pomiaru zerowego; profile bez testu sprzętowego mają poziom co najwyżej `COMMUNITY`.
 
@@ -74,7 +74,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 - [x] Status urządzeń i agentów wyliczany z polityki świeżości. (P5.3, D52)
 - [x] Zakładka „Urządzenia”: kafle statusów, wyszukiwarka i filtry, panel szczegółów z bieżącymi wartościami, wykresem i połączeniem (D70).
 - [x] Alarmy z priorytetem, timestampem i potwierdzaniem. (P5.5, D55; powiadomienia później)
-- [x] Strona „Alarmy” z podsumowaniem i filtrami (D74; historia starsza niż 24 h — osobno).
+- [x] Strona „Alarmy” z podsumowaniem i filtrami (D74) oraz historią do roku ze stronicowaniem dla OWNER/ADMIN (D76).
 - [x] Strona „Raporty”: bilans energii za miesiąc i rok, KPI, wykres, tabela, CSV i wydruk — OWNER/ADMIN (D74; koszty i taryfy — osobno).
 - [x] Eksport CSV (D57: historia urządzenia; eksport energii i KPI — osobno).
 

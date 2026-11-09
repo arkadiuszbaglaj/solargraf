@@ -92,18 +92,93 @@ export function parseAlarmList(v: unknown): AlarmList | null {
   return { alarms, canAcknowledge: v.can_acknowledge }
 }
 
+/** Okresy historii (D76): 1 = 24 h dla każdego członka, dłuższe tylko OWNER/ADMIN. */
+export const ALARM_HISTORY_DAYS = [1, 7, 30, 90, 365] as const
+export type AlarmHistoryDays = (typeof ALARM_HISTORY_DAYS)[number]
+export type AlarmStateFilter = 'all' | 'active' | 'unacknowledged' | 'closed'
+
+export interface AlarmSummary {
+  criticalActive: number
+  warningActive: number
+  unacknowledged: number
+  closed: number
+}
+
+/** Strona listy alarmów z historią: `total` pasujących, `summary` całego okresu bez filtrów. */
+export interface AlarmPage extends AlarmList {
+  days: AlarmHistoryDays
+  total: number
+  hasMore: boolean
+  canViewHistory: boolean
+  summary: AlarmSummary
+}
+
+export interface AlarmQuery {
+  days: AlarmHistoryDays
+  state: AlarmStateFilter
+  severity: AlarmSeverity | 'all'
+  offset: number
+  limit: number
+}
+
+const isCount = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0
+const isDays = (v: unknown): v is AlarmHistoryDays => ALARM_HISTORY_DAYS.some((d) => d === v)
+
+export function parseAlarmPage(v: unknown): AlarmPage | null {
+  const list = parseAlarmList(v)
+  if (!list || !isRecord(v)) return null
+  const { days, total, has_more: hasMore, can_view_history: canViewHistory, summary: s } = v
+  if (
+    !isDays(days) ||
+    !isCount(total) ||
+    typeof hasMore !== 'boolean' ||
+    typeof canViewHistory !== 'boolean' ||
+    !isRecord(s) ||
+    !isCount(s.critical_active) ||
+    !isCount(s.warning_active) ||
+    !isCount(s.unacknowledged) ||
+    !isCount(s.closed)
+  ) {
+    return null
+  }
+  return {
+    ...list,
+    days,
+    total,
+    hasMore,
+    canViewHistory,
+    summary: {
+      criticalActive: s.critical_active,
+      warningActive: s.warning_active,
+      unacknowledged: s.unacknowledged,
+      closed: s.closed,
+    },
+  }
+}
+
+export function alarmPageUrl(siteId: string, query: AlarmQuery): string {
+  const params = new URLSearchParams({ days: String(query.days), limit: String(query.limit) })
+  if (query.offset > 0) params.set('offset', String(query.offset))
+  if (query.state !== 'all') params.set('state', query.state)
+  if (query.severity !== 'all') params.set('severity', query.severity)
+  return `${base(siteId)}?${params}`
+}
+
+export const listAlarmPage = (
+  siteId: string,
+  query: AlarmQuery,
+  fetchFn: typeof fetch = fetch,
+  signal?: AbortSignal,
+): Promise<Loaded<AlarmPage>> => load(alarmPageUrl(siteId, query), parseAlarmPage, fetchFn, signal)
+
 const base = (siteId: string) => `/api/sites/${encodeURIComponent(siteId)}/alarms`
 
-/** Najwięcej alarmów w jednej odpowiedzi (limit API, D55). */
-export const ALARMS_MAX_LIMIT = 200
-
+/** Alarmy dashboardu: domyślny okres 24 h i domyślny limit API. */
 export const listAlarms = (
   siteId: string,
   fetchFn: typeof fetch = fetch,
   signal?: AbortSignal,
-  limit?: number,
-): Promise<Loaded<AlarmList>> =>
-  load(limit === undefined ? base(siteId) : `${base(siteId)}?limit=${limit}`, parseAlarmList, fetchFn, signal)
+): Promise<Loaded<AlarmList>> => load(base(siteId), parseAlarmList, fetchFn, signal)
 
 export type AckResult = { ok: true; alarm: ApiAlarm } | { ok: false; message: string }
 
