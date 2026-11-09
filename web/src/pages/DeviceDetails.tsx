@@ -32,9 +32,7 @@ export function DeviceDetails({
   timeZone,
   now,
   live,
-  canManage,
-  busy,
-  onToggle,
+  configureUrl,
   onExpired,
   historyUrl,
   fetchFn,
@@ -44,9 +42,8 @@ export function DeviceDetails({
   timeZone: string
   now: Date
   live: LiveState
-  canManage: boolean
-  busy: boolean
-  onToggle: () => void
+  /** Odnośnik do Ustawień → Falownik (D80); null — bez uprawnień do zmian. */
+  configureUrl: string | null
   onExpired: () => void
   historyUrl: string
   fetchFn: typeof fetch
@@ -140,17 +137,9 @@ export function DeviceDetails({
         </dl>
       </div>
 
-      {canManage ? (
+      {configureUrl ? (
         <div className={styles.detailsActions}>
-          <button
-            type="button"
-            className={styles.secondary}
-            disabled={busy}
-            aria-label={`${device.enabled ? 'Wyłącz' : 'Włącz'} urządzenie ${device.name}`}
-            onClick={onToggle}
-          >
-            {device.enabled ? 'Wyłącz odczyt' : 'Włącz odczyt'}
-          </button>
+          <a href={configureUrl}>Zmień połączenie lub włącz/wyłącz odczyt</a>
         </div>
       ) : null}
     </section>

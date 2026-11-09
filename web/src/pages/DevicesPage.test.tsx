@@ -338,7 +338,13 @@ describe('DevicesPage', () => {
     expect(cells.getByText('55 min temu')).toBeTruthy()
     const level = cells.getByText('Eksperymentalny')
     expect(level.getAttribute('title')).toContain('Nie polegaj na odczytach')
-    expect(screen.getByRole('button', { name: 'Dodaj urządzenie' })).toBeTruthy()
+    // Zapis przeniesiony do Ustawień → Falownik (D80) — tu tylko odnośnik.
+    expect(screen.queryByRole('button', { name: 'Dodaj urządzenie' })).toBeNull()
+    expect(screen.getByRole('link', { name: 'Konfiguracja połączeń' }).getAttribute('href')).toBe(
+      `/ustawienia/falownik?instalacja=${SITE_ID}`,
+    )
+    expect(screen.queryByRole('button', { name: /Wyłącz/ })).toBeNull()
+    expect(screen.getByRole('link', { name: /Zmień połączenie/ })).toBeTruthy()
   })
 
   it('podgląd (VIEWER) nie widzi szczegółów ani formularza', async () => {
@@ -346,7 +352,8 @@ describe('DevicesPage', () => {
     await rowOf('Falownik dach')
     expect(screen.queryByText('192.168.1.50:502')).toBeNull()
     expect(screen.queryByRole('button', { name: /Wyłącz/ })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Dodaj urządzenie' })).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Konfiguracja połączeń' })).toBeNull()
+    expect(screen.queryByRole('link', { name: /Zmień połączenie/ })).toBeNull()
     expect(screen.queryByText('Wersja firmware')).toBeNull()
     expect(screen.getAllByText('Eksperymentalny').length).toBeGreaterThan(0) // poziom wsparcia widzi każda rola
   })
@@ -499,122 +506,5 @@ describe('DevicesPage', () => {
   it('wykres bez danych w zakresie — stan pusty, nie zero', async () => {
     renderPage(server((url) => (url.includes('/history?') ? json(200, history([null, null], [])) : undefined)))
     expect(await screen.findByText('Brak pomiarów w tym zakresie.')).toBeTruthy()
-  })
-
-  it('dodaje urządzenie z tokenem CSRF i odświeża listę', async () => {
-    const user = userEvent.setup()
-    const posted: unknown[] = []
-    const csrf: (string | null)[] = []
-    const fetchFn = server((url, init) => {
-      if (url === `/api/sites/${SITE_ID}/connections` && init?.method === 'POST') {
-        csrf.push(new Headers(init.headers).get('X-CSRF-Token'))
-        posted.push(JSON.parse(String(init.body)))
-        return json(201, { connection: CONNECTION, device: { ...DEVICE, name: 'Nowy' } })
-      }
-      return undefined
-    })
-    renderPage(fetchFn)
-    await user.click(await screen.findByRole('button', { name: 'Dodaj urządzenie' }))
-    await user.selectOptions(await screen.findByLabelText('Profil urządzenia'), 'simulated.hybrid-inverter@0.1.0')
-    expect(screen.getByText(/profil symulatora do testów/)).toBeTruthy()
-    expect(screen.getByText(/Wsparcie profilu: Eksperymentalny\. Profil niepełny/)).toBeTruthy()
-    await user.type(screen.getByLabelText('Nazwa urządzenia'), 'Nowy')
-    await user.type(screen.getByLabelText('Nazwa połączenia'), 'Logger')
-    await user.type(screen.getByLabelText('Adres w sieci lokalnej'), '192.168.1.60')
-    await user.click(screen.getByRole('button', { name: 'Dodaj urządzenie' }))
-    expect(await screen.findByText(/Dodano „Nowy”/)).toBeTruthy()
-    expect(csrf).toEqual(['csrf'])
-    expect(posted).toEqual([
-      {
-        name: 'Logger',
-        host: '192.168.1.60',
-        port: 502,
-        unit_id: 1,
-        poll_interval_seconds: null,
-        live_interval_seconds: null,
-        device: { name: 'Nowy', profile_id: 'simulated.hybrid-inverter', profile_version: '0.1.0' },
-      },
-    ])
-  })
-
-  it('kreator: test komunikacji przed zapisem; zmiana adresu unieważnia wynik', async () => {
-    const user = userEvent.setup()
-    const tests: unknown[] = []
-    const fetchFn = server((url, init) => {
-      if (url === `/api/sites/${SITE_ID}/connection-tests` && init?.method === 'POST') {
-        tests.push(JSON.parse(String(init.body)))
-        return json(202, {
-          id: 't1',
-          state: 'DONE',
-          result: 'OK',
-          error_code: null,
-          origin: 'SIMULATED',
-          readings: [{ metric: 'pv_power', channel: null, name: 'Moc PV', unit: 'W', value: 1500, quality: 'GOOD' }],
-        })
-      }
-      return undefined
-    })
-    renderPage(fetchFn)
-    await user.click(await screen.findByRole('button', { name: 'Dodaj urządzenie' }))
-    expect(await screen.findByRole('group', { name: '1. Profil i adres' })).toBeTruthy()
-    expect(screen.getByRole('group', { name: '2. Test komunikacji' })).toBeTruthy()
-    expect(screen.getByRole('group', { name: '3. Nazwy i zapis' })).toBeTruthy()
-
-    // Bez profilu i adresu test nie jest zlecany; nazwy nie są wtedy wymagane.
-    await user.click(screen.getByRole('button', { name: 'Testuj połączenie' }))
-    expect(tests).toEqual([])
-    expect(screen.getByLabelText('Adres w sieci lokalnej').getAttribute('aria-invalid')).toBe('true')
-    expect(screen.getByLabelText('Nazwa urządzenia').getAttribute('aria-invalid')).toBeNull()
-
-    await user.selectOptions(screen.getByLabelText('Profil urządzenia'), 'simulated.hybrid-inverter@0.1.0')
-    await user.type(screen.getByLabelText('Adres w sieci lokalnej'), '192.168.1.60')
-    await user.click(screen.getByRole('button', { name: 'Testuj połączenie' }))
-    expect(await screen.findByText(/Połączenie działa — odczytano wszystkie parametry/)).toBeTruthy()
-    expect(screen.getByRole('row', { name: /Moc PV/ }).textContent).toContain('1,50 kW')
-    expect(tests).toEqual([
-      { host: '192.168.1.60', port: 502, unit_id: 1, profile_id: 'simulated.hybrid-inverter', profile_version: '0.1.0' },
-    ])
-
-    await user.type(screen.getByLabelText('Adres w sieci lokalnej'), '1')
-    expect(screen.queryByText(/Połączenie działa/)).toBeNull()
-  })
-
-  it('błąd walidacji w przeglądarce nie wysyła żądania; komunikat serwera jest pokazany', async () => {
-    const user = userEvent.setup()
-    const fetchFn = server((url, init) =>
-      url.endsWith('/connections') && init?.method === 'POST'
-        ? json(409, { detail: 'Brak jednoznacznego agenta lokalnego.' })
-        : undefined,
-    )
-    renderPage(fetchFn)
-    await user.click(await screen.findByRole('button', { name: 'Dodaj urządzenie' }))
-    const host = await screen.findByLabelText('Adres w sieci lokalnej')
-    await user.type(host, '8.8.8.8')
-    await user.click(screen.getByRole('button', { name: 'Dodaj urządzenie' }))
-    expect(host.getAttribute('aria-invalid')).toBe('true')
-    expect(fetchFn.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false)
-
-    await user.clear(host)
-    await user.type(host, '192.168.1.60')
-    await user.selectOptions(screen.getByLabelText('Profil urządzenia'), 'simulated.hybrid-inverter@0.1.0')
-    await user.type(screen.getByLabelText('Nazwa urządzenia'), 'F')
-    await user.type(screen.getByLabelText('Nazwa połączenia'), 'L')
-    await user.click(screen.getByRole('button', { name: 'Dodaj urządzenie' }))
-    expect((await screen.findByRole('alert')).textContent).toContain('Brak jednoznacznego agenta lokalnego.')
-  })
-
-  it('wyłącza urządzenie przyciskiem w panelu szczegółów', async () => {
-    const user = userEvent.setup()
-    const patched: unknown[] = []
-    const fetchFn = server((url, init) => {
-      if (url === `/api/sites/${SITE_ID}/devices/d1` && init?.method === 'PATCH') {
-        patched.push(JSON.parse(String(init.body)))
-        return json(200, { ...DEVICE, enabled: false, status: 'DISABLED' })
-      }
-      return undefined
-    })
-    renderPage(fetchFn)
-    await user.click(await screen.findByRole('button', { name: 'Wyłącz urządzenie Falownik dach' }))
-    await vi.waitFor(() => expect(patched).toEqual([{ enabled: false }]))
   })
 })

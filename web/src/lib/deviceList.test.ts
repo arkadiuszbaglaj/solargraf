@@ -49,7 +49,7 @@ describe('lib/deviceList', () => {
         serialNumber: null,
         profileId: null,
         profileVersion: null,
-        connection: { id: 'c', name: 'L', host: '192.168.1.50', port: 502, unitId: 1, pollIntervalSeconds: null, liveIntervalSeconds: null },
+        connection: { id: 'c', name: 'L', host: '192.168.1.50', port: 502, unitId: 1, pollIntervalSeconds: null, liveIntervalSeconds: null, timeoutSeconds: null },
       },
     })
     const all = [meter, inverter]

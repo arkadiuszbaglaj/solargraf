@@ -14,6 +14,8 @@ export interface ApiConnection {
   pollIntervalSeconds: number | null
   /** Odświeżanie podglądu na żywo (D78); null — z profilu. */
   liveIntervalSeconds: number | null
+  /** Limit czasu odczytu [s]; null — z profilu. Przenoszony bez zmian przy edycji połączenia. */
+  timeoutSeconds: number | null
 }
 
 /** Metryka z profilu urządzenia (D47), widoczna dla każdej roli. */
@@ -95,9 +97,26 @@ function parseConnection(v: unknown): ApiConnection | null {
   const unitId = intOrNull(v.unit_id)
   const interval = intOrNull(v.poll_interval_seconds)
   const live = numOrNull(v.live_interval_seconds)
-  if (host === undefined || port === undefined || unitId === undefined || interval === undefined || live === undefined)
+  const timeout = v.timeout_seconds === undefined ? null : intOrNull(v.timeout_seconds)
+  if (
+    host === undefined ||
+    port === undefined ||
+    unitId === undefined ||
+    interval === undefined ||
+    live === undefined ||
+    timeout === undefined
+  )
     return null
-  return { id: v.id, name: v.name, host, port, unitId, pollIntervalSeconds: interval, liveIntervalSeconds: live }
+  return {
+    id: v.id,
+    name: v.name,
+    host,
+    port,
+    unitId,
+    pollIntervalSeconds: interval,
+    liveIntervalSeconds: live,
+    timeoutSeconds: timeout,
+  }
 }
 
 export function parseMetric(v: unknown): ApiDeviceMetric | null {
@@ -427,6 +446,104 @@ export function validateTarget(
   form: Pick<ConnectionForm, 'host' | 'port' | 'unitId' | 'profile'>,
   profiles: readonly ApiProfile[],
 ): { errors: TargetFieldErrors; target: TestTarget | null } {
+  const { errors, address } = validateAddress(form)
+  const profile = profiles.find((p) => `${p.id}@${p.version}` === form.profile)
+  if (!profile) errors.profile = 'Wybierz profil urządzenia.'
+  if (Object.keys(errors).length > 0 || !profile || !address) return { errors, target: null }
+  return { errors, target: { ...address, profileId: profile.id, profileVersion: profile.version } }
+}
+
+/** Interwał zapisu i odświeżanie na żywo (D44, D78); `profilePoll` — interwał z profilu, gdy pole puste. */
+function validateIntervals(
+  form: Pick<ConnectionForm, 'pollIntervalSeconds' | 'liveIntervalSeconds'>,
+  profilePoll: number | null,
+): {
+  errors: Pick<ConnectionFieldErrors, 'pollIntervalSeconds' | 'liveIntervalSeconds'>
+  interval: number | null
+  live: number | null
+} {
+  const errors: Pick<ConnectionFieldErrors, 'pollIntervalSeconds' | 'liveIntervalSeconds'> = {}
+  let interval: number | null = null
+  if (form.pollIntervalSeconds.trim()) {
+    interval = intIn(form.pollIntervalSeconds, 1, 3600)
+    if (interval === null) errors.pollIntervalSeconds = 'Interwał od 1 do 3600 s albo puste (z profilu).'
+  }
+  let live: number | null = null
+  if (form.liveIntervalSeconds.trim()) {
+    live = decimalIn(form.liveIntervalSeconds, 1, 3600)
+    const saved = interval ?? profilePoll
+    if (live === null) errors.liveIntervalSeconds = 'Odświeżanie od 1 do 3600 s (np. 1,5) albo puste (z profilu).'
+    else if (saved !== null && live > saved)
+      errors.liveIntervalSeconds = 'Odświeżanie na żywo nie może być rzadsze niż interwał odczytu.'
+  }
+  return { errors, interval, live }
+}
+
+/** Ustawienia istniejącego połączenia (PATCH, D44) — profil urządzeń się nie zmienia. */
+export interface ConnectionSettingsInput {
+  name: string
+  host: string
+  port: number
+  unitId: number
+  pollIntervalSeconds: number | null
+  liveIntervalSeconds: number | null
+  timeoutSeconds: number | null
+}
+
+export type ConnectionSettingsForm = Pick<
+  ConnectionForm,
+  'name' | 'host' | 'port' | 'unitId' | 'pollIntervalSeconds' | 'liveIntervalSeconds'
+>
+
+/** Wstępna kontrola edycji połączenia; limit czasu przenoszony bez zmian. Ostatecznie decyduje serwer. */
+export function validateConnectionSettings(
+  form: ConnectionSettingsForm,
+  profilePoll: number | null,
+  timeoutSeconds: number | null,
+): { errors: ConnectionFieldErrors; input: ConnectionSettingsInput | null } {
+  const { errors: addressErrors, address } = validateAddress(form)
+  const { errors: intervalErrors, interval, live } = validateIntervals(form, profilePoll)
+  const errors: ConnectionFieldErrors = { ...addressErrors, ...intervalErrors }
+  const name = form.name.trim()
+  if (!name) errors.name = 'Podaj nazwę połączenia, np. „Logger w garażu”.'
+  if (Object.keys(errors).length > 0 || !address) return { errors, input: null }
+  return {
+    errors,
+    input: { ...address, name, pollIntervalSeconds: interval, liveIntervalSeconds: live, timeoutSeconds },
+  }
+}
+
+export function updateConnection(
+  siteId: string,
+  connectionId: string,
+  input: ConnectionSettingsInput,
+  csrfToken: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<Written<ApiConnection>> {
+  return write(
+    `${site(siteId)}/connections/${encodeURIComponent(connectionId)}`,
+    'PATCH',
+    csrfToken,
+    {
+      name: input.name,
+      host: input.host,
+      port: input.port,
+      unit_id: input.unitId,
+      poll_interval_seconds: input.pollIntervalSeconds,
+      live_interval_seconds: input.liveIntervalSeconds,
+      timeout_seconds: input.timeoutSeconds,
+    },
+    parseConnection,
+    'Nie udało się zapisać połączenia.',
+    fetchFn,
+  )
+}
+
+/** Adres, port i Unit ID — prywatny adres w LAN (D44); bez profilu. */
+function validateAddress(form: Pick<ConnectionForm, 'host' | 'port' | 'unitId'>): {
+  errors: TargetFieldErrors
+  address: { host: string; port: number; unitId: number } | null
+} {
   const errors: TargetFieldErrors = {}
   const host = form.host.trim()
   if (!host) errors.host = 'Podaj adres urządzenia w sieci lokalnej.'
@@ -437,10 +554,8 @@ export function validateTarget(
   if (port === null) errors.port = 'Port od 1 do 65535 (Modbus TCP zwykle 502).'
   const unitId = intIn(form.unitId, 0, 255)
   if (unitId === null) errors.unitId = 'Unit ID od 0 do 255.'
-  const profile = profiles.find((p) => `${p.id}@${p.version}` === form.profile)
-  if (!profile) errors.profile = 'Wybierz profil urządzenia.'
-  if (Object.keys(errors).length > 0 || !profile || port === null || unitId === null) return { errors, target: null }
-  return { errors, target: { host, port, unitId, profileId: profile.id, profileVersion: profile.version } }
+  if (Object.keys(errors).length > 0 || port === null || unitId === null) return { errors, address: null }
+  return { errors, address: { host, port, unitId } }
 }
 
 /** Wstępna kontrola w przeglądarce (te same reguły co serwer, D44); ostatecznie decyduje serwer. */
@@ -454,20 +569,9 @@ export function validateConnection(
   const deviceName = form.deviceName.trim()
   if (!name) errors.name = 'Podaj nazwę połączenia, np. „Logger w garażu”.'
   if (!deviceName) errors.deviceName = 'Podaj nazwę urządzenia.'
-  let interval: number | null = null
-  if (form.pollIntervalSeconds.trim()) {
-    interval = intIn(form.pollIntervalSeconds, 1, 3600)
-    if (interval === null) errors.pollIntervalSeconds = 'Interwał od 1 do 3600 s albo puste (z profilu).'
-  }
-  let live: number | null = null
-  if (form.liveIntervalSeconds.trim()) {
-    live = decimalIn(form.liveIntervalSeconds, 1, 3600)
-    const profile = profiles.find((p) => `${p.id}@${p.version}` === form.profile)
-    const saved = interval ?? profile?.pollIntervalSeconds ?? null
-    if (live === null) errors.liveIntervalSeconds = 'Odświeżanie od 1 do 3600 s (np. 1,5) albo puste (z profilu).'
-    else if (saved !== null && live > saved)
-      errors.liveIntervalSeconds = 'Odświeżanie na żywo nie może być rzadsze niż interwał odczytu.'
-  }
+  const profile = profiles.find((p) => `${p.id}@${p.version}` === form.profile)
+  const { errors: intervalErrors, interval, live } = validateIntervals(form, profile?.pollIntervalSeconds ?? null)
+  Object.assign(errors, intervalErrors)
   if (Object.keys(errors).length > 0 || !target) return { errors, input: null }
   return { errors, input: { ...target, name, pollIntervalSeconds: interval, liveIntervalSeconds: live, deviceName } }
 }

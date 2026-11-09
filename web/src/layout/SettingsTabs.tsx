@@ -1,10 +1,11 @@
-import { SERVER_HEALTH_PATH, UPDATES_PATH } from '../paths'
+import { INVERTER_SETTINGS_PATH, SERVER_HEALTH_PATH, UPDATES_PATH } from '../paths'
 import styles from './SettingsTabs.module.css'
 
-export type SettingsTab = 'server' | 'updates'
+export type SettingsTab = 'server' | 'inverter' | 'updates'
 
 const TABS: { tab: SettingsTab; label: string; href: string }[] = [
   { tab: 'server', label: 'Stan serwera', href: SERVER_HEALTH_PATH },
+  { tab: 'inverter', label: 'Falownik', href: INVERTER_SETTINGS_PATH },
   { tab: 'updates', label: 'Aktualizacje', href: UPDATES_PATH },
 ]
 

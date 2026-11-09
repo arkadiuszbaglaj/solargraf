@@ -6,7 +6,16 @@ import { DataSourceProvider } from './data/DataSourceContext'
 import { DemoDataSource } from './data/demo/DemoDataSource'
 import { LoginPage } from './pages/LoginPage'
 import { SetupPage, takeTokenFromLocation } from './pages/SetupPage'
-import { ALARMS_PATH, CHARTS_PATH, DEVICES_TAB_PATH, devicesUrl, REPORTS_PATH, SERVER_HEALTH_PATH, UPDATES_PATH } from './paths'
+import {
+  ALARMS_PATH,
+  CHARTS_PATH,
+  DEVICES_TAB_PATH,
+  devicesUrl,
+  INVERTER_SETTINGS_PATH,
+  REPORTS_PATH,
+  SERVER_HEALTH_PATH,
+  UPDATES_PATH,
+} from './paths'
 
 export type Route =
   | 'setup'
@@ -16,12 +25,13 @@ export type Route =
   | 'history'
   | 'server'
   | 'updates'
+  | 'inverter'
   | 'charts'
   | 'alarms'
   | 'reports'
   | 'app'
 
-export { ALARMS_PATH, CHARTS_PATH, DEVICES_TAB_PATH, REPORTS_PATH, SERVER_HEALTH_PATH, UPDATES_PATH }
+export { ALARMS_PATH, CHARTS_PATH, DEVICES_TAB_PATH, INVERTER_SETTINGS_PATH, REPORTS_PATH, SERVER_HEALTH_PATH, UPDATES_PATH }
 
 const DEVICES_PATH = /^\/instalacje\/([0-9a-f-]{36})\/urzadzenia\/?$/i
 
@@ -61,6 +71,7 @@ export function routeFor(pathname: string): Route {
   if (pathname === '/instalacje') return 'sites'
   if (pathname === SERVER_HEALTH_PATH || pathname === `${SERVER_HEALTH_PATH}/`) return 'server'
   if (pathname === UPDATES_PATH || pathname === `${UPDATES_PATH}/`) return 'updates'
+  if (pathname === INVERTER_SETTINGS_PATH || pathname === `${INVERTER_SETTINGS_PATH}/`) return 'inverter'
   if (pathname === CHARTS_PATH || pathname === `${CHARTS_PATH}/`) return 'charts'
   if (pathname === ALARMS_PATH || pathname === `${ALARMS_PATH}/`) return 'alarms'
   if (pathname === REPORTS_PATH || pathname === `${REPORTS_PATH}/`) return 'reports'
@@ -97,6 +108,8 @@ export function Root() {
     <DataSourceProvider source={skipAuth ? new DemoDataSource() : new ApiDataSource()}>
       {route === 'devices' ? (
         <App page="devices" {...devicesTabIds(window.location.pathname, window.location.search)} />
+      ) : route === 'inverter' ? (
+        <App page="inverter" siteId={devicesTabIds(window.location.pathname, window.location.search).siteId} />
       ) : route === 'history' ? (
         <App
           page="history"

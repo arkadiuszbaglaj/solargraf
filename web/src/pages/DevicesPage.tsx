@@ -1,7 +1,7 @@
 import { useId, useState } from 'react'
 import { assignLocation, loginUrl } from '../api/auth'
 import type { ApiDevice } from '../api/devices'
-import { listDevices, setDeviceEnabled } from '../api/devices'
+import { listDevices } from '../api/devices'
 import { browserLiveSource, type LiveSourceFactory } from '../api/live'
 import type { ApiSite } from '../api/sites'
 import { getSite } from '../api/sites'
@@ -24,8 +24,7 @@ import {
   statusCounts,
 } from '../lib/deviceList'
 import { MISSING, formatAge, formatDateTime } from '../lib/format'
-import { devicesUrl } from '../paths'
-import { AddDeviceForm } from './AddDeviceForm'
+import { devicesUrl, inverterSettingsUrl } from '../paths'
 import { DeviceDetails } from './DeviceDetails'
 import styles from './DevicesPage.module.css'
 
@@ -47,6 +46,7 @@ const historyUrl = (siteId: string, deviceId: string): string =>
 /**
  * Zakładka „Urządzenia” instalacji wybranej w przełączniku: kafle statusów, wyszukiwanie i filtry,
  * tabela i panel szczegółów wybranego urządzenia. Adres i profil widzą tylko OWNER/ADMIN (D38).
+ * Dodawanie, edycja połączeń i włączanie odczytu są w Ustawieniach → Falownik (D80).
  */
 export function DevicesPage({
   siteId,
@@ -124,9 +124,6 @@ function DevicesTab({
   const live = useLiveSite(siteId, liveFactory)
   const [filter, setFilter] = useState<DeviceFilter>(NO_FILTER)
   const [selectedId, setSelectedId] = useState(initialDeviceId)
-  const [adding, setAdding] = useState(false)
-  const [rowMessage, setRowMessage] = useState<string | null>(null)
-  const [busy, setBusy] = useState<string | null>(null)
 
   if (state.status === 'loading') return <WidgetState status={{ kind: 'loading' }} />
   if (state.status === 'error') return <WidgetState status={{ kind: 'error', onRetry: reload }} />
@@ -149,17 +146,6 @@ function DevicesTab({
       const heading = document.getElementById(`${id}-details`)?.querySelector('h2')
       heading?.focus()
     })
-  }
-
-  async function toggle(device: ApiDevice) {
-    if (!auth) return
-    setBusy(device.id)
-    setRowMessage(null)
-    const result = await setDeviceEnabled(site.id, device.id, !device.enabled, auth.session.csrfToken, fetchFn)
-    setBusy(null)
-    if (result.ok) reload()
-    else if (result.anonymous) navigate(loginUrl('expired'))
-    else setRowMessage(result.message)
   }
 
   return (
@@ -190,26 +176,12 @@ function DevicesTab({
         ))}
       </div>
 
-      {canManage && adding ? (
-        <AddDeviceForm
-          siteId={site.id}
-          csrfToken={auth.session.csrfToken}
-          fetchFn={fetchFn}
-          onCreated={reload}
-          onExpired={() => navigate(loginUrl('expired'))}
-        />
-      ) : null}
-
       <div className={styles.layout}>
         <Panel
           title="Lista urządzeń"
           {...(styles.listPanel ? { className: styles.listPanel } : {})}
           actions={
-            canManage ? (
-              <button type="button" className={styles.secondary} aria-expanded={adding} onClick={() => setAdding((a) => !a)}>
-                {adding ? 'Zamknij formularz' : 'Dodaj urządzenie'}
-              </button>
-            ) : null
+            canManage ? <a href={inverterSettingsUrl(site.id)}>Konfiguracja połączeń</a> : null
           }
         >
           <div className={styles.filters}>
@@ -260,7 +232,9 @@ function DevicesTab({
             <WidgetState
               status={{
                 kind: 'empty',
-                message: canManage ? 'Brak urządzeń. Dodaj pierwsze przyciskiem „Dodaj urządzenie”.' : 'Brak urządzeń w tej instalacji.',
+                message: canManage
+                  ? 'Brak urządzeń. Dodaj pierwsze w Ustawieniach → Falownik.'
+                  : 'Brak urządzeń w tej instalacji.',
               }}
             />
           ) : visible.length === 0 ? (
@@ -344,18 +318,11 @@ function DevicesTab({
               timeZone={site.timezone}
               now={now}
               live={live.state}
-              canManage={canManage}
-              busy={busy === selected.id}
-              onToggle={() => void toggle(selected)}
+              configureUrl={canManage ? inverterSettingsUrl(site.id) : null}
               onExpired={() => navigate(loginUrl('expired'))}
               historyUrl={historyUrl(site.id, selected.id)}
               fetchFn={fetchFn}
             />
-          ) : null}
-          {rowMessage ? (
-            <p role="alert" className={styles.error}>
-              {rowMessage}
-            </p>
           ) : null}
         </div>
       </div>
