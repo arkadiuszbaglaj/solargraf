@@ -40,6 +40,7 @@ Stan sprawdzony 2026-11-04 (do ponownej weryfikacji przy dodaniu):
 | huawei-solar | **AGPL-3.0** | **zakazany** — adapter Huawei piszemy samodzielnie z dokumentacji Huawei |
 | TimescaleDB (funkcje TSL) | Timescale License | **nieużywany** (D10) |
 | Definicje modeli SunSpec (`sunspec/models`, pliki JSON dołączone do pakietu profili) | Apache-2.0 | dozwolony (sprawdzone 2026-11-07; kopie niezmienione, tekst licencji i źródło w `sunspec_models/`, brak pliku NOTICE w źródle) — D59 |
+| Dane PVGIS 5.3 (godzinowa moc PV na 1 kWp, rok 2023, 4 lokalizacje; `simulator/src/solargraf_simulator/data/`) | Dane JRC: wolne do użycia z podaniem źródła; katalog JRC podaje CC BY 4.0 | dozwolony za zgodą właściciela (2026-11-09) z atrybucją „PVGIS © European Communities, 2001-2026” w każdym pliku danych, w `data/SOURCE.md` i w komunikacie startowym symulatora; tylko dane SIMULATED — D77. Strona API nie mówi wprost o użyciu komercyjnym; przy zmianie warunków JRC dane usuwamy (symulator wraca do krzywej sinus). |
 
 ## Profile urządzeń i dokumentacja (clean room)
 

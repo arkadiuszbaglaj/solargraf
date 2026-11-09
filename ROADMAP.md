@@ -47,7 +47,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 - [x] Protokół agent ↔ serwer: partie z identyfikatorem, heartbeat, poświadczenie agenta — strona serwera (D42) w P3.4, strona agenta (D43) w P3.5.
 - [x] Dodawanie połączeń i urządzeń (API, ekran `/instalacje/{id}/urzadzenia`, katalog profili `GET /api/profiles`) — P3.6, D44.
 - [ ] Sterowniki: [x] Modbus TCP, [x] SunSpec (D59), [ ] Solarman V5.
-- [ ] Generator symulatora z profilu + profile czasowe PVGIS; wstrzykiwanie błędów. Zrobione: symulator Modbus TCP z profilu, prosty model wartości i wstrzykiwanie błędów (D40) — P3.2; opcjonalna usługa na serwerze (`solargraf simulator on|off`, D45) — P3.7; PVGIS później.
+- [x] Generator symulatora z profilu + profile czasowe PVGIS; wstrzykiwanie błędów. Symulator Modbus TCP z profilu i wstrzykiwanie błędów (D40) — P3.2; opcjonalna usługa na serwerze (`solargraf simulator on|off`, D45) — P3.7; produkcja PV z godzinowych danych PVGIS dla 4 miast (D77).
 - [ ] Pierwsze profile: ogólny SunSpec oraz pierwszy sprzęt z O2.
 - [x] Zapis `PollingRun`, alarm „Niepełne odczyty” i jakość odczytów w panelu urządzenia (D76); brak danych pokrywają alarmy błędu odczytu i nieaktualności (D55). Metryki zdrowia samego agenta — później.
 

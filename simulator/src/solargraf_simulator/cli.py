@@ -16,10 +16,15 @@ from pathlib import Path
 from solargraf_profiles import sunspec
 from solargraf_profiles.loader import ProfileError, load_profile
 from solargraf_profiles.model import Addressing, Profile
+from solargraf_simulator import pvgis
 from solargraf_simulator.plant import Plant, PlantConfig
 from solargraf_simulator.registers import RegisterMap
 from solargraf_simulator.server import Faults, Registers, SimulatorServer, utc_now
 from solargraf_simulator.sunspec_map import SunSpecRegisterMap
+
+# Produkcja PV: dane PVGIS lokalizacji (D77) albo prosta krzywa z D40.
+DEFAULT_LOCATION = "warszawa"
+SINE = "sinus"
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -40,6 +45,12 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--port", type=int, default=5020)
     p.add_argument("--unit-id", type=int, default=1)
     p.add_argument("--pv-peak-w", type=int, default=PlantConfig.pv_peak_w)
+    p.add_argument(
+        "--pv-location",
+        choices=[*pvgis.available(), SINE],
+        default=DEFAULT_LOCATION,
+        help="produkcja PV z danych PVGIS dla lokalizacji albo prosta krzywa (sinus)",
+    )
     faults = p.add_argument_group("wstrzykiwanie błędów")
     faults.add_argument("--no-response", action="store_true", help="brak odpowiedzi (timeout)")
     faults.add_argument("--exception-code", type=int, help="każda odpowiedź to ten wyjątek Modbus")
@@ -62,7 +73,8 @@ def registers_for(profiles: list[Profile], args: argparse.Namespace) -> Register
 async def _run(args: argparse.Namespace) -> None:
     profiles = [load_profile(path) for path in args.profile]
     registers = registers_for(profiles, args)
-    plant = Plant(PlantConfig(pv_peak_w=args.pv_peak_w), now=utc_now())
+    profile = None if args.pv_location == SINE else pvgis.load(args.pv_location)
+    plant = Plant(PlantConfig(pv_peak_w=args.pv_peak_w, pv_profile=profile), now=utc_now())
     faults = Faults(
         no_response=args.no_response,
         exception_code=args.exception_code,
@@ -73,6 +85,8 @@ async def _run(args: argparse.Namespace) -> None:
     port = await server.start(args.host, args.port)
     names = ", ".join(f"{p.id} {p.version}" for p in profiles)
     print(f"SIMULATED: {names} na {args.host}:{port}, unit {args.unit_id}", flush=True)
+    if profile is not None:
+        print(f"SIMULATED: PV {profile.name} {profile.year} — {profile.attribution}", flush=True)
     try:
         while True:
             await asyncio.sleep(args.reset_counters_every or 3600)
