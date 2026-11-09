@@ -4,6 +4,10 @@ Sekcja `## X.Y.Z` jest opisem wydania na GitHubie i w podpisanym manifeście (D6
 właściciel instalacji w Ustawienia → Aktualizacje. Najwyżej 2000 znaków na wersję. Nową sekcję
 dodaje się w tym samym PR co podniesienie wersji (`tools/release.py version X.Y.Z`).
 
+## 0.12.1
+
+- Strona „Wykresy i historia” wykorzystuje całą szerokość ekranu — wykresy są szersze i czytelniejsze na dużych monitorach.
+
 ## 0.12.0
 
 - Menu: przy „Alarmy” widać liczbę aktywnych alarmów wybranej instalacji (czerwona, gdy jest alarm krytyczny), a gdy aktywnych nie ma — kropkę, jeśli jakiś alarm czeka na potwierdzenie. Znacznik odświeża się co 30 s i od razu po potwierdzeniu.
