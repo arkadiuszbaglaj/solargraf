@@ -20,12 +20,13 @@
 }
 
 /*
- * Dashboard z danymi na żywo: siatka 12 kolumn. Szeroki ekran — przepływ (4) | wykres (5) |
- * urządzenia (3), niżej szczegóły (9) | alarmy (3). Komórki rozciągają panel na wysokość rzędu.
+ * Dashboard z danymi na żywo: karty, wykres dnia (cała szerokość), potem rzędy paneli.
+ * Rząd główny: przepływ (1/3) | magazyn i bilans dnia (2/3, dzielone po równo). Reszta
+ * szczegółów (PV, sieć, BMS) dzieli rząd po równo; niżej urządzenia | alarmy.
  */
-.layout {
+.mainRow {
   display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
   gap: var(--space-4);
 }
 
@@ -39,59 +40,47 @@
   flex: 1 1 auto;
 }
 
-.flowCell {
-  grid-column: span 4;
-}
-
-.chartCell {
-  grid-column: span 5;
-}
-
-.devicesCell {
-  grid-column: span 3;
-}
-
-.detailsCell {
-  grid-column: span 9;
+/* Grupa paneli w jednym rzędzie: tyle równych kolumn, ile paneli (bez osieroconych pól). */
+.mainDetails,
+.restDetails {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: var(--space-4);
   min-width: 0;
 }
 
-.detailsCell:empty {
-  display: none;
+.mainRow:has(> .cell:only-child) {
+  grid-template-columns: minmax(0, 1fr);
 }
 
-.alarmsCell {
-  grid-column: span 3;
+.bottomRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
 }
 
-/* Średni ekran: przepływ | wykres, urządzenia | alarmy, szczegóły na całą szerokość. */
-@media (max-width: 1399px) {
-  .flowCell {
-    grid-column: span 5;
+/* Średni ekran: przepływ nad magazynem i bilansem; reszta szczegółów po dwie. */
+@media (max-width: 1199px) {
+  .mainRow {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .chartCell {
-    grid-column: span 7;
-  }
-
-  .devicesCell,
-  .alarmsCell {
-    grid-column: span 6;
-  }
-
-  .detailsCell {
-    grid-column: span 12;
-    order: 1;
+  .restDetails {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-/* Wąskie okno i telefon: jedna kolumna — przepływ, wykres, urządzenia, alarmy, szczegóły. */
-@media (max-width: 1099px) {
-  .flowCell,
-  .chartCell,
-  .devicesCell,
-  .alarmsCell,
-  .detailsCell {
-    grid-column: 1 / -1;
+/* Telefon i wąskie okno: jedna kolumna. */
+@media (max-width: 799px) {
+  .mainDetails,
+  .restDetails {
+    grid-auto-flow: row;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .bottomRow {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

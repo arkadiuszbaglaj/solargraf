@@ -445,6 +445,8 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 
 - Symulator z PVGIS (D77): `tools/fetch_pvgis.py` pobrał godzinową moc PV (PVGIS 5.3, rok 2023) dla Gdańska, Warszawy, Wrocławia i Krakowa (1027–1044 kWh/kWp); dane w paczce symulatora z atrybucją, `--pv-location` (domyślnie Warszawa, `sinus` = dawny model). Testy: symulator 40 (walidacja plików, odwzorowanie czasu z rokiem przestępnym i przełomem roku, skalowanie mocy, licznik energii, CLI), ruff, mypy; dane w kole (wheel) sprawdzone. Niezweryfikowane: obraz symulatora na serwerze testowym (zbuduje się z kolejnym wydaniem).
 
+- Nowy układ dashboardu (na prośbę właściciela): karty bez zmian; „Produkcja i zużycie dziś” na całą szerokość; rząd przepływ | magazyn | zużycie i samowystarczalność; niżej fotowoltaika | sieć (| BMS) i urządzenia | alarmy. Brakujący panel — pozostałe dzielą rząd. `SiteDetailsPanels` ma wybór paneli (`panels`). Testy web 390, tsc, oxlint; podgląd 1440, 1024 i 375 px.
+
 ## Szablon kolejnego wpisu
 
 - Data:

@@ -38,23 +38,39 @@ function LiveDashboard({ site }: { site: Site }) {
     <div className={styles.page}>
       <LiveKpiRow live={live} today={today} />
       {/*
-        Siatka 12 kolumn: przepływ | wykres dnia | urządzenia, niżej szczegóły | alarmy.
-        Panele w jednym rzędzie mają równą wysokość — bez pustych pól między kolumnami.
+        Kolejne rzędy: wykres dnia na całą szerokość; przepływ | magazyn | zużycie i
+        samowystarczalność; reszta szczegółów (PV, sieć, BMS); urządzenia | alarmy. Panele w
+        jednym rzędzie mają równą wysokość. Brakujący panel (np. bez magazynu) — pozostałe dzielą rząd.
       */}
-      <div className={styles.layout}>
-        <div className={`${styles.cell} ${styles.flowCell}`}>
+      <TodayPowerChart siteId={site.id} timeZone={site.timezone} />
+      <div className={styles.mainRow}>
+        <div className={styles.cell}>
           <EnergyFlowPanel live={live} />
         </div>
-        <div className={`${styles.cell} ${styles.chartCell}`}>
-          <TodayPowerChart siteId={site.id} timeZone={site.timezone} />
-        </div>
-        <div className={`${styles.cell} ${styles.devicesCell}`}>
+        <SiteDetailsPanels
+          live={live}
+          siteId={site.id}
+          timeZone={site.timezone}
+          today={today}
+          panels={['battery', 'balance']}
+          label="Magazyn i bilans dnia"
+          className={styles.mainDetails}
+        />
+      </div>
+      <SiteDetailsPanels
+        live={live}
+        siteId={site.id}
+        timeZone={site.timezone}
+        today={today}
+        panels={['pv', 'grid', 'bms']}
+        label="Szczegóły instalacji"
+        className={styles.restDetails}
+      />
+      <div className={styles.bottomRow}>
+        <div className={styles.cell}>
           <SiteDevicesPanel siteId={site.id} />
         </div>
-        <div className={styles.detailsCell}>
-          <SiteDetailsPanels live={live} siteId={site.id} timeZone={site.timezone} today={today} />
-        </div>
-        <div className={`${styles.cell} ${styles.alarmsCell}`}>
+        <div className={styles.cell}>
           <SiteAlarmsPanel siteId={site.id} timeZone={site.timezone} />
         </div>
       </div>
