@@ -4,6 +4,10 @@ Sekcja `## X.Y.Z` jest opisem wydania na GitHubie i w podpisanym manifeście (D6
 właściciel instalacji w Ustawienia → Aktualizacje. Najwyżej 2000 znaków na wersję. Nową sekcję
 dodaje się w tym samym PR co podniesienie wersji (`tools/release.py version X.Y.Z`).
 
+## 0.13.1
+
+- Ustawienia: pasek zakładek nie pokazuje już zbędnych strzałek przewijania po prawej stronie.
+
 ## 0.13.0
 
 - Nowa zakładka Ustawienia → Falownik: stan agenta (połączenie, ostatni kontakt, wersja) i połączenia z urządzeniami w jednym miejscu — adres, Unit ID, interwały, profil i status. Połączenie można edytować i przed zapisem przetestować komunikację z nowym adresem; tu też włącza się i wyłącza odczyt oraz dodaje urządzenia kreatorem.
