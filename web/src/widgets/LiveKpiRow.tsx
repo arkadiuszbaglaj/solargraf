@@ -4,7 +4,7 @@ import { KpiCard } from '../components/KpiCard'
 import { WidgetState } from '../components/WidgetState'
 import type { LiveSite } from '../hooks/useLiveSite'
 import { useNow } from '../hooks/useNow'
-import { formatAge, formatDirectedPower, formatQuantity, MISSING } from '../lib/format'
+import { formatDirectedPower, formatQuantity, MISSING } from '../lib/format'
 import { siteValue, type SiteValue } from '../lib/liveValues'
 import { kpiView, todayEnergy, type TodayState } from '../lib/today'
 import styles from './KpiRow.module.css'
@@ -20,13 +20,6 @@ function reason(v: SiteValue): string | null {
     case 'ambiguous':
       return `Wiele źródeł (${v.sources}) — wartość niedostępna`
   }
-}
-
-function age(v: SiteValue): string | null {
-  if (v.kind === 'value' || (v.kind === 'no-data' && v.ageSeconds !== null)) {
-    return `Odczyt ${formatAge(v.ageSeconds ?? 0)} temu`
-  }
-  return null
 }
 
 const num = (v: SiteValue): number | null => (v.kind === 'value' ? v.value : null)
@@ -50,7 +43,6 @@ function PowerCard({
       value={formatQuantity(num(v), 'W')}
       unavailableReason={reason(v)}
       secondary={today}
-      age={age(v)}
       stale={stale(v)}
     />
   )
@@ -143,7 +135,6 @@ export function LiveKpiRow({
             detail={gridFlow.direction}
             unavailableReason={reason(grid)}
             secondary={`Dziś: pobór ${todayEnergy(today, 'grid_import')}, oddanie ${todayEnergy(today, 'grid_export')}`}
-            age={age(grid)}
             stale={stale(grid)}
           />
           <KpiCard
@@ -153,7 +144,7 @@ export function LiveKpiRow({
             detail={batteryFlow.direction}
             unavailableReason={reason(soc)}
             secondary={`Dziś: ładowanie ${todayEnergy(today, 'battery_charge')}, rozładowanie ${todayEnergy(today, 'battery_discharge')}`}
-            age={[batteryFlow.text === MISSING ? null : `Moc: ${batteryFlow.text}`, age(soc)].filter(Boolean).join(' · ') || null}
+            age={batteryFlow.text === MISSING ? null : `Moc: ${batteryFlow.text}`}
             stale={stale(soc) || stale(batteryPower)}
           />
           <SelfConsumptionCard today={today} />

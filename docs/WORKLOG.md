@@ -451,6 +451,8 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 
 - Szybki podgląd na żywo (D78, na prośbę właściciela — odświeżanie ~1,5 s): agent odpytuje co `live_interval_seconds` (profil/połączenie, migracja 0013) i wysyła każdy cykl do nowego `POST /api/agent/live` (tylko publikacja SSE, bez zapisu); do bazy nadal średnio co `interval_seconds`. Pole w formularzu i szczegółach urządzenia. Testy: Python bez bazy (agent, profile, serwer), nowe testy integracyjne endpointu (CI z PostgreSQL), web 391, ruff, mypy, tsc, oxlint, build. Niezweryfikowane: pełny tor na serwerze testowym i obciążenie prawdziwego urządzenia przy 1,5 s. Następny krok (opcjonalny): statusy urządzeń ze strumienia zamiast co 30 s.
 
+- Dashboard bez „Odczyt N s temu” (na prośbę właściciela): usunięte z kart KPI i nagłówków paneli PV/magazynu/sieci; nieaktualność nadal oznaczana („Wartość nieaktualna”, „nieaktualne, odczyt … temu”). Testy web 391, tsc, oxlint.
+
 ## Szablon kolejnego wpisu
 
 - Data:
