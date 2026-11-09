@@ -4,6 +4,10 @@ Sekcja `## X.Y.Z` jest opisem wydania na GitHubie i w podpisanym manifeście (D6
 właściciel instalacji w Ustawienia → Aktualizacje. Najwyżej 2000 znaków na wersję. Nową sekcję
 dodaje się w tym samym PR co podniesienie wersji (`tools/release.py version X.Y.Z`).
 
+## 0.11.1
+
+- Dashboard: bez napisów „Odczyt N s temu” na kartach i w nagłówkach paneli fotowoltaiki, magazynu i sieci. Nieaktualne dane są nadal wyraźnie oznaczone.
+
 ## 0.11.0
 
 - Dane na żywo odświeżają się co ok. 1,5 s zamiast co 5–15 s: karty Produkcja PV, Zużycie domu i Sieć, przepływ energii, panele fotowoltaiki, magazynu i sieci oraz panel urządzenia. Historia i wykresy zapisują dane jak dotąd (co 10 s), więc baza nie rośnie szybciej.
