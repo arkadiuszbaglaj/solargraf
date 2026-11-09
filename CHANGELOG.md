@@ -4,6 +4,11 @@ Sekcja `## X.Y.Z` jest opisem wydania na GitHubie i w podpisanym manifeście (D6
 właściciel instalacji w Ustawienia → Aktualizacje. Najwyżej 2000 znaków na wersję. Nową sekcję
 dodaje się w tym samym PR co podniesienie wersji (`tools/release.py version X.Y.Z`).
 
+## 0.11.0
+
+- Dane na żywo odświeżają się co ok. 1,5 s zamiast co 5–15 s: karty Produkcja PV, Zużycie domu i Sieć, przepływ energii, panele fotowoltaiki, magazynu i sieci oraz panel urządzenia. Historia i wykresy zapisują dane jak dotąd (co 10 s), więc baza nie rośnie szybciej.
+- Przy dodawaniu urządzenia można ustawić „Odświeżanie na żywo [s]” (od 1 s, np. 1,5); puste pole bierze wartość z profilu urządzenia. Profil bez szybkiego odczytu zostawia odświeżanie w rytmie zapisu.
+
 ## 0.10.1
 
 - Nowy układ dashboardu: pod kartami wykres „Produkcja i zużycie dziś” na całą szerokość, niżej przepływ energii, magazyn energii oraz zużycie i samowystarczalność obok siebie, a pod nimi fotowoltaika, sieć, urządzenia i alarmy.
