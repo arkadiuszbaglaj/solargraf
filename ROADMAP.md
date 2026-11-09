@@ -98,7 +98,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 - [x] Sprzątanie po udanej aktualizacji (D17, D65, D73): [x] stare obrazy aplikacji (zostaje jedna poprzednia wersja, D73); [x] cache budowania starszy niż 7 dni, a przy braku miejsca cały (D65, 0.5.2); [x] pobrane archiwa wydań (katalog tymczasowy); [x] etykiety produktu na obrazach `api`, `agent`, `proxy`; [x] `--dry-run` z planem sprzątania; [x] osierocone obrazy `<none>` z etykietą produktu; [x] raport odzyskanego miejsca (MB przed/po) w wyniku polecenia, `install.log` i w Ustawienia → Stan serwera.
 - [x] Monitor serwera w Ustawieniach (D16, D60): [x] pomiar, stan składników, ocena stabilności i API (P7.1a); [x] strona „Stan serwera” (P7.1b); [x] historia i czas do zapełnienia dysku (P7.1c, D61); [x] alarmy systemowe (P7.1d, D68).
 - [ ] TLS w LAN (Caddy), instrukcja VPN.
-- [ ] Weryfikacja pliku licencji offline i limity (O5).
+- [ ] Weryfikacja pliku licencji offline i limity (O5) — projekt w `docs/LICENSING.md` (próba 30 dni, kod online, plik offline), czeka na zatwierdzenie decyzji.
 - [x] Sprawdzanie aktualizacji (D15, D63): wersja 0.1.0 z jednego miejsca, podpisany manifest, sprawdzanie ręczne i co tydzień, API, narzędzie wydania (P7.3a); klucz podpisu właściciela; komunikat i ustawienia w UI (P7.3b); pierwsze wydanie `v0.1.0` z manifestem.
 - [x] Aktualizacja (D65): `solargraf update` z kopią, automatycznym powrotem i sprzątaniem (P7.4a); instalacja z aplikacji w Ustawienia → Aktualizacje (P7.4b); wydanie `v0.2.0` (P7.5).
 - [x] Backup/restore z testem odtworzenia (P7.2, D62).

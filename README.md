@@ -36,6 +36,7 @@ Projekt zaczyna się od dokumentacji oraz kontrolowanego MVP; nie zakłada jeszc
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — architektura.
 - [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) — encje, pomiary i reguły obliczeń.
 - [`docs/SECURITY.md`](docs/SECURITY.md) — bezpieczeństwo.
+- [`docs/LICENSING.md`](docs/LICENSING.md) — projekt licencjonowania (próba, aktywacja).
 - [`docs/COMPLIANCE.md`](docs/COMPLIANCE.md) — licencje, CRA, RODO, nazwa handlowa.
 - [`LICENSE`](LICENSE) — licencja zastrzeżona: kod publiczny tylko do wglądu, wszelkie prawa zastrzeżone (D35).
 - [`docs/TESTING.md`](docs/TESTING.md) — strategia testów, w tym symulatory.
