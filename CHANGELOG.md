@@ -4,6 +4,12 @@ Sekcja `## X.Y.Z` jest opisem wydania na GitHubie i w podpisanym manifeście (D6
 właściciel instalacji w Ustawienia → Aktualizacje. Najwyżej 2000 znaków na wersję. Nową sekcję
 dodaje się w tym samym PR co podniesienie wersji (`tools/release.py version X.Y.Z`).
 
+## 0.8.0
+
+- Nowa zakładka „Alarmy”: podsumowanie (krytyczne i ostrzeżenia aktywne, niepotwierdzone, zamknięte w 24 h), filtry stanu i priorytetu oraz lista z potwierdzaniem.
+- Nowa zakładka „Raporty” (właściciel i administrator): bilans energii instalacji za miesiąc albo rok — produkcja PV, zużycie, pobór i oddanie do sieci, magazyn, autokonsumpcja i samowystarczalność, wykres i tabela dzień po dniu lub miesiąc po miesiącu. Brak danych jest pokazany jako „—”, nigdy 0. Raport można pobrać jako CSV (Excel) albo wydrukować / zapisać do PDF.
+- Karty bieżących wartości na telefonie: mniejsza wartość i etykiety, które nie rozpychają strony.
+
 ## 0.7.2
 
 - Nowy układ pulpitu: karty bieżących wartości na górze, pod nimi przepływ energii, wykres dnia i urządzenia, niżej szczegóły instalacji i alarmy. Panele w rzędzie mają równą wysokość; na telefonie karty układają się po dwie w rzędzie.
