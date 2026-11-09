@@ -33,7 +33,7 @@ from solargraf_agent.readings import (
 )
 from solargraf_agent.sunspec_map import DeviceMap, MapError, ModelInstance, chunks, discover, locate
 from solargraf_profiles import sunspec
-from solargraf_profiles.catalog import METRICS
+from solargraf_profiles.catalog import METRICS, is_plausible
 from solargraf_profiles.codec import CodecError, decode, decode_sunspec
 from solargraf_profiles.model import Addressing, DataPoint, Profile, ProfileOrigin, RegisterTable
 
@@ -41,12 +41,8 @@ log = logging.getLogger(__name__)
 
 BACKOFF_START_S = 0.5
 
+
 # Granice wiarygodności w jednostkach kanonicznych; poza nimi jakość INVALID.
-PLAUSIBLE: dict[str, tuple[Decimal, Decimal]] = {
-    "battery_soc": (Decimal(0), Decimal(100)),
-}
-
-
 @dataclass(frozen=True)
 class Target:
     host: str
@@ -293,9 +289,8 @@ class ModbusPoller:
         return self._checked(point, value)
 
     def _checked(self, point: DataPoint, value: Decimal) -> Reading:
-        bounds = PLAUSIBLE.get(point.metric)
-        if bounds is not None and not bounds[0] <= value <= bounds[1]:
-            # Wartość odczytana, ale niewiarygodna — nie przekazujemy jej dalej jako liczby.
+        if not is_plausible(point.metric, value):
+            # Wartość odczytana, ale fizycznie niemożliwa (D75) — nie przekazujemy jej jako liczby.
             return self._reading(point, None, Quality.INVALID)
         return self._reading(point, value, Quality.GOOD)
 

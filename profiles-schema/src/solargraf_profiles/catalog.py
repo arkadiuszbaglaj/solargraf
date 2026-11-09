@@ -168,3 +168,31 @@ _METRICS = (
 )
 
 METRICS: dict[str, MetricDefinition] = {m.key: m for m in _METRICS}
+
+
+# Granice fizycznej wiarygodności w jednostce kanonicznej (D75): ogólne dla wielkości, nie dane
+# konkretnego urządzenia. Wartość spoza nich to błąd odczytu albo dekodowania (np. 0xFFFF zamiast
+# braku) — agent oznacza ją INVALID i nie przekazuje liczby. ``None`` — bez granicy z tej strony.
+Bounds = tuple[Decimal | None, Decimal | None]
+
+PLAUSIBLE_BY_QUANTITY: dict[Quantity, Bounds] = {
+    Quantity.POWER: (Decimal(-1_000_000), Decimal(1_000_000)),
+    Quantity.ENERGY: (Decimal(0), None),
+    Quantity.VOLTAGE: (Decimal(0), Decimal(1500)),
+    Quantity.CURRENT: (Decimal(-1000), Decimal(1000)),
+    Quantity.FREQUENCY: (Decimal(40), Decimal(70)),
+    Quantity.TEMPERATURE: (Decimal(-50), Decimal(150)),
+    Quantity.RATIO: (Decimal(0), Decimal(100)),
+    Quantity.COUNT: (Decimal(0), None),
+}
+
+
+def plausible_bounds(metric: str) -> Bounds:
+    """Granice wiarygodności metryki katalogu (według jej wielkości)."""
+    return PLAUSIBLE_BY_QUANTITY[METRICS[metric].quantity]
+
+
+def is_plausible(metric: str, value: Decimal) -> bool:
+    """Wartość kanoniczna mieści się w granicach wiarygodności metryki (włącznie)."""
+    low, high = plausible_bounds(metric)
+    return (low is None or value >= low) and (high is None or value <= high)

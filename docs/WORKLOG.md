@@ -439,6 +439,8 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 
 - Strony „Alarmy” i „Raporty” (D74): `/alarmy` — karty podsumowania, filtry stanu i priorytetu, lista z potwierdzaniem (wspólny hook z panelem dashboardu, `limit=200`); `/raporty` — nowy endpoint raportu (miesiąc/rok w strefie instalacji, 403 dla VIEWER, 422 dla przyszłego okresu) i CSV z audytem; UI z kartami, wykresem, tabelą, CSV i wydrukiem. Poprawka przy okazji: mobilna reguła karty KPI była nadpisywana (kolejność w CSS) i długa etykieta rozpychała stronę na telefonie. Testy: Python bez bazy 202 + nowe testy integracyjne raportu (CI z PostgreSQL), web 384, ruff, mypy, tsc, oxlint; podgląd z atrapą SIMULATED 1440 px i 375 px. Niezweryfikowane: raport na prawdziwych danych serwera testowego.
 
+- Małe porządki (0.8.1): legenda wykresu „Produkcja i zużycie dziś” w jednym przewijanym wierszu (na telefonie nie nachodzi na oś); DECISIONS — usunięte rozstrzygnięte O8 z tabeli otwartych, O7 z opisem stanu; ROADMAP P2 oznaczone zgodnie z kodem (encje, endpointy, historia z limitem punktów); walidacja zakresów (D75) — ogólne granice wiarygodności według wielkości we wspólnym katalogu, poza nimi `INVALID` (wcześniej tylko SoC). Testy: Python 428 (bez bazy), web 385, ruff, mypy, tsc, oxlint; podgląd 375 px.
+
 ## Szablon kolejnego wpisu
 
 - Data:

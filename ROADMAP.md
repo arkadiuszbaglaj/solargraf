@@ -31,12 +31,12 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 
 ## P2 — Model domenowy, wiele instalacji i API
 
-- [ ] Encje z `docs/DATA_MODEL.md`: Organization, User, Membership, Site, Agent, Connection, Device, DeviceProfile, MetricDefinition, Measurement, PollingRun, Alarm, AuditEvent.
+- [x] Encje z `docs/DATA_MODEL.md`: Organization, User, Membership, Site, Agent, Connection, Device, Measurement, PollingRun, Alarm, AuditEvent jako tabele; DeviceProfile i MetricDefinition jako pliki profili i katalog metryk w kodzie (D39).
 - [x] Partycjonowanie tabeli pomiarów po czasie — miesięczne partycje na 24 miesiące + domyślna (D42); kolejne partycje i retencja — P4.4 (D49).
 - [x] Uwierzytelnianie, sesje i role (O6 → D29–D32) — P2.1; autoryzacja per instalacja (D33) — P2.2.
 - [x] Testy izolacji danych między organizacjami (instalacje; kolejne zasoby dopisują własne przypadki).
-- [ ] Endpointy odczytu dashboardu, urządzeń, pomiarów i alarmów; OpenAPI i typy dla frontendu. Zrobione: Agent, Connection, Device i `GET /api/sites/{id}/devices` ze statusem wyliczanym (D38) — P2.3.
-- [ ] Paginacja historii, filtrowanie zakresem czasu i limitami.
+- [x] Endpointy odczytu dashboardu, urządzeń, pomiarów i alarmów; OpenAPI i typy dla frontendu. Urządzenia ze statusem wyliczanym (D38), historia pomiarów (D46), dane na żywo SSE i energia zamiast jednego `/dashboard` (D50, D51), alarmy (D55); OpenAPI z FastAPI, w UI typy z walidacją odpowiedzi w czasie działania (bez generatora).
+- [x] Historia: filtrowanie zakresem czasu i limit punktów z automatycznym doborem rozdzielczości zamiast stronicowania (D46); eksport CSV z limitem wierszy (D57).
 
 **Akceptacja:** API zwraca schematowane dane; walidacja i autoryzacja są testowane; brak wartości zastępczych dla brakujących pomiarów.
 
@@ -55,7 +55,7 @@ Roadmapa jest oparta na etapach i kryteriach akceptacji, a nie na obietnicach ka
 
 ## P4 — Historia i obliczenia energetyczne
 
-- [ ] Normalizacja jednostek oraz walidacja zakresów.
+- [x] Normalizacja jednostek oraz walidacja zakresów (D39, D40, D75; zawężanie granic w profilu — po dokumentacji producenta).
 - [x] Agregaty 5 min / godzina / dzień z liczbą próbek i pokryciem; usługa `worker`, API historii (P4.1, D46).
 - [x] Wykresy dzień/tydzień/miesiąc/rok — historia urządzenia w UI (P4.2, D47).
 - [x] Zakładka „Wykresy i historia” instalacji: moc PV, zużycia, sieci, baterii i SoC, zakres własny (D66).

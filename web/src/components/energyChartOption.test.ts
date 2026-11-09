@@ -37,4 +37,9 @@ describe('opcje wykresu', () => {
     expect(option.series.every((s) => s.connectNulls === false)).toBe(true)
     expect(option.xAxis.max - option.xAxis.min).toBe(24 * 3_600_000)
   })
+
+  it('legenda w jednym przewijanym wierszu — na telefonie nie nachodzi na oś czasu', () => {
+    const option = buildChartOption(CHART, COLORS, 'Europe/Warsaw') as { legend: { type: string; bottom: number } }
+    expect(option.legend).toMatchObject({ type: 'scroll', bottom: 0 })
+  })
 })

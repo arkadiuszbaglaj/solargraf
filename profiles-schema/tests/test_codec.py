@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 
+from solargraf_profiles.catalog import METRICS, is_plausible, plausible_bounds
 from solargraf_profiles.codec import CodecError, decode, encode
 from solargraf_profiles.model import DataPoint
 
@@ -114,3 +115,33 @@ def test_unsupported_point_cannot_be_coded() -> None:
     p = DataPoint.model_validate({"metric": "pv_power", "status": "UNSUPPORTED", "source": "doc"})
     with pytest.raises(CodecError, match="UNSUPPORTED"):
         decode(p, [0])
+
+
+class TestPlausibleBounds:
+    """Granice wiarygodności (D75) — ogólne dla wielkości, włącznie z krawędziami."""
+
+    def test_every_catalog_metric_has_bounds(self) -> None:
+        for key in METRICS:
+            low, high = plausible_bounds(key)
+            assert low is not None or high is not None
+
+    def test_edges_and_out_of_range(self) -> None:
+        cases = [
+            ("battery_soc", "0", True),
+            ("battery_soc", "100", True),
+            ("battery_soc", "100.1", False),
+            ("grid_frequency", "49.98", True),
+            ("grid_frequency", "0", False),  # brak sieci to brak danych, nie 0 Hz
+            ("grid_voltage", "1500", True),
+            ("grid_voltage", "6553.5", False),  # 0xFFFF x 0,1 V — typowy błąd „brak wartości”
+            ("grid_power", "-12000", True),  # moc ze znakiem: eksport
+            ("battery_current", "-250", True),
+            ("pv_energy_total", "0", True),
+            ("pv_energy_total", "-1", False),
+            ("pv_energy_total", "1e12", True),  # licznik bez górnej granicy
+            ("inverter_temperature", "-50", True),
+            ("inverter_temperature", "200", False),
+            ("battery_cycle_count", "0", True),
+        ]
+        for metric, value, ok in cases:
+            assert is_plausible(metric, Decimal(value)) is ok, (metric, value)

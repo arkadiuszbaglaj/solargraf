@@ -39,8 +39,9 @@ export function buildChartOption(
   return {
     aria: { enabled: true },
     animation: false,
-    grid: { left: 48, right: 16, top: 16, bottom: 56 },
-    legend: { bottom: 0, textStyle: { color: colors.text } },
+    grid: { left: 48, right: 16, top: 16, bottom: 64 },
+    // Legenda w jednym wierszu (przewijana) — na wąskim ekranie nie nachodzi na oś czasu.
+    legend: { type: 'scroll', bottom: 0, textStyle: { color: colors.text }, pageTextStyle: { color: colors.text } },
     tooltip: {
       trigger: 'axis',
       valueFormatter: (v: unknown) =>
