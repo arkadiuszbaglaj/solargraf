@@ -4,6 +4,11 @@ Sekcja `## X.Y.Z` jest opisem wydania na GitHubie i w podpisanym manifeście (D6
 właściciel instalacji w Ustawienia → Aktualizacje. Najwyżej 2000 znaków na wersję. Nową sekcję
 dodaje się w tym samym PR co podniesienie wersji (`tools/release.py version X.Y.Z`).
 
+## 0.17.0
+
+- Wykresy i historia: nowy panel energii dla wybranego okresu — suma produkcji, zużycia, poboru z sieci, eksportu oraz ładowania i rozładowania baterii, a pod nią słupki kWh: godzina po godzinie (dzień), dzień po dniu (tydzień, miesiąc) albo miesiąc po miesiącu (rok). Przedziały z niepełnymi danymi są opisane, a brak pomiaru to brak słupka, nie zero.
+- Dashboard: wykres „Produkcja i zużycie dziś” pokazuje też magazyn energii (rozładowanie powyżej zera, ładowanie poniżej), jeśli instalacja go ma.
+
 ## 0.16.0
 
 - Ustawienia → Aktualizacje: przebieg aktualizacji pokazuje prawdziwe etapy zapisane przez serwer — przygotowanie, pobieranie, sprawdzenie miejsca, kopia zapasowa, budowanie, uruchamianie, sprawdzenie działania i sprzątanie — z czasem trwania każdego etapu, na żywo w trakcie aktualizacji. W „Szczegółach” godziny rozpoczęcia i zakończenia etapów oraz łączny czas. Przy błędzie widać etap, który zawiódł, i przywracanie poprzedniej wersji.
