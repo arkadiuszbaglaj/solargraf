@@ -4,6 +4,11 @@ Sekcja `## X.Y.Z` jest opisem wydania na GitHubie i w podpisanym manifeście (D6
 właściciel instalacji w Ustawienia → Aktualizacje. Najwyżej 2000 znaków na wersję. Nową sekcję
 dodaje się w tym samym PR co podniesienie wersji (`tools/release.py version X.Y.Z`).
 
+## 0.10.0
+
+- Symulator (opcjonalna usługa testowa, dane SIMULATED) liczy produkcję PV z rzeczywistej pogody: godzinowe dane PVGIS z roku 2023 dla Warszawy (domyślnie), Gdańska, Wrocławia i Krakowa. Widać dni pochmurne i słoneczne oraz krótsze dni zimą — zamiast jednakowej krzywej każdego dnia.
+- Dane: PVGIS © European Communities, 2001-2026. Serwer nie łączy się z PVGIS — dane są w paczce symulatora.
+
 ## 0.9.0
 
 - Nowy alarm „Niepełne odczyty”: ostrzega, gdy urządzenie odpowiada, ale przez ostatnie 15 minut każdy odczyt pomijał część parametrów (np. zły profil albo adres).
