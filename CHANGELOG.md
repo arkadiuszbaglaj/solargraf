@@ -4,6 +4,10 @@ Sekcja `## X.Y.Z` jest opisem wydania na GitHubie i w podpisanym manifeście (D6
 właściciel instalacji w Ustawienia → Aktualizacje. Najwyżej 2000 znaków na wersję. Nową sekcję
 dodaje się w tym samym PR co podniesienie wersji (`tools/release.py version X.Y.Z`).
 
+## 0.15.0
+
+- Wykresy i historia: przybliżanie wykresów — zaznacz fragment myszą, użyj suwaka czasu pod wykresem, Ctrl + kółka myszy albo przycisków Przybliż / Oddal / Wcześniej / Później / Cały okres. Wykres mocy i stanu naładowania baterii pokazują ten sam fragment, a oś czasu dopasowuje się do widocznego zakresu.
+
 ## 0.14.0
 
 - Nowy wygląd zakładki Ustawienia → Aktualizacje: czytelne karty z zainstalowaną wersją i wynikiem sprawdzenia, przełącznik automatycznego sprawdzania z datą następnego sprawdzenia, przebieg ostatniej aktualizacji z listą etapów oraz polecenie do aktualizacji z terminala.
