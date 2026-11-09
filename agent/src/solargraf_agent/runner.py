@@ -2,6 +2,10 @@
 
 Każde połączenie ma jedno zadanie i jednego klienta Modbus; jego urządzenia są czytane po kolei.
 Zmiana konfiguracji restartuje tylko zadania, których dotyczy.
+
+Szybki podgląd (D78): gdy profil albo połączenie podaje ``live_interval_seconds``, cykl odczytu
+idzie w tym rytmie i każdy jest wysyłany od razu tylko do widoków na żywo; do bufora (i bazy)
+trafia średnio jeden cykl na ``interval_seconds``, jak bez podglądu.
 """
 
 from __future__ import annotations
@@ -9,9 +13,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from solargraf_agent import __version__
@@ -40,6 +44,7 @@ MODBUS_TCP_PORT = 502
 
 ProfileKey = tuple[str, str]
 Sleep = Callable[[float], Awaitable[None]]
+LivePublisher = Callable[[list[dict[str, Any]]], Awaitable[None]]
 
 
 def run_payload(device_id: uuid.UUID, run: PollingRun) -> dict[str, Any]:
@@ -90,6 +95,15 @@ def test_payload(run: PollingRun) -> dict[str, Any]:
     }
 
 
+def _profile_live_interval(profiles: Iterable[Profile]) -> float | None:
+    """Wspólny klient — rytm najwolniejszego urządzenia; bez podglądu, gdy któryś profil go nie
+    przewiduje (nie wiemy, czy urządzenie zniesie częstsze odpytywanie)."""
+    intervals = [p.polling.live_interval_seconds for p in profiles]
+    if not intervals or any(i is None for i in intervals):
+        return None
+    return max(i for i in intervals if i is not None)
+
+
 def failed_test(code: str) -> dict[str, Any]:
     return {"result": RunResult.FAILED.value, "error_code": code, "origin": None, "readings": []}
 
@@ -104,17 +118,65 @@ class ConnectionWorker:
     buffer: Buffer
     clock: Callable[[], datetime] = utc_now
     sleep: Sleep = asyncio.sleep
+    # Podgląd na żywo (D78); bez interwału albo bez wydawcy — cykl co ``interval_s`` jak dotąd.
+    live_interval_s: float | None = None
+    publish_live: LivePublisher | None = None
+    _next_store: datetime | None = None
 
-    async def poll_cycle(self) -> None:
+    @property
+    def live(self) -> bool:
+        return (
+            self.publish_live is not None
+            and self.live_interval_s is not None
+            and self.live_interval_s < self.interval_s
+        )
+
+    @property
+    def tick_s(self) -> float:
+        """Odstęp między początkami cykli odczytu."""
+        if self.live and self.live_interval_s is not None:
+            return self.live_interval_s
+        return self.interval_s
+
+    def store_due(self, now: datetime) -> bool:
+        """Czy cykl zaczęty ``now`` trafia do bufora: średnio jeden na ``interval_s``.
+
+        Zapisuje cykl najbliższy terminowi (do połowy odstępu przed nim); po dłuższej przerwie
+        termin liczony od nowa, bez nadrabiania zaległych zapisów.
+        """
+        half_tick = timedelta(seconds=self.tick_s / 2)
+        if self._next_store is not None and now < self._next_store - half_tick:
+            return False
+        interval = timedelta(seconds=self.interval_s)
+        on_time = self._next_store is not None and now - self._next_store < interval
+        base = self._next_store if on_time and self._next_store is not None else now
+        self._next_store = base + interval
+        return True
+
+    async def poll_cycle(self, *, store: bool = True) -> None:
+        payloads = []
         for device_id, poller in self.pollers:
-            run = await poller.poll()
-            await self.buffer.add(run_payload(device_id, run), self.clock())
+            payload = run_payload(device_id, await poller.poll())
+            if store:
+                await self.buffer.add(payload, self.clock())
+            payloads.append(payload)
+        if self.live and self.publish_live is not None and payloads:
+            try:
+                await self.publish_live(payloads)
+            except (ApiUnavailable, AuthRejected, BatchRejected) as exc:
+                # Podgląd jest ulotny — zapisane cykle i tak dotrą partią z bufora.
+                log.debug(
+                    "Połączenie %s: podgląd na żywo nie wysłany (%r)", self.connection.id, exc
+                )
 
     async def run_forever(self) -> None:
         try:
             while True:
-                await self.poll_cycle()
-                await self.sleep(self.interval_s)
+                started = self.clock()
+                await self.poll_cycle(store=self.store_due(started))
+                # Stały rytm: odstęp liczony od początku cyklu, nie od jego końca.
+                elapsed = (self.clock() - started).total_seconds()
+                await self.sleep(min(self.tick_s, max(0.0, self.tick_s - elapsed)))
         finally:
             self.close()
 
@@ -163,6 +225,7 @@ class AgentRunner:
             return None
         timeout = conn.timeout_seconds or max(p.polling.timeout_seconds for _, p in devices)
         interval = conn.poll_interval_seconds or max(p.polling.interval_seconds for _, p in devices)
+        live = conn.live_interval_seconds or _profile_live_interval(p for _, p in devices)
         target = Target(conn.host, conn.port or MODBUS_TCP_PORT, conn.unit_id or 1)
         client = new_client(target, timeout)
         pollers = [
@@ -172,7 +235,16 @@ class AgentRunner:
             )
             for device_id, profile in devices
         ]
-        return ConnectionWorker(conn, pollers, interval, self.buffer, self.clock, self.sleep)
+        return ConnectionWorker(
+            conn,
+            pollers,
+            interval,
+            self.buffer,
+            self.clock,
+            self.sleep,
+            live_interval_s=live,
+            publish_live=self.api.send_live,
+        )
 
     def apply_config(self, config: AgentConfig, *, start: bool = True) -> None:
         wanted = {c.id: c for c in config.connections}

@@ -66,6 +66,7 @@ describe('api: test połączenia', () => {
         supportLevel: null,
         modbusTcp: true,
         pollIntervalSeconds: 10,
+        liveIntervalSeconds: 1.5,
       },
     ]
     const form = { host: ' 192.168.1.60 ', port: '502', unitId: '3', profile: 'simulated.hybrid-inverter@0.1.0' }

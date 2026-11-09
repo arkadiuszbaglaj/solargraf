@@ -16,6 +16,7 @@ sources:
     version: "0.1.0"
 polling:
   interval_seconds: 10
+  live_interval_seconds: 1.5
   timeout_seconds: 3
   retries: 2
   max_block_registers: 60

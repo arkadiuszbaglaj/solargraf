@@ -6,6 +6,7 @@ import { Panel } from '../components/Panel'
 import { WidgetState } from '../components/WidgetState'
 import { useAsync } from '../hooks/useAsync'
 import { SUPPORT_LEVEL } from '../lib/deviceLabels'
+import { formatSeconds } from '../lib/format'
 import { ConnectionTestResult, useConnectionTest } from './ConnectionTestResult'
 import styles from './DevicesPage.module.css'
 
@@ -15,6 +16,7 @@ const EMPTY_FORM: ConnectionForm = {
   port: '502',
   unitId: '1',
   pollIntervalSeconds: '',
+  liveIntervalSeconds: '',
   deviceName: '',
   profile: '',
 }
@@ -95,7 +97,7 @@ export function AddDeviceForm({
   const field = (
     name: keyof ConnectionForm & keyof ConnectionFieldErrors,
     label: string,
-    props: { hint?: string; inputMode?: 'numeric'; placeholder?: string } = {},
+    props: { hint?: string; inputMode?: 'numeric' | 'decimal'; placeholder?: string } = {},
   ) => {
     const describedBy = [props.hint ? `${id}-${name}-hint` : null, errors[name] ? `${id}-${name}-error` : null]
       .filter(Boolean)
@@ -206,7 +208,15 @@ export function AddDeviceForm({
             {field('name', 'Nazwa połączenia', { placeholder: 'np. Logger w garażu' })}
             {field('pollIntervalSeconds', 'Interwał odczytu [s]', {
               inputMode: 'numeric',
-              hint: selected ? `Puste = z profilu (${selected.pollIntervalSeconds} s).` : 'Puste = z profilu.',
+              hint: selected
+                ? `Co tyle zapis do historii. Puste = z profilu (${selected.pollIntervalSeconds} s).`
+                : 'Co tyle zapis do historii. Puste = z profilu.',
+            })}
+            {field('liveIntervalSeconds', 'Odświeżanie na żywo [s]', {
+              inputMode: 'decimal',
+              hint: `Tylko podgląd na żywo, bez zapisu. Puste = z profilu (${
+                selected?.liveIntervalSeconds != null ? formatSeconds(selected.liveIntervalSeconds) : 'jak interwał odczytu'
+              }).`,
             })}
           </fieldset>
           {message ? (

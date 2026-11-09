@@ -65,6 +65,7 @@ class ProfileOut(BaseModel):
     models: list[str]
     transports: list[Transport]
     poll_interval_seconds: int
+    live_interval_seconds: float | None = None
 
 
 @router.get("", response_model=list[ProfileOut])
@@ -83,6 +84,7 @@ async def list_profiles(
             models=p.models,
             transports=p.transports,
             poll_interval_seconds=p.polling.interval_seconds,
+            live_interval_seconds=p.polling.live_interval_seconds,
         )
         for p in catalog.all()
     ]

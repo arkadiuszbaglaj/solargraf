@@ -35,6 +35,7 @@ Fizyczny punkt dostępu, z którym rozmawia agent (np. logger Wi-Fi, port Modbus
 - `name`, `transport` (`MODBUS_TCP`, `MODBUS_RTU`, `SOLARMAN_V5`, `HTTP`, `MQTT`)
 - parametry połączenia: `host`, `port`, `unit_id` — walidowane; sekrety (np. numer seryjny loggera Solarman) oddzielnie (P3)
 - `poll_interval_seconds`, `timeout_seconds` (domyślne z profilu)
+- `live_interval_seconds` — szybki odczyt tylko do podglądu na żywo (D78), puste = z profilu
 
 ### Device
 - `id`, `site_id`, `connection_id`, `parent_device_id` (nullable)

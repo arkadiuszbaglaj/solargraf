@@ -125,6 +125,11 @@ export function formatUptime(seconds: number | null): string {
   return `${minutes} min`
 }
 
+/** Interwał w sekundach po polsku, np. „1,5 s”, „10 s”. */
+export function formatSeconds(seconds: number): string {
+  return `${new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 1 }).format(seconds)} s`
+}
+
 /** Liczba z określoną liczbą miejsc po przecinku albo „—” dla braku pomiaru. */
 export function formatNumber(value: number | null, fractionDigits: number): string {
   return value === null || !Number.isFinite(value) ? MISSING : number(value, fractionDigits)

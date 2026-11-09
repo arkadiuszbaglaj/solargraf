@@ -8,6 +8,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     CheckConstraint,
+    Double,
     ForeignKey,
     ForeignKeyConstraint,
     Integer,
@@ -72,6 +73,9 @@ class Connection(Base):
             "poll_interval_seconds IS NULL OR poll_interval_seconds > 0", name="poll_interval"
         ),
         CheckConstraint("timeout_seconds IS NULL OR timeout_seconds > 0", name="timeout"),
+        CheckConstraint(
+            "live_interval_seconds IS NULL OR live_interval_seconds >= 1", name="live_interval"
+        ),
         # Cel klucza złożonego z devices: urządzenie i połączenie w tej samej instalacji.
         UniqueConstraint("id", "site_id", name="uq_connections_id_site_id"),
     )
@@ -91,6 +95,8 @@ class Connection(Base):
     # Puste = wartości z profilu urządzenia (P3).
     poll_interval_seconds: Mapped[int | None] = mapped_column(Integer)
     timeout_seconds: Mapped[int | None] = mapped_column(Integer)
+    # Szybki odczyt tylko do podglądu na żywo (D78); puste = z profilu.
+    live_interval_seconds: Mapped[float | None] = mapped_column(Double)
     created_at: Mapped[datetime] = created_at()
 
 

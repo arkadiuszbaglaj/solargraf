@@ -12,6 +12,8 @@ export interface ApiConnection {
   port: number | null
   unitId: number | null
   pollIntervalSeconds: number | null
+  /** Odświeżanie podglądu na żywo (D78); null — z profilu. */
+  liveIntervalSeconds: number | null
 }
 
 /** Metryka z profilu urządzenia (D47), widoczna dla każdej roli. */
@@ -65,6 +67,8 @@ export interface ApiProfile {
   supportLevel: SupportLevel | null
   modbusTcp: boolean
   pollIntervalSeconds: number
+  /** Domyślne odświeżanie podglądu na żywo (D78); null — podgląd w rytmie zapisu. */
+  liveIntervalSeconds: number | null
 }
 
 export type Loaded<T> = { kind: 'ok'; data: T } | { kind: 'anonymous' } | { kind: 'error' }
@@ -80,6 +84,9 @@ const strOrNull = (v: unknown): string | null | undefined =>
   v === null ? null : typeof v === 'string' ? v : undefined
 const intOrNull = (v: unknown): number | null | undefined =>
   v === null ? null : Number.isInteger(v) ? (v as number) : undefined
+/** Liczba albo null; brak pola (starszy serwer) to null. */
+const numOrNull = (v: unknown): number | null | undefined =>
+  v === null || v === undefined ? null : typeof v === 'number' && Number.isFinite(v) ? v : undefined
 
 function parseConnection(v: unknown): ApiConnection | null {
   if (!isRecord(v) || typeof v.id !== 'string' || typeof v.name !== 'string') return null
@@ -87,8 +94,10 @@ function parseConnection(v: unknown): ApiConnection | null {
   const port = intOrNull(v.port)
   const unitId = intOrNull(v.unit_id)
   const interval = intOrNull(v.poll_interval_seconds)
-  if (host === undefined || port === undefined || unitId === undefined || interval === undefined) return null
-  return { id: v.id, name: v.name, host, port, unitId, pollIntervalSeconds: interval }
+  const live = numOrNull(v.live_interval_seconds)
+  if (host === undefined || port === undefined || unitId === undefined || interval === undefined || live === undefined)
+    return null
+  return { id: v.id, name: v.name, host, port, unitId, pollIntervalSeconds: interval, liveIntervalSeconds: live }
 }
 
 export function parseMetric(v: unknown): ApiDeviceMetric | null {
@@ -170,6 +179,7 @@ export function parseProfile(v: unknown): ApiProfile | null {
   if (!isRecord(v)) return null
   const { id, version, name, manufacturer, device_kind: kind, origin, support_level: level } = v
   const interval = v.poll_interval_seconds
+  const live = numOrNull(v.live_interval_seconds)
   if (
     typeof id !== 'string' ||
     typeof version !== 'string' ||
@@ -179,7 +189,8 @@ export function parseProfile(v: unknown): ApiProfile | null {
     (origin !== 'DEVICE' && origin !== 'SIMULATED') ||
     typeof level !== 'string' ||
     !Array.isArray(v.transports) ||
-    !Number.isInteger(interval)
+    !Number.isInteger(interval) ||
+    live === undefined
   ) {
     return null
   }
@@ -193,6 +204,7 @@ export function parseProfile(v: unknown): ApiProfile | null {
     supportLevel: parseSupportLevel(level),
     modbusTcp: v.transports.includes('MODBUS_TCP'),
     pollIntervalSeconds: interval as number,
+    liveIntervalSeconds: live,
   }
 }
 
@@ -323,6 +335,7 @@ export interface NewConnection {
   port: number
   unitId: number
   pollIntervalSeconds: number | null
+  liveIntervalSeconds: number | null
   deviceName: string
   profileId: string
   profileVersion: string
@@ -344,6 +357,7 @@ export function createConnection(
       port: input.port,
       unit_id: input.unitId,
       poll_interval_seconds: input.pollIntervalSeconds,
+      live_interval_seconds: input.liveIntervalSeconds,
       device: { name: input.deviceName, profile_id: input.profileId, profile_version: input.profileVersion },
     },
     (v) => (isRecord(v) ? parseDevice(v.device) : null),
@@ -371,7 +385,10 @@ export function setDeviceEnabled(
 }
 
 export type ConnectionFieldErrors = Partial<
-  Record<'name' | 'host' | 'port' | 'unitId' | 'pollIntervalSeconds' | 'deviceName' | 'profile', string>
+  Record<
+    'name' | 'host' | 'port' | 'unitId' | 'pollIntervalSeconds' | 'liveIntervalSeconds' | 'deviceName' | 'profile',
+    string
+  >
 >
 
 export interface ConnectionForm {
@@ -380,6 +397,7 @@ export interface ConnectionForm {
   port: string
   unitId: string
   pollIntervalSeconds: string
+  liveIntervalSeconds: string
   deviceName: string
   profile: string
 }
@@ -387,6 +405,14 @@ export interface ConnectionForm {
 const PRIVATE_V4 = /^(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})$/
 const IPV4 = /^\d{1,3}(\.\d{1,3}){3}$/
 const HOST = /^(?!-)[A-Za-z0-9-]{1,63}(?<!-)(\.(?!-)[A-Za-z0-9-]{1,63}(?<!-))*\.?$/
+
+/** Liczba z kropką albo przecinkiem (np. „1,5”) w zakresie albo null. */
+function decimalIn(value: string, min: number, max: number): number | null {
+  const text = value.trim().replace(',', '.')
+  if (!/^\d+(\.\d+)?$/.test(text)) return null
+  const n = Number(text)
+  return n >= min && n <= max ? n : null
+}
 
 function intIn(value: string, min: number, max: number): number | null {
   if (!/^\d+$/.test(value.trim())) return null
@@ -433,8 +459,17 @@ export function validateConnection(
     interval = intIn(form.pollIntervalSeconds, 1, 3600)
     if (interval === null) errors.pollIntervalSeconds = 'Interwał od 1 do 3600 s albo puste (z profilu).'
   }
+  let live: number | null = null
+  if (form.liveIntervalSeconds.trim()) {
+    live = decimalIn(form.liveIntervalSeconds, 1, 3600)
+    const profile = profiles.find((p) => `${p.id}@${p.version}` === form.profile)
+    const saved = interval ?? profile?.pollIntervalSeconds ?? null
+    if (live === null) errors.liveIntervalSeconds = 'Odświeżanie od 1 do 3600 s (np. 1,5) albo puste (z profilu).'
+    else if (saved !== null && live > saved)
+      errors.liveIntervalSeconds = 'Odświeżanie na żywo nie może być rzadsze niż interwał odczytu.'
+  }
   if (Object.keys(errors).length > 0 || !target) return { errors, input: null }
-  return { errors, input: { ...target, name, pollIntervalSeconds: interval, deviceName } }
+  return { errors, input: { ...target, name, pollIntervalSeconds: interval, liveIntervalSeconds: live, deviceName } }
 }
 
 // --- test połączenia (D72) ---

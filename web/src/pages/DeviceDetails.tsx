@@ -10,7 +10,7 @@ import type { LiveState } from '../hooks/useLiveSite'
 import { usePeriodic } from '../hooks/usePeriodic'
 import { KIND_LABEL, STATUS_LABEL } from '../lib/deviceLabels'
 import { CHART_SPANS, type ChartSpan, chartMetrics, metricId, metricLabel, spanRange } from '../lib/deviceList'
-import { MISSING, formatAge, formatDateTime } from '../lib/format'
+import { MISSING, formatAge, formatDateTime, formatSeconds } from '../lib/format'
 import { DeviceReadQuality } from './DeviceReadQuality'
 import { deviceValue } from '../lib/liveValues'
 import styles from './DevicesPage.module.css'
@@ -116,6 +116,12 @@ export function DeviceDetails({
               <dd>
                 {device.details.connection.pollIntervalSeconds !== null
                   ? `${device.details.connection.pollIntervalSeconds} s`
+                  : 'z profilu'}
+              </dd>
+              <dt>Odświeżanie na żywo</dt>
+              <dd>
+                {device.details.connection.liveIntervalSeconds !== null
+                  ? formatSeconds(device.details.connection.liveIntervalSeconds)
                   : 'z profilu'}
               </dd>
               <dt>Profil</dt>

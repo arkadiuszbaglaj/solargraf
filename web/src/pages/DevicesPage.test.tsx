@@ -216,6 +216,7 @@ const FORM: ConnectionForm = {
   port: '502',
   unitId: '1',
   pollIntervalSeconds: '',
+  liveIntervalSeconds: '',
   deviceName: 'Falownik',
   profile: 'simulated.hybrid-inverter@0.1.0',
 }
@@ -228,6 +229,11 @@ describe('api/devices', () => {
     expect(parseDevice({ ...DEVICE, last_success_at: 5 })).toBeNull()
     expect(parseProfile(PROFILE)).toMatchObject({ simulated: true, modbusTcp: true, pollIntervalSeconds: 10 })
     expect(parseProfile({ ...PROFILE, origin: 'X' })).toBeNull()
+    // Odświeżanie na żywo (D78): liczba albo null; brak pola (starszy serwer) to null.
+    expect(parseProfile({ ...PROFILE, live_interval_seconds: 1.5 })?.liveIntervalSeconds).toBe(1.5)
+    expect(parseProfile({ ...PROFILE, live_interval_seconds: undefined })?.liveIntervalSeconds).toBeNull()
+    expect(parseProfile({ ...PROFILE, live_interval_seconds: '1.5' })).toBeNull()
+    expect(parseDevice(DEVICE)?.details?.connection.liveIntervalSeconds).toBeNull()
     // Poziom wsparcia (D58): znany albo null — nieznana wartość nie psuje odpowiedzi.
     expect(parseDevice(DEVICE)?.supportLevel).toBe('EXPERIMENTAL')
     expect(parseDevice({ ...DEVICE, support_level: null })?.supportLevel).toBeNull()
@@ -250,11 +256,26 @@ describe('api/devices', () => {
       port: 502,
       unitId: 1,
       pollIntervalSeconds: null,
+      liveIntervalSeconds: null,
       deviceName: 'Falownik',
       profileId: 'simulated.hybrid-inverter',
       profileVersion: '0.1.0',
     })
     expect(validateConnection({ ...FORM, host: 'inverter.lan' }, PROFILES).input?.host).toBe('inverter.lan')
+  })
+
+  it('formularz: odświeżanie na żywo z przecinkiem, nie rzadsze niż zapis', () => {
+    expect(validateConnection({ ...FORM, liveIntervalSeconds: '1,5' }, PROFILES).input?.liveIntervalSeconds).toBe(1.5)
+    expect(validateConnection({ ...FORM, liveIntervalSeconds: ' 2 ' }, PROFILES).input?.liveIntervalSeconds).toBe(2)
+    for (const bad of ['0,5', 'abc', '1,5,0', '-2']) {
+      expect(validateConnection({ ...FORM, liveIntervalSeconds: bad }, PROFILES).errors.liveIntervalSeconds).toBeDefined()
+    }
+    // Profil zapisuje co 10 s — podgląd co 12 s byłby rzadszy niż zapis.
+    expect(validateConnection({ ...FORM, liveIntervalSeconds: '12' }, PROFILES).errors.liveIntervalSeconds).toMatch(
+      /rzadsze/,
+    )
+    const custom = { ...FORM, pollIntervalSeconds: '30', liveIntervalSeconds: '12' }
+    expect(validateConnection(custom, PROFILES).errors).toEqual({})
   })
 
   it.each(['8.8.8.8', '127.0.0.1', '169.254.169.254', '172.32.0.1', 'localhost', '2130706433', 'a_b'])(
@@ -510,6 +531,7 @@ describe('DevicesPage', () => {
         port: 502,
         unit_id: 1,
         poll_interval_seconds: null,
+        live_interval_seconds: null,
         device: { name: 'Nowy', profile_id: 'simulated.hybrid-inverter', profile_version: '0.1.0' },
       },
     ])

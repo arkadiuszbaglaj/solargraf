@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import itertools
 import json
 import logging
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -18,7 +19,7 @@ import pytest
 from solargraf_agent.api import AgentConfig, ApiClient, ApiUnavailable
 from solargraf_agent.buffer import Buffer
 from solargraf_agent.cli import load_profiles, main
-from solargraf_agent.runner import AgentRunner
+from solargraf_agent.runner import AgentRunner, _profile_live_interval
 from solargraf_simulator.plant import Plant, PlantConfig
 from solargraf_simulator.registers import RegisterMap
 from solargraf_simulator.server import SimulatorServer
@@ -65,6 +66,7 @@ class FakeServer:
     lose_response: bool = False
     reject: bool = False
     batches: list[dict[str, Any]] = field(default_factory=list)
+    live: list[dict[str, Any]] = field(default_factory=list)
     heartbeats: int = 0
     test_jobs: list[dict[str, Any]] = field(default_factory=list)
     test_results: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -81,6 +83,9 @@ class FakeServer:
         if request.url.path == "/api/agent/connection-tests":
             jobs, self.test_jobs = self.test_jobs, []
             return httpx2.Response(200, json=jobs)
+        if request.url.path == "/api/agent/live":
+            self.live.append(json.loads(request.content))
+            return httpx2.Response(204)
         if request.url.path.startswith("/api/agent/connection-tests/"):
             self.test_results[request.url.path.split("/")[-2]] = json.loads(request.content)
             return httpx2.Response(self.test_status)
@@ -179,6 +184,96 @@ class TestConfig:
             assert tasks[changed_id].cancelled()
             assert tasks[removed_id].cancelled()
             assert removed_id not in env.runner.workers
+
+        run(tmp_path, test)
+
+
+class TestLivePreview:
+    """Szybki podgląd (D78): każdy cykl na żywo, do bufora średnio jeden na interwał zapisu."""
+
+    def test_live_interval_from_profile_or_connection(self, tmp_path: Path) -> None:
+        async def test(env: Env) -> None:
+            default = connection(env.port, device())
+            override = connection(env.port, device(), live_interval_seconds=2.5)
+            slower = connection(env.port, device(), live_interval_seconds=60)
+            env.runner.apply_config(config(default, override, slower), start=False)
+            workers = env.runner.workers
+            assert workers[uuid.UUID(default["id"])].tick_s == 1.5  # z profilu
+            assert workers[uuid.UUID(override["id"])].tick_s == 2.5
+            # Podgląd rzadszy niż zapis nie ma sensu — zostaje sam zapis co 10 s.
+            assert not workers[uuid.UUID(slower["id"])].live
+            assert workers[uuid.UUID(slower["id"])].tick_s == 10
+
+        run(tmp_path, test)
+
+    def test_shared_connection_without_live_profile_has_no_preview(self) -> None:
+        profiles = load_profiles(PROFILES_DIR)
+        fast = profiles[PROFILE]
+        slow = fast.model_copy(
+            update={"polling": fast.polling.model_copy(update={"live_interval_seconds": None})}
+        )
+        assert _profile_live_interval([fast]) == 1.5
+        assert _profile_live_interval([fast, slow]) is None
+
+    def test_every_cycle_goes_live_only_due_cycles_are_buffered(self, tmp_path: Path) -> None:
+        async def test(env: Env) -> None:
+            dev = device()
+            env.runner.apply_config(config(connection(env.port, dev)), start=False)
+            [worker] = env.runner.workers.values()
+            await worker.poll_cycle(store=False)
+            assert await env.buffer.count() == 0
+            await worker.poll_cycle()
+            assert await env.buffer.count() == 1
+            assert len(env.server.live) == 2
+            [run_] = env.server.live[0]["runs"]
+            assert run_["device_id"] == dev["id"]
+            assert {r["origin"] for r in run_["readings"]} == {"SIMULATED"}
+            assert env.server.batches == []  # podgląd nie jest partią
+
+            env.server.online = False
+            await worker.poll_cycle()  # niedostępny podgląd nie przerywa zapisu
+            assert await env.buffer.count() == 2
+
+        run(tmp_path, test)
+
+    def test_store_cadence_matches_interval(self, tmp_path: Path) -> None:
+        async def test(env: Env) -> None:
+            env.runner.apply_config(config(connection(env.port, device())), start=False)
+            [worker] = env.runner.workers.values()
+            ticks = [NOON_UTC + timedelta(seconds=1.5 * i) for i in range(80)]  # 120 s
+            stored = [t for t in ticks if worker.store_due(t)]
+            assert len(stored) == 12  # średnio co 10 s
+            gaps = {(b - a).total_seconds() for a, b in itertools.pairwise(stored)}
+            assert gaps <= {9.0, 10.5}
+            # Po dłuższej przerwie (np. zawieszony odczyt) bez nadrabiania zaległych zapisów.
+            later = ticks[-1] + timedelta(minutes=5)
+            assert worker.store_due(later)
+            assert not worker.store_due(later + timedelta(seconds=1.5))
+
+        run(tmp_path, test)
+
+    def test_fixed_rate_counts_from_cycle_start(self, tmp_path: Path) -> None:
+        async def test(env: Env) -> None:
+            env.runner.apply_config(config(connection(env.port, device())), start=False)
+            [worker] = env.runner.workers.values()
+            now = [NOON_UTC]
+            sleeps: list[float] = []
+
+            async def fake_poll_cycle(*, store: bool = True) -> None:
+                now[0] += timedelta(seconds=0.4)  # cykl trwa 0,4 s
+
+            async def fake_sleep(seconds: float) -> None:
+                sleeps.append(seconds)
+                now[0] += timedelta(seconds=seconds)
+                if len(sleeps) == 3:
+                    raise asyncio.CancelledError
+
+            worker.clock = lambda: now[0]
+            worker.sleep = fake_sleep
+            worker.poll_cycle = fake_poll_cycle  # type: ignore[method-assign]
+            with pytest.raises(asyncio.CancelledError):
+                await worker.run_forever()
+            assert sleeps == pytest.approx([1.1, 1.1, 1.1])
 
         run(tmp_path, test)
 
