@@ -1,7 +1,7 @@
 # Root workspace (wirtualny) — nie jest dystrybuowany.
 [project]
 name = "solargraf-workspace"
-version = "0.11.0"
+version = "0.11.1"
 requires-python = ">=3.12,<3.13"
 dependencies = ["solargraf-server", "solargraf-agent", "solargraf-profiles", "solargraf-simulator"]
 
