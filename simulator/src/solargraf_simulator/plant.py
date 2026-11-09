@@ -1,8 +1,9 @@
 """Deterministyczny model instalacji PV z baterią (D40). Wszystkie wartości są SIMULATED.
 
-Model jest celowo prosty: służy do testów agenta i UI, nie do prognoz. Ta sama sekwencja
-wywołań ``advance`` daje zawsze te same wartości. Konwencje znaków jak w katalogu metryk:
-``grid_power`` + pobór, ``battery_power`` + rozładowanie.
+Model jest celowo prosty: służy do testów agenta i UI, nie do prognoz. Produkcja PV pochodzi
+z godzinowych danych PVGIS dla wybranej lokalizacji (D77) albo, bez danych, z krzywej sinus
+od 6 do 18. Ta sama sekwencja wywołań ``advance`` daje zawsze te same wartości. Konwencje
+znaków jak w katalogu metryk: ``grid_power`` + pobór, ``battery_power`` + rozładowanie.
 """
 
 from __future__ import annotations
@@ -11,6 +12,8 @@ import math
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
+
+from solargraf_simulator.pvgis import PvProfile
 
 # Dłuższe przerwy między odczytami całkujemy krokami, żeby bateria nie „przeskakiwała”.
 MAX_STEP = timedelta(seconds=60)
@@ -28,6 +31,8 @@ class PlantConfig:
     initial_soc: int = 50
     # Lokalny czas słoneczny = UTC + przesunięcie (bez stref i zmiany czasu — wystarcza do testów).
     utc_offset_hours: int = 1
+    # Produkcja z danych PVGIS (moc na 1 kWp razy pv_peak_w / 1000); None = krzywa sinus.
+    pv_profile: PvProfile | None = None
 
 
 @dataclass
@@ -53,6 +58,9 @@ class Plant:
         return local.hour + local.minute / 60 + local.second / 3600
 
     def pv_power(self, at: datetime) -> float:
+        profile = self.config.pv_profile
+        if profile is not None:
+            return profile.per_kwp(at) * self.config.pv_peak_w / 1000
         h = self._local_hour(at)
         if not 6 <= h <= 18:
             return 0.0

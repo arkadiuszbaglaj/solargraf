@@ -443,6 +443,8 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 
 - Jakość odczytów i historia alarmów (D76): alarm „Niepełne odczyty” (`DEVICE_PARTIAL_READ`, migracja 0012 rozszerza ograniczenie kodów, reguły w wersji 2), endpoint `polling-stats` i sekcja „Jakość odczytów (24 h)” w panelu urządzenia; `GET /alarms` z okresem, filtrami po stronie serwera, stronicowaniem i podsumowaniem; strona „Alarmy” z przełącznikiem okresu (OWNER/ADMIN) i „Pokaż więcej”. Testy: Python bez bazy + nowe testy integracyjne (CI z PostgreSQL), web 389, ruff, mypy, tsc, oxlint; podgląd z atrapą SIMULATED 1440 px i 375 px. Niezweryfikowane: progi alarmu na prawdziwym falowniku.
 
+- Symulator z PVGIS (D77): `tools/fetch_pvgis.py` pobrał godzinową moc PV (PVGIS 5.3, rok 2023) dla Gdańska, Warszawy, Wrocławia i Krakowa (1027–1044 kWh/kWp); dane w paczce symulatora z atrybucją, `--pv-location` (domyślnie Warszawa, `sinus` = dawny model). Testy: symulator 40 (walidacja plików, odwzorowanie czasu z rokiem przestępnym i przełomem roku, skalowanie mocy, licznik energii, CLI), ruff, mypy; dane w kole (wheel) sprawdzone. Niezweryfikowane: obraz symulatora na serwerze testowym (zbuduje się z kolejnym wydaniem).
+
 ## Szablon kolejnego wpisu
 
 - Data:
