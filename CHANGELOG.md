@@ -4,6 +4,10 @@ Sekcja `## X.Y.Z` jest opisem wydania na GitHubie i w podpisanym manifeście (D6
 właściciel instalacji w Ustawienia → Aktualizacje. Najwyżej 2000 znaków na wersję. Nową sekcję
 dodaje się w tym samym PR co podniesienie wersji (`tools/release.py version X.Y.Z`).
 
+## 0.10.1
+
+- Nowy układ dashboardu: pod kartami wykres „Produkcja i zużycie dziś” na całą szerokość, niżej przepływ energii, magazyn energii oraz zużycie i samowystarczalność obok siebie, a pod nimi fotowoltaika, sieć, urządzenia i alarmy.
+
 ## 0.10.0
 
 - Symulator (opcjonalna usługa testowa, dane SIMULATED) liczy produkcję PV z rzeczywistej pogody: godzinowe dane PVGIS z roku 2023 dla Warszawy (domyślnie), Gdańska, Wrocławia i Krakowa. Widać dni pochmurne i słoneczne oraz krótsze dni zimą — zamiast jednakowej krzywej każdego dnia.
