@@ -12,12 +12,6 @@
   }
 }
 
-.age {
-  white-space: nowrap;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-}
-
 .group + .group {
   margin-top: var(--space-3);
   padding-top: var(--space-3);

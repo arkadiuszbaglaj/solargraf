@@ -20,7 +20,7 @@ export function KpiCard({
   value: string
   detail?: string | null
   secondary?: string | null
-  /** Wiek wartości chwilowej, np. „Odczyt 12 s temu”. */
+  /** Dodatkowa wartość w stopce karty, np. „Moc: 1,50 kW” magazynu. */
   age?: string | null
   stale: boolean
   unavailableReason?: string | null

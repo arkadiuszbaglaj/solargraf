@@ -76,7 +76,7 @@ describe('SiteDetailsPanels', () => {
     expect(rows(grid)).toEqual(['Moc: 0,20 kWpobór z sieci'])
     const phase = within(grid).getByRole('row', { name: /L1/ })
     expect(phase.textContent).toBe('L1—brak danych')
-    expect(within(grid).getByText('Odczyt 20 s temu')).toBeTruthy()
+    expect(grid.textContent).not.toContain('temu')
   })
 
   it('bez metryk baterii — brak panelu magazynu; nieaktualna wartość oznaczona', () => {

@@ -357,7 +357,6 @@ function SectionPanel({
 }) {
   const values = sectionValues(section)
   const simulated = values.some((v) => v.kind === 'value' && v.origin === 'SIMULATED')
-  const ages = values.flatMap((v) => (v.kind === 'value' ? [v.ageSeconds] : []))
   let body: ReactNode
   switch (section.key) {
     case 'pv':
@@ -378,7 +377,6 @@ function SectionPanel({
       title={section.title}
       actions={
         <>
-          {ages.length > 0 ? <span className={styles.age}>Odczyt {formatAge(Math.max(...ages))} temu</span> : null}
           {simulated ? <DemoBadge origin="SIMULATED" /> : null}
         </>
       }

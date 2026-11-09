@@ -101,11 +101,11 @@ describe('LiveKpiRow', () => {
     expect(screen.getByRole('status').textContent).toContain('Ładowanie')
   })
 
-  it('pokazuje wartości z wiekiem, kierunki wg D39 i oznaczenie SIMULATED', () => {
+  it('pokazuje wartości bez wieku odczytu, kierunki wg D39 i oznaczenie SIMULATED', () => {
     const { current } = setup()
     current().emit('snapshot', SNAPSHOT)
     expect(card('Produkcja PV')).toContain('2,50 kW')
-    expect(card('Produkcja PV')).toContain('Odczyt 12 s temu')
+    expect(card('Produkcja PV')).not.toContain('temu')
     expect(card('Sieć')).toContain('oddawanie do sieci')
     expect(card('Magazyn energii')).toContain('rozładowanie')
     // SOC bez odczytu — brak danych, nie 0 %.
