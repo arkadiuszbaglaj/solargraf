@@ -5,7 +5,7 @@ import type { Role, Session } from '../api/auth'
 import { checkUpdates, dismissUpdate, getUpdates, installUpdate, parseUpdates, setAutomaticCheck } from '../api/updates'
 import { SessionProvider } from '../auth/SessionContext'
 import { UpdateBanner } from '../layout/UpdateBanner'
-import { clearPostponed } from '../lib/updates'
+import { clearPostponed, stepStatuses } from '../lib/updates'
 import { UpdatesPanel } from './UpdatesPanel'
 
 // Wartości testowe — nie pochodzą z prawdziwego wydania.
@@ -75,10 +75,13 @@ const renderPanel = (fetchFn: typeof fetch, onExpired = vi.fn<() => void>()) => 
   return onExpired
 }
 
-function dd(label: string): string {
-  const term = screen.getByText(label, { selector: 'dt' })
-  return term.nextElementSibling?.textContent ?? ''
-}
+const autoSwitch = () => screen.getByRole('switch', { name: 'Automatycznie sprawdzaj aktualizacje' })
+
+const steps = () =>
+  screen
+    .getAllByRole('listitem')
+    .filter((li) => li.closest('ol')?.getAttribute('aria-label') === 'Etapy aktualizacji')
+    .map((li) => Array.from(li.querySelectorAll('span'), (x) => x.textContent).join(' '))
 
 afterEach(() => clearPostponed())
 
@@ -182,9 +185,15 @@ describe('UpdatesPanel', () => {
   it('aktualna wersja: daty sprawdzeń i ustawienie', async () => {
     renderPanel(api(BASE))
     expect(await screen.findByText('Masz najnowszą wersję.')).toBeTruthy()
-    expect(dd('Zainstalowana wersja')).toBe('0.1.0')
-    expect(dd('Ostatnie sprawdzenie')).toBe(dd('Ostatnie udane sprawdzenie'))
-    expect(screen.getByRole('checkbox', { name: /Sprawdzaj automatycznie/ })).toHaveProperty('checked', true)
+    expect(screen.getByRole('region', { name: 'Wersja' }).textContent).toContain('Zainstalowana wersja0.1.0')
+    // Czas względny z dokładną datą w podpowiedzi.
+    const checked = screen.getByText(/temu$/, { selector: 'time' })
+    expect(checked.getAttribute('title')).toBe('07.11.2026, 12:00')
+    expect(screen.queryByText(/ostatnie udane/)).toBeNull()
+    expect(autoSwitch().getAttribute('aria-checked')).toBe('true')
+    expect(screen.getByText(/sprawdzane raz w tygodniu\. Następne sprawdzenie: 14\.11\.2026, 12:00/)).toBeTruthy()
+    expect(screen.getByText('sudo solargraf update')).toBeTruthy()
+    expect(screen.queryByRole('region', { name: 'Ostatnia aktualizacja' })).toBeNull()
   })
 
   it('dostępna wersja z opisem, odnośnikiem i ostrzeżeniem o aktualizacji pośredniej', async () => {
@@ -201,7 +210,8 @@ describe('UpdatesPanel', () => {
   it('błąd sprawdzenia: opis bez szczegółów i data ostatniego sukcesu', async () => {
     renderPanel(api({ ...BASE, last_checked_at: '2026-11-08T11:00:00Z', last_error: 'NETWORK' }))
     expect(await screen.findByText(/Nie udało się sprawdzić: brak połączenia/)).toBeTruthy()
-    expect(dd('Ostatnie udane sprawdzenie')).not.toBe('brak')
+    expect(screen.queryByText('Masz najnowszą wersję.')).toBeNull()
+    expect(screen.getByText(/ostatnie udane/).textContent).toMatch(/temu$/)
   })
 
   it('brak klucza: tylko wersja i informacja, bez przycisków', async () => {
@@ -229,17 +239,19 @@ describe('UpdatesPanel', () => {
   it('wyłączenie automatycznego sprawdzania', async () => {
     const fetchFn = api(BASE, [200, { ...BASE, automatic: false, next_check_at: null }])
     renderPanel(fetchFn)
-    await userEvent.click(await screen.findByRole('checkbox', { name: /Sprawdzaj automatycznie/ }))
+    await screen.findByText('Masz najnowszą wersję.')
+    await userEvent.click(autoSwitch())
     expect(await screen.findByText('Automatyczne sprawdzanie wyłączone.')).toBeTruthy()
-    expect(dd('Następne automatyczne')).toBe('wyłączone')
-    expect(screen.getByRole('checkbox', { name: /Sprawdzaj automatycznie/ })).toHaveProperty('checked', false)
+    expect(screen.getByText('Wyłączone — sprawdzaj aktualizacje ręcznie.')).toBeTruthy()
+    expect(autoSwitch().getAttribute('aria-checked')).toBe('false')
   })
 
   it('błąd zmiany pokazuje komunikat i zostawia stan', async () => {
     renderPanel(api(BASE, [403, {}]))
-    await userEvent.click(await screen.findByRole('checkbox', { name: /Sprawdzaj automatycznie/ }))
+    await screen.findByText('Masz najnowszą wersję.')
+    await userEvent.click(autoSwitch())
     expect(await screen.findByText(/Tylko właściciel/)).toBeTruthy()
-    expect(screen.getByRole('checkbox', { name: /Sprawdzaj automatycznie/ })).toHaveProperty('checked', true)
+    expect(autoSwitch().getAttribute('aria-checked')).toBe('true')
   })
 
   it('401 — przekierowanie do logowania', async () => {
@@ -278,7 +290,14 @@ describe('UpdatesPanel — instalacja (D65)', () => {
   it('trwająca aktualizacja: etap, bez przycisku instalacji', async () => {
     renderPanel(api({ ...ready, install: { ...SUPPORTED, running: true, last: JOB } }))
     expect(await screen.findByText('Aktualizacja w toku 0.1.0 → 0.2.0')).toBeTruthy()
-    expect(screen.getByText(/budowanie nowej wersji/)).toBeTruthy()
+    expect(screen.getByText(/Etap: budowanie nowej wersji/)).toBeTruthy()
+    expect(steps()).toEqual([
+      'Przygotowanie i sprawdzenie miejsca gotowe',
+      'Kopia zapasowa gotowe',
+      'Pobieranie i budowanie nowej wersji w toku',
+      'Migracje bazy i uruchamianie usług oczekuje',
+      'Sprzątanie oczekuje',
+    ])
     expect(screen.queryByRole('button', { name: /Zainstaluj wersję/ })).toBeNull()
   })
 
@@ -286,6 +305,39 @@ describe('UpdatesPanel — instalacja (D65)', () => {
     const finished = { ...JOB, state: 'ROLLED_BACK', step: 'DONE', finished_at: '2026-11-07T12:20:00Z' }
     renderPanel(api({ ...BASE, install: { ...SUPPORTED, last: finished } }))
     expect(await screen.findByText(/przywrócono poprzednią wersję/)).toBeTruthy()
+    expect(screen.getByText('z wersji 0.1.0 do 0.2.0')).toBeTruthy()
+    // Nie wiemy, który etap zawiódł — bez listy etapów.
+    expect(screen.queryByRole('list', { name: 'Etapy aktualizacji' })).toBeNull()
+  })
+
+  it('udana aktualizacja: wszystkie etapy gotowe, wersje, czasy i odzyskane miejsce', async () => {
+    const done = { ...JOB, state: 'SUCCESS', step: 'DONE', finished_at: '2026-11-07T12:20:00Z', reclaimed_mb: 812 }
+    renderPanel(api({ ...BASE, current_version: '0.2.0', install: { ...SUPPORTED, last: done } }))
+    expect(await screen.findByText('Zaktualizowano')).toBeTruthy()
+    expect(screen.getByText('z wersji 0.1.0 do 0.2.0')).toBeTruthy()
+    expect(screen.getByText('Rozpoczęto: 07.11.2026, 13:00 · zakończono: 07.11.2026, 13:20')).toBeTruthy()
+    expect(steps().every((s) => s.endsWith('gotowe'))).toBe(true)
+    expect(screen.getByText('Sprzątanie odzyskało 812 MB.')).toBeTruthy()
+  })
+
+  it('nieudana aktualizacja: etap z błędem, dalsze pominięte; przerwana — oznaczona', async () => {
+    const failed = { ...JOB, state: 'FAILED', step: 'START', finished_at: '2026-11-07T12:20:00Z' }
+    renderPanel(api({ ...BASE, install: { ...SUPPORTED, last: failed } }))
+    expect(await screen.findByText('Aktualizacja nie powiodła się')).toBeTruthy()
+    expect(steps().slice(2)).toEqual([
+      'Pobieranie i budowanie nowej wersji gotowe',
+      'Migracje bazy i uruchamianie usług błąd',
+      'Sprzątanie pominięte',
+    ])
+    expect(stepStatuses({ state: 'RUNNING', step: 'BACKUP' }, false)?.map((s) => s.status)).toEqual([
+      'done',
+      'interrupted',
+      'skipped',
+      'skipped',
+      'skipped',
+    ])
+    expect(stepStatuses({ state: 'RUNNING', step: 'ROLLBACK' }, true)).toBeNull()
+    expect(stepStatuses({ state: 'NO_UPDATE', step: 'CHECK' }, false)).toBeNull()
   })
 
   it('brak miejsca na dysku: przyczyna i liczby zamiast etapu', async () => {
@@ -299,8 +351,10 @@ describe('UpdatesPanel — instalacja (D65)', () => {
       required_mb: 5120,
     }
     renderPanel(api({ ...BASE, install: { ...SUPPORTED, last: lowDisk } }))
-    expect(await screen.findByText(/za mało miejsca na dysku serwera \(wolne 4964 MB, wymagane 5120 MB\)/)).toBeTruthy()
+    expect(await screen.findByText(/Za mało miejsca na dysku serwera \(wolne 4964 MB, wymagane 5120 MB\)/)).toBeTruthy()
+    expect(screen.getByText('Aktualizacja nie rozpoczęła się')).toBeTruthy()
     expect(screen.queryByText(/sprawdzanie wersji/)).toBeNull()
+    expect(screen.queryByRole('list', { name: 'Etapy aktualizacji' })).toBeNull()
   })
 
   it('nieznana przyczyna w stanie: odpowiedź odrzucona', async () => {

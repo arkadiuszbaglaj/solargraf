@@ -58,3 +58,45 @@ export function clearPostponed(): void {
     // jak wyżej
   }
 }
+
+/** Etapy pokazywane na liście postępu (kolejność skryptu aktualizacji, D65). */
+export const JOB_STEPS_SHOWN: readonly { step: JobStep; label: string }[] = [
+  { step: 'CHECK', label: 'Przygotowanie i sprawdzenie miejsca' },
+  { step: 'BACKUP', label: 'Kopia zapasowa' },
+  { step: 'BUILD', label: 'Pobieranie i budowanie nowej wersji' },
+  { step: 'START', label: 'Migracje bazy i uruchamianie usług' },
+  { step: 'CLEANUP', label: 'Sprzątanie' },
+]
+
+export type StepStatus = 'done' | 'active' | 'failed' | 'interrupted' | 'pending' | 'skipped'
+
+export const STEP_STATUS_TEXT: Record<StepStatus, string> = {
+  done: 'gotowe',
+  active: 'w toku',
+  failed: 'błąd',
+  interrupted: 'przerwane',
+  pending: 'oczekuje',
+  skipped: 'pominięte',
+}
+
+/**
+ * Stan każdego etapu z zapisu ostatniej aktualizacji. `null` — nie da się go uczciwie odtworzyć
+ * (brak aktualizacji do zainstalowania, powrót do poprzedniej wersji, etap spoza listy) —
+ * wtedy UI pokazuje sam opis wyniku zamiast zgadywać, który etap zawiódł.
+ */
+export function stepStatuses(
+  job: { state: JobState; step: JobStep },
+  running: boolean,
+): { step: JobStep; label: string; status: StepStatus }[] | null {
+  if (job.state === 'SUCCESS') return JOB_STEPS_SHOWN.map(({ step, label }) => ({ step, label, status: 'done' }))
+  if (job.state === 'NO_UPDATE' || job.state === 'ROLLED_BACK') return null
+  const current = JOB_STEPS_SHOWN.findIndex((s) => s.step === job.step)
+  if (current < 0) return null
+  const at: StepStatus = job.state === 'FAILED' ? 'failed' : running ? 'active' : 'interrupted'
+  const after: StepStatus = job.state === 'RUNNING' && running ? 'pending' : 'skipped'
+  return JOB_STEPS_SHOWN.map(({ step, label }, i) => ({
+    step,
+    label,
+    status: i < current ? 'done' : i === current ? at : after,
+  }))
+}
