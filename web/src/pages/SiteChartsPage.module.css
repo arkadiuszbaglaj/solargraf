@@ -81,3 +81,47 @@
   display: inline-flex;
   gap: var(--space-1);
 }
+
+.zoom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.zoomButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.zoomButton {
+  font: inherit;
+  font-size: var(--font-size-sm);
+  min-height: 2rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.zoomButton:hover:not(:disabled) {
+  background: var(--color-surface-muted);
+}
+
+.zoomButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.zoomButton:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.zoom .muted {
+  margin: 0;
+}

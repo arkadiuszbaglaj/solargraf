@@ -7,7 +7,9 @@ import { SiteChartsPage } from './SiteChartsPage'
 
 // ECharts wymaga przeglądarki (wymiary, ResizeObserver); opcje wykresu testujemy osobno.
 vi.mock('../components/SiteHistoryChartView', () => ({
-  SiteHistoryChartView: ({ label }: { label: string }) => <div role="img" aria-label={label} />,
+  SiteHistoryChartView: ({ label, zoom }: { label: string; zoom: { start: number; end: number } }) => (
+    <div role="img" aria-label={label} data-zoom={`${zoom.start}-${zoom.end}`} />
+  ),
 }))
 
 const SITE = { id: SITE_ID, name: 'Dom', timezone: 'Europe/Warsaw' }
@@ -20,6 +22,9 @@ describe('trasa wykresów', () => {
     expect(routeFor(`${CHARTS_PATH}/`)).toBe('charts')
   })
 })
+
+const zooms = () => screen.getAllByRole('img').map((i) => i.getAttribute('data-zoom'))
+const button = (name: string) => screen.getByRole('button', { name })
 
 describe('SiteChartsPage (D66)', () => {
   it('pokazuje moc i SoC dnia w strefie instalacji z oznaczeniem SIMULATED', async () => {
@@ -50,6 +55,34 @@ describe('SiteChartsPage (D66)', () => {
     expect(await screen.findByText('26.10.2026 – 01.11.2026')).toBeTruthy()
     expect(historyUrls(fetchFn).at(-1)?.searchParams.get('from')).toBe('2026-10-25T23:00:00.000Z')
     expect(screen.getByRole('button', { name: 'Dziś' }).hasAttribute('disabled')).toBe(false)
+  })
+
+  it('przybliżenie z przycisków: oba wykresy, widoczny fragment, reset przy zmianie okresu', async () => {
+    const user = userEvent.setup()
+    render(<SiteChartsPage site={SITE} now={NOW} origin="DEVICE" fetchFn={fakeServer([HYBRID])} />)
+    await screen.findAllByRole('img')
+    expect(screen.getByRole('group', { name: 'Przybliżenie wykresów' })).toBeTruthy()
+    expect(screen.getByText(/Zaznacz fragment wykresu myszą/)).toBeTruthy()
+    for (const name of ['Oddal', '← Wcześniej', 'Później →', 'Cały okres']) {
+      expect(button(name).hasAttribute('disabled')).toBe(true)
+    }
+
+    await user.click(button('Przybliż'))
+    expect(zooms()).toEqual(['25-75', '25-75'])
+    expect(screen.getByText('Widoczne: 7.11.2026, 06:00 – 7.11.2026, 18:00')).toBeTruthy()
+    expect(screen.getByRole('img', { name: /Wykres mocy/ })).toBeTruthy()
+
+    await user.click(button('← Wcześniej'))
+    expect(zooms()).toEqual(['0-50', '0-50'])
+    expect(button('← Wcześniej').hasAttribute('disabled')).toBe(true)
+    await user.click(button('Oddal'))
+    expect(zooms()).toEqual(['0-100', '0-100'])
+
+    await user.click(button('Przybliż'))
+    await user.click(button('Poprzedni okres'))
+    expect(await screen.findByText('6 listopada 2026')).toBeTruthy()
+    await screen.findAllByRole('img')
+    expect(zooms()).toEqual(['0-100', '0-100'])
   })
 
   it('zakres własny: start od oglądanego okresu, walidacja i zastosowanie', async () => {

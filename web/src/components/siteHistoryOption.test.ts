@@ -6,7 +6,7 @@ import { buildSiteHistoryOption, siteTooltipLines } from './siteHistoryOption'
 
 const TZ = 'Europe/Warsaw'
 const RANGE = { from: new Date('2026-11-06T23:00:00Z'), to: new Date('2026-11-07T23:00:00Z') }
-const COLORS = { series: { pv: 'g', home: 'h', grid: 'b', battery: 'v' }, text: 't', border: 'x' }
+const COLORS = { series: { pv: 'g', home: 'h', grid: 'b', battery: 'v' }, text: 't', border: 'x', accent: 'a' }
 
 function loaded(def: SeriesDef, values: Array<number | null>): LoadedSeries {
   const h = parseHistory(history(def.metric, values))
@@ -57,5 +57,27 @@ describe('buildSiteHistoryOption (D66)', () => {
     expect(lines[0]).toContain('00:05')
     expect(lines[1]).toBe('Produkcja PV: brak danych')
     expect(lines[2]).toBe('Zużycie domu: 0,80 kW (pokrycie 50%)')
+  })
+
+  it('przybliżenie: Ctrl + kółko, suwak z oknem, bez suwaka na drugim wykresie; oś wg widocznego fragmentu', () => {
+    type DZ = { type: string; start: number; end: number; zoomOnMouseWheel?: unknown; moveOnMouseMove?: unknown; filterMode: string }
+    const week = { from: new Date('2026-11-01T23:00:00Z'), to: new Date('2026-11-08T23:00:00Z') }
+    const series = [loaded(PV, [1]), loaded(LOAD, [2])]
+    const full = buildSiteHistoryOption(series, COLORS, TZ, week) as {
+      dataZoom: DZ[]
+      xAxis: { axisLabel: { formatter: (v: number) => string } }
+    }
+    expect(full.dataZoom.map((d) => [d.type, d.start, d.end, d.filterMode])).toEqual([
+      ['inside', 0, 100, 'none'],
+      ['slider', 0, 100, 'none'],
+    ])
+    expect(full.dataZoom[0]).toMatchObject({ zoomOnMouseWheel: 'ctrl', moveOnMouseMove: false })
+    const noon = Date.parse('2026-11-05T11:00:00Z')
+    expect(full.xAxis.axisLabel.formatter(noon)).toBe('05.11')
+
+    // 1/7 tygodnia ≈ jeden dzień — etykiety godzin.
+    const zoomed = buildSiteHistoryOption(series, COLORS, TZ, week, { start: 50, end: 64 }, false) as typeof full
+    expect(zoomed.dataZoom.map((d) => d.type)).toEqual(['inside'])
+    expect(zoomed.xAxis.axisLabel.formatter(noon)).toBe('12:00')
   })
 })

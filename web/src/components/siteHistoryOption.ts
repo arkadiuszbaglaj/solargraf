@@ -1,3 +1,4 @@
+import { type Zoom, FULL_ZOOM, visibleRange } from '../lib/chartZoom'
 import type { LoadedSeries, SeriesColor } from '../lib/siteHistory'
 import { axisFormat, chartData, displayUnit, formatValue } from './historyChartOption'
 
@@ -5,6 +6,7 @@ export interface SiteChartColors {
   series: Record<SeriesColor, string>
   text: string
   border: string
+  accent: string
 }
 
 const escapeHtml = (s: string) =>
@@ -42,22 +44,81 @@ export function siteTooltipLines(series: readonly LoadedSeries[], params: readon
   return lines
 }
 
+/** Etykiety osi czasu dopasowane do widocznego fragmentu (po przybliżeniu tygodnia — godziny). */
+export function zoomAxisLabel(
+  range: { from: Date; to: Date },
+  zoom: Zoom,
+  timeZone: string,
+): (v: number) => string {
+  const fmt = axisFormat(visibleRange(range, zoom), timeZone)
+  return (v: number) => fmt.format(new Date(v))
+}
+
+const HANDLE_LABEL = (timeZone: string) =>
+  new Intl.DateTimeFormat('pl-PL', { timeZone, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+
 /**
  * Opcje ECharts dla kilku serii w jednej jednostce (moc w kW albo SoC w %).
  * Luki: `connectNulls: false` — przerwa w linii zamiast zera lub interpolacji.
+ * Przybliżenie: suwak pod wykresem (`slider`, opcjonalny) i `inside` — kółko myszy tylko z Ctrl,
+ * by nie przejmować przewijania strony; przeciąganie zaznacza fragment (narzędzie dataZoom).
  */
 export function buildSiteHistoryOption(
   series: readonly LoadedSeries[],
   colors: SiteChartColors,
   timeZone: string,
   range: { from: Date; to: Date },
+  zoom: Zoom = FULL_ZOOM,
+  slider = true,
 ): Record<string, unknown> {
-  const fmt = axisFormat(range, timeZone)
   const unit = series[0] ? displayUnit(series[0].history.unit).unit : ''
+  const legend = series.length > 1
+  const sliderBottom = legend ? 30 : 6
+  const handle = HANDLE_LABEL(timeZone)
   return {
     aria: { enabled: true },
     animation: false,
-    grid: { left: 56, right: 16, top: 24, bottom: series.length > 1 ? 64 : 32 },
+    grid: { left: 56, right: 16, top: 24, bottom: slider ? sliderBottom + 24 + 32 : legend ? 64 : 32 },
+    // Narzędzie zaznaczania fragmentu bez widocznych ikon (pasek musi być włączony, by działało);
+    // włącza je komponent (takeGlobalCursor), a przyciski strony zastępują ikony.
+    toolbox: {
+      show: true,
+      itemSize: 0,
+      showTitle: false,
+      feature: { dataZoom: { yAxisIndex: 'none', icon: { zoom: 'path://M0,0', back: 'path://M0,0' } } },
+    },
+    dataZoom: [
+      {
+        type: 'inside',
+        xAxisIndex: 0,
+        filterMode: 'none',
+        start: zoom.start,
+        end: zoom.end,
+        zoomOnMouseWheel: 'ctrl',
+        moveOnMouseWheel: false,
+        moveOnMouseMove: false,
+      },
+      ...(slider
+        ? [
+            {
+              type: 'slider',
+              xAxisIndex: 0,
+              filterMode: 'none',
+              start: zoom.start,
+              end: zoom.end,
+              bottom: sliderBottom,
+              height: 22,
+              borderColor: colors.border,
+              fillerColor: 'rgba(127, 127, 127, 0.18)',
+              handleStyle: { color: colors.accent, borderColor: colors.accent },
+              moveHandleStyle: { color: colors.accent },
+              textStyle: { color: colors.text },
+              dataBackground: { lineStyle: { color: colors.border }, areaStyle: { color: colors.border } },
+              labelFormatter: (v: number) => handle.format(new Date(v)),
+            },
+          ]
+        : []),
+    ],
     // Legenda w jednym wierszu (przewijana) — na wąskim ekranie nie nachodzi na oś czasu.
     legend:
       series.length > 1
@@ -74,7 +135,7 @@ export function buildSiteHistoryOption(
       type: 'time',
       min: range.from.getTime(),
       max: range.to.getTime(),
-      axisLabel: { color: colors.text, hideOverlap: true, formatter: (v: number) => fmt.format(new Date(v)) },
+      axisLabel: { color: colors.text, hideOverlap: true, formatter: zoomAxisLabel(range, zoom, timeZone) },
       axisLine: { lineStyle: { color: colors.border } },
     },
     yAxis: {
