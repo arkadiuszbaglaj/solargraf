@@ -375,7 +375,10 @@ jobs:
           grep -q 'Migracje zmieniły bazę' upd-bad.txt
           grep -q 'aplikacja działa' upd-bad.txt
           job | jq -e '.state == "ROLLED_BACK"'
-          job | jq -e '[.steps[-2:][] | .step + ":" + .result] == ["VERIFY:FAILED","ROLLBACK:OK"]'
+          # Etap, który zawiódł (API nie wstaje — przy uruchamianiu albo sprawdzeniu), potem udany powrót.
+          job | jq -c '[.steps[] | .step + ":" + .result]'
+          job | jq -e '.steps[-2].result == "FAILED" and (.steps[-2].step | IN("START", "VERIFY"))'
+          job | jq -e '.steps[-1].step == "ROLLBACK" and .steps[-1].result == "OK"'
           sudo test ! -e "$DIR/src/server/alembic/versions/9999_ci_update_fail.py"
           if sudo grep -q 'entrypoint' "$DIR/src/deploy/compose.yaml"; then echo 'Niespełniony warunek'; exit 1; fi
           test "$(count 'SELECT version_num FROM alembic_version')" = "$revision"
