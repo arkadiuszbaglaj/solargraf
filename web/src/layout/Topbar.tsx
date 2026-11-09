@@ -35,7 +35,7 @@ export function Topbar({
   const site = sites.find((s) => s.id === siteId)
   const auth = useOptionalSession()
   return (
-    <header className={styles.topbar}>
+    <header className={styles.topbar} data-print="hide">
       <button
         type="button"
         className={styles.menuButton}

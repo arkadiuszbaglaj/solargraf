@@ -38,3 +38,14 @@ p {
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* Wydruk (np. raport do PDF): bez menu i paska górnego, jasne tło. */
+@media print {
+  body {
+    background: #fff;
+  }
+
+  [data-print='hide'] {
+    display: none !important;
+  }
+}

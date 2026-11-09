@@ -317,6 +317,18 @@ async def site_energy(
     except authz.NotFoundError:
         raise HTTPException(status.HTTP_404_NOT_FOUND, NOT_FOUND) from None
     _check_range(start, end)
+    return await site_energy_for(db, catalog, site_id, access.site.timezone, start, end)
+
+
+async def site_energy_for(
+    db: AsyncSession,
+    catalog: ProfileCatalog,
+    site_id: uuid.UUID,
+    timezone: str,
+    start: datetime,
+    end: datetime,
+) -> SiteEnergyOut:
+    """Serie instalacji (D51) za zakres; uprawnienia i zakres sprawdza wywołujący."""
     devices = list(
         await db.scalars(
             select(Device)
@@ -340,7 +352,7 @@ async def site_energy(
                     sources=len(providers),
                 )
             )
-    energy = await compute_energy(db, sources, start, end, access.site.timezone)
+    energy = await compute_energy(db, sources, start, end, timezone)
     return SiteEnergyOut(**energy.model_dump(), unavailable=unavailable)
 
 

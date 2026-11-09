@@ -28,6 +28,7 @@ from solargraf_server.live import LiveBus
 from solargraf_server.live import router as live_router
 from solargraf_server.profiles import ProfileCatalog
 from solargraf_server.profiles import router as profiles_router
+from solargraf_server.reports import router as reports_router
 from solargraf_server.sites import router as sites_router
 from solargraf_server.system.api import router as system_router
 from solargraf_server.updates import service as update_service
@@ -83,6 +84,7 @@ def create_app(settings: Settings, readiness_check: ReadinessCheck | None = None
     app.include_router(agent_router)
     app.include_router(tests_router)
     app.include_router(tests_agent_router)
+    app.include_router(reports_router)
     app.include_router(system_router)
     app.include_router(updates_router)
     # Podmieniane w testach (bez sieci i z kluczem testowym).
