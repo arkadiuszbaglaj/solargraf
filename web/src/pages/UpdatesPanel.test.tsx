@@ -5,7 +5,7 @@ import type { Role, Session } from '../api/auth'
 import { checkUpdates, dismissUpdate, getUpdates, installUpdate, parseUpdates, setAutomaticCheck } from '../api/updates'
 import { SessionProvider } from '../auth/SessionContext'
 import { UpdateBanner } from '../layout/UpdateBanner'
-import { clearPostponed, stepStatuses } from '../lib/updates'
+import { clearPostponed, formatDuration, stepRows } from '../lib/updates'
 import { UpdatesPanel } from './UpdatesPanel'
 
 // Wartości testowe — nie pochodzą z prawdziwego wydania.
@@ -31,6 +31,21 @@ const JOB = {
   started_at: '2026-11-07T12:00:00Z',
   finished_at: null,
 }
+
+// Przebieg etapów zapisany przez skrypt (czasy UTC); BUILD w toku.
+const STEPS_SO_FAR = [
+  { step: 'CHECK', started_at: '2026-11-07T12:00:00Z', finished_at: '2026-11-07T12:00:04Z', result: 'OK' },
+  { step: 'DOWNLOAD', started_at: '2026-11-07T12:00:04Z', finished_at: '2026-11-07T12:00:30Z', result: 'OK' },
+  { step: 'DISK', started_at: '2026-11-07T12:00:30Z', finished_at: '2026-11-07T12:00:31Z', result: 'OK' },
+  { step: 'BACKUP', started_at: '2026-11-07T12:00:31Z', finished_at: '2026-11-07T12:01:40Z', result: 'OK' },
+]
+const BUILD_RUNNING = { step: 'BUILD', started_at: '2026-11-07T12:01:40Z', finished_at: null, result: 'RUNNING' }
+const step = (name: string, from: string, to: string, result = 'OK') => ({
+  step: name,
+  started_at: `2026-11-07T${from}Z`,
+  finished_at: `2026-11-07T${to}Z`,
+  result,
+})
 
 const AVAILABLE = {
   version: '0.2.0',
@@ -117,7 +132,18 @@ describe('parseUpdates', () => {
         freeMb: null,
         requiredMb: null,
         reclaimedMb: null,
+        steps: null,
       },
+    })
+    const withSteps = parseUpdates({
+      ...BASE,
+      install: { ...SUPPORTED, last: { ...JOB, steps: [...STEPS_SO_FAR, BUILD_RUNNING] } },
+    })
+    expect(withSteps?.install.last?.steps?.at(-1)).toEqual({
+      step: 'BUILD',
+      startedAt: '2026-11-07T12:01:40Z',
+      finishedAt: null,
+      result: 'RUNNING',
     })
     const done = parseUpdates({ ...BASE, install: { ...SUPPORTED, last: { ...JOB, state: 'SUCCESS', reclaimed_mb: 812 } } })
     expect(done?.install.last?.reclaimedMb).toBe(812)
@@ -129,6 +155,10 @@ describe('parseUpdates', () => {
     expect(bad({ ...JOB, step: 'REBOOT' })).toBeNull()
     expect(bad({ ...JOB, to_version: 'v0.2.0' })).toBeNull()
     expect(bad({ ...JOB, started_at: 'teraz' })).toBeNull()
+    expect(bad({ ...JOB, steps: [{ ...BUILD_RUNNING, result: 'MAYBE' }] })).toBeNull()
+    expect(bad({ ...JOB, steps: [{ ...BUILD_RUNNING, step: 'REBOOT' }] })).toBeNull()
+    expect(bad({ ...JOB, steps: [{ ...BUILD_RUNNING, started_at: 'teraz' }] })).toBeNull()
+    expect(bad({ ...JOB, steps: 'BUILD' })).toBeNull()
     expect(parseUpdates({ ...BASE, install: null })).toBeNull()
   })
 })
@@ -287,57 +317,127 @@ describe('UpdatesPanel — instalacja (D65)', () => {
     expect(screen.queryByRole('button', { name: /Zainstaluj wersję/ })).toBeNull()
   })
 
-  it('trwająca aktualizacja: etap, bez przycisku instalacji', async () => {
-    renderPanel(api({ ...ready, install: { ...SUPPORTED, running: true, last: JOB } }))
-    expect(await screen.findByText('Aktualizacja w toku 0.1.0 → 0.2.0')).toBeTruthy()
-    expect(screen.getByText(/Etap: budowanie nowej wersji/)).toBeTruthy()
-    expect(steps()).toEqual([
-      'Przygotowanie i sprawdzenie miejsca gotowe',
-      'Kopia zapasowa gotowe',
-      'Pobieranie i budowanie nowej wersji w toku',
-      'Migracje bazy i uruchamianie usług oczekuje',
-      'Sprzątanie oczekuje',
-    ])
-    expect(screen.queryByRole('button', { name: /Zainstaluj wersję/ })).toBeNull()
+  it('trwająca aktualizacja: rzeczywiste etapy z czasami, etap w toku liczy czas, reszta czeka', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-11-07T12:04:10Z'))
+    try {
+      const job = { ...JOB, steps: [...STEPS_SO_FAR, BUILD_RUNNING] }
+      renderPanel(api({ ...ready, install: { ...SUPPORTED, running: true, last: job } }))
+      expect(await screen.findByText('Aktualizacja w toku 0.1.0 → 0.2.0')).toBeTruthy()
+      expect(screen.getByText(/Etap: budowanie nowej wersji/)).toBeTruthy()
+      expect(steps()).toEqual([
+        'Przygotowanie i sprawdzenie wersji 4 s gotowe',
+        'Pobieranie nowej wersji 26 s gotowe',
+        'Sprawdzenie wolnego miejsca 1 s gotowe',
+        'Kopia zapasowa 1 min 09 s gotowe',
+        'Budowanie nowej wersji 2 min 30 s w toku',
+        'Migracje bazy i uruchamianie usług oczekuje',
+        'Sprawdzenie działania aplikacji oczekuje',
+        'Sprzątanie oczekuje',
+      ])
+      expect(screen.queryByRole('button', { name: /Zainstaluj wersję/ })).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
-  it('wynik ostatniej aktualizacji: powrót jako ostrzeżenie', async () => {
-    const finished = { ...JOB, state: 'ROLLED_BACK', step: 'DONE', finished_at: '2026-11-07T12:20:00Z' }
-    renderPanel(api({ ...BASE, install: { ...SUPPORTED, last: finished } }))
-    expect(await screen.findByText(/przywrócono poprzednią wersję/)).toBeTruthy()
-    expect(screen.getByText('z wersji 0.1.0 do 0.2.0')).toBeTruthy()
-    // Nie wiemy, który etap zawiódł — bez listy etapów.
+  it('trwająca aktualizacja starszym skryptem: sam bieżący etap, bez odtwarzanej listy', async () => {
+    renderPanel(api({ ...ready, install: { ...SUPPORTED, running: true, last: JOB } }))
+    expect(await screen.findByText(/Etap: budowanie nowej wersji/)).toBeTruthy()
     expect(screen.queryByRole('list', { name: 'Etapy aktualizacji' })).toBeNull()
   })
 
-  it('udana aktualizacja: wszystkie etapy gotowe, wersje, czasy i odzyskane miejsce', async () => {
-    const done = { ...JOB, state: 'SUCCESS', step: 'DONE', finished_at: '2026-11-07T12:20:00Z', reclaimed_mb: 812 }
+  it('powrót do poprzedniej wersji: etap z błędem i przywracanie z czasami', async () => {
+    const finished = {
+      ...JOB,
+      state: 'ROLLED_BACK',
+      step: 'DONE',
+      finished_at: '2026-11-07T12:20:00Z',
+      steps: [
+        step('CHECK', '12:00:00', '12:00:05'),
+        step('VERIFY', '12:10:00', '12:15:00', 'FAILED'),
+        step('ROLLBACK', '12:15:00', '12:20:00'),
+      ],
+    }
+    renderPanel(api({ ...BASE, install: { ...SUPPORTED, last: finished } }))
+    expect(await screen.findByText(/przywrócono poprzednią wersję/)).toBeTruthy()
+    expect(screen.getByText('z wersji 0.1.0 do 0.2.0')).toBeTruthy()
+    expect(steps()).toEqual([
+      'Przygotowanie i sprawdzenie wersji 5 s gotowe',
+      'Sprawdzenie działania aplikacji 5 min 00 s błąd',
+      'Przywracanie poprzedniej wersji 5 min 00 s gotowe',
+    ])
+  })
+
+  it('udana aktualizacja: etapy z czasami, Szczegóły z godzinami i łącznym czasem, odzyskane miejsce', async () => {
+    const done = {
+      ...JOB,
+      state: 'SUCCESS',
+      step: 'DONE',
+      finished_at: '2026-11-07T12:20:00Z',
+      reclaimed_mb: 812,
+      steps: [
+        step('CHECK', '12:00:00', '12:00:04'),
+        step('BUILD', '12:00:04', '12:12:30'),
+        step('CLEANUP', '12:12:30', '12:20:00'),
+      ],
+    }
     renderPanel(api({ ...BASE, current_version: '0.2.0', install: { ...SUPPORTED, last: done } }))
     expect(await screen.findByText('Zaktualizowano')).toBeTruthy()
     expect(screen.getByText('z wersji 0.1.0 do 0.2.0')).toBeTruthy()
     expect(screen.getByText('Rozpoczęto: 07.11.2026, 13:00 · zakończono: 07.11.2026, 13:20')).toBeTruthy()
-    expect(steps().every((s) => s.endsWith('gotowe'))).toBe(true)
+    expect(steps()).toEqual([
+      'Przygotowanie i sprawdzenie wersji 4 s gotowe',
+      'Budowanie nowej wersji 12 min 26 s gotowe',
+      'Sprzątanie 7 min 30 s gotowe',
+    ])
+    await userEvent.click(screen.getByText('Szczegóły'))
+    const rows = screen.getAllByRole('row').map((r) => Array.from(r.children, (c) => c.textContent).join(' | '))
+    expect(rows).toEqual([
+      'Etap | Początek | Koniec | Czas | Wynik',
+      'Przygotowanie i sprawdzenie wersji | 13:00:00 | 13:00:04 | 4 s | gotowe',
+      'Budowanie nowej wersji | 13:00:04 | 13:12:30 | 12 min 26 s | gotowe',
+      'Sprzątanie | 13:12:30 | 13:20:00 | 7 min 30 s | gotowe',
+    ])
+    expect(screen.getByText('Łączny czas: 20 min 00 s.')).toBeTruthy()
     expect(screen.getByText('Sprzątanie odzyskało 812 MB.')).toBeTruthy()
   })
 
-  it('nieudana aktualizacja: etap z błędem, dalsze pominięte; przerwana — oznaczona', async () => {
-    const failed = { ...JOB, state: 'FAILED', step: 'START', finished_at: '2026-11-07T12:20:00Z' }
+  it('aktualizacja starszym skryptem: informacja zamiast odtwarzanej listy etapów', async () => {
+    const done = { ...JOB, state: 'SUCCESS', step: 'DONE', finished_at: '2026-11-07T12:20:00Z' }
+    renderPanel(api({ ...BASE, current_version: '0.2.0', install: { ...SUPPORTED, last: done } }))
+    expect(await screen.findByText('Zaktualizowano')).toBeTruthy()
+    expect(screen.queryByRole('list', { name: 'Etapy aktualizacji' })).toBeNull()
+    expect(screen.getByText(/nie zapisywała przebiegu etapów/)).toBeTruthy()
+    expect(screen.queryByText('Szczegóły')).toBeNull()
+  })
+
+  it('nieudana aktualizacja: etap z błędem; przerwana — oznaczona, bez oczekujących', async () => {
+    const failed = {
+      ...JOB,
+      state: 'FAILED',
+      step: 'DISK',
+      finished_at: '2026-11-07T12:00:40Z',
+      steps: [step('CHECK', '12:00:00', '12:00:04'), step('DISK', '12:00:04', '12:00:40', 'FAILED')],
+    }
     renderPanel(api({ ...BASE, install: { ...SUPPORTED, last: failed } }))
     expect(await screen.findByText('Aktualizacja nie powiodła się')).toBeTruthy()
-    expect(steps().slice(2)).toEqual([
-      'Pobieranie i budowanie nowej wersji gotowe',
-      'Migracje bazy i uruchamianie usług błąd',
-      'Sprzątanie pominięte',
-    ])
-    expect(stepStatuses({ state: 'RUNNING', step: 'BACKUP' }, false)?.map((s) => s.status)).toEqual([
-      'done',
-      'interrupted',
-      'skipped',
-      'skipped',
-      'skipped',
-    ])
-    expect(stepStatuses({ state: 'RUNNING', step: 'ROLLBACK' }, true)).toBeNull()
-    expect(stepStatuses({ state: 'NO_UPDATE', step: 'CHECK' }, false)).toBeNull()
+    expect(steps()).toEqual(['Przygotowanie i sprawdzenie wersji 4 s gotowe', 'Sprawdzenie wolnego miejsca 36 s błąd'])
+
+    const now = new Date('2026-11-07T15:00:00Z')
+    const parsed = parseUpdates({
+      ...BASE,
+      install: { ...SUPPORTED, last: { ...JOB, steps: [...STEPS_SO_FAR, BUILD_RUNNING] } },
+    })
+    const last = parsed?.install.last
+    expect(last).toBeTruthy()
+    if (!last) return
+    const interrupted = stepRows(last, false, now)
+    expect(interrupted?.map((r) => r.status)).toEqual(['done', 'done', 'done', 'done', 'interrupted'])
+    expect(interrupted?.at(-1)?.seconds).toBeNull()
+    expect(stepRows({ state: 'NO_UPDATE', steps: [] }, false, now)).toEqual([])
+    expect(stepRows({ state: 'SUCCESS', steps: null }, false, now)).toBeNull()
+    expect([0.4, 59, 61, 3725].map(formatDuration)).toEqual(['< 1 s', '59 s', '1 min 01 s', '1 h 02 min'])
   })
 
   it('brak miejsca na dysku: przyczyna i liczby zamiast etapu', async () => {

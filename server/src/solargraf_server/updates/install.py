@@ -38,13 +38,37 @@ class JobState(StrEnum):
 
 
 class JobStep(StrEnum):
-    CHECK = "CHECK"
+    CHECK = "CHECK"  # przygotowanie, podpisany manifest, wersja docelowa
+    DOWNLOAD = "DOWNLOAD"  # pobranie kodu nowej wersji
+    DISK = "DISK"  # wolne miejsce w /var/lib (z usunięciem cache budowania)
     BACKUP = "BACKUP"
     BUILD = "BUILD"
-    START = "START"
+    START = "START"  # migracje bazy i uruchomienie usług
+    VERIFY = "VERIFY"  # gotowość aplikacji i start agenta
     ROLLBACK = "ROLLBACK"
     CLEANUP = "CLEANUP"
     DONE = "DONE"
+
+
+class StepResult(StrEnum):
+    OK = "OK"
+    FAILED = "FAILED"
+    RUNNING = "RUNNING"
+
+
+# Etapów jest kilka; limit chroni przed rozdętym plikiem (i tak ograniczonym MAX_STATUS_BYTES).
+MAX_STEPS = 16
+
+
+class JobStepRecord(BaseModel):
+    """Przebieg jednego etapu zapisany przez skrypt: czasy z zegara hosta (UTC) i wynik."""
+
+    model_config = ConfigDict(extra="ignore", frozen=True)
+
+    step: JobStep
+    started_at: AwareDatetime
+    finished_at: AwareDatetime | None = None
+    result: StepResult
 
 
 class JobReason(StrEnum):
@@ -71,6 +95,8 @@ class Job(BaseModel):
     required_mb: int | None = Field(default=None, ge=0)
     # MB odzyskane przy sprzątaniu po udanej aktualizacji (D17); brak u starszych wersji skryptu.
     reclaimed_mb: int | None = Field(default=None, ge=0)
+    # Przebieg etapów w kolejności wykonania; None — skrypt sprzed zapisu etapów (nie odtwarzamy).
+    steps: tuple[JobStepRecord, ...] | None = Field(default=None, max_length=MAX_STEPS)
 
 
 @dataclass(frozen=True)

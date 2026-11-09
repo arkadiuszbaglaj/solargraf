@@ -268,6 +268,7 @@ Aktualizację wykonuje polecenie `update` narzędzia na hoście (sekcja wyżej),
    - cache budowania, jeśli obraz był budowany lokalnie;
    - pobrane archiwa i pliki tymczasowe wydań w katalogu instalacyjnym.
 6. Raport odzyskanego miejsca (wolne MB w `/var/lib` przed i po sprzątaniu) — w wyniku polecenia, w `install.log` i w pliku stanu (`reclaimed_mb`); Ustawienia → Stan serwera pokazuje ostatnią aktualizację i odzyskane miejsce, a Ustawienia → Aktualizacje — odzyskane MB przy wyniku.
+7. Przebieg etapów w pliku stanu (`steps`): każdy etap skryptu (`CHECK`, `DOWNLOAD`, `DISK`, `BACKUP`, `BUILD`, `START`, `VERIFY`, `ROLLBACK`, `CLEANUP`) z czasem rozpoczęcia i zakończenia (UTC) oraz wynikiem `OK` / `FAILED` / `RUNNING` — tylko wartości z zamkniętych zbiorów, bez komunikatów i ścieżek. Ustawienia → Aktualizacje pokazuje je na żywo z czasem trwania i w „Szczegółach” (godziny w strefie instalacji). Aktualizacja wykonana starszym skryptem nie ma `steps` — UI nie odtwarza wtedy listy etapów.
 
 **Czego nigdy nie usuwamy:** wolumenów z danymi, kopii zapasowych (mają własną retencję), plików konfiguracyjnych i sekretów, obrazów i kontenerów innych aplikacji na tym samym hoście. Dlatego sprzątanie wybiera obrazy po **etykiecie produktu** nadawanej przy budowaniu (np. `org.opencontainers.image.vendor` / własna etykieta produktu), a nie przez ogólne `docker system prune`.
 

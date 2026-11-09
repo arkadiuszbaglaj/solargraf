@@ -1039,6 +1039,10 @@ UPDATE_REASON=""
 UPDATE_FREE_MB=""
 # MB odzyskane przy sprzątaniu po udanej aktualizacji (raport w pliku stanu i w UI).
 UPDATE_RECLAIMED_MB=""
+# Przebieg etapów dla UI: zakończone etapy (fragmenty JSON) i etap w toku z czasem rozpoczęcia.
+UPDATE_STEPS_DONE=""
+UPDATE_STEP_OPEN=""
+UPDATE_STEP_OPEN_AT=""
 
 json_version() {
 	if [[ "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then printf '"%s"' "$1"; else printf 'null'; fi
@@ -1057,16 +1061,49 @@ json_reason() {
 	fi
 }
 
+# Zamyka etap w toku z wynikiem OK albo FAILED (czas zakończenia — teraz).
+close_update_step() {
+	[ -n "$UPDATE_STEP_OPEN" ] || return 0
+	UPDATE_STEPS_DONE="$UPDATE_STEPS_DONE${UPDATE_STEPS_DONE:+,}$(printf '{"step":"%s","started_at":"%s","finished_at":"%s","result":"%s"}' \
+		"$UPDATE_STEP_OPEN" "$UPDATE_STEP_OPEN_AT" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1")"
+	UPDATE_STEP_OPEN=""
+}
+
+json_steps() {
+	local open=""
+	if [ -n "$UPDATE_STEP_OPEN" ]; then
+		open="$(printf '{"step":"%s","started_at":"%s","finished_at":null,"result":"RUNNING"}' "$UPDATE_STEP_OPEN" "$UPDATE_STEP_OPEN_AT")"
+	fi
+	printf '"steps":[%s%s%s]' "$UPDATE_STEPS_DONE" "${UPDATE_STEPS_DONE:+${open:+,}}" "$open"
+}
+
+# Przebieg etapów: nowy etap zamyka poprzedni (OK, a przed powrotem do poprzedniej wersji —
+# FAILED); stan końcowy zamyka etap w toku (FAILED przy błędzie, w pozostałych przypadkach OK).
+track_update_step() {
+	local state="$1" step="$2"
+	if [ "$state" = "RUNNING" ]; then
+		[ "$step" != "$UPDATE_STEP_OPEN" ] || return 0
+		if [ "$step" = "ROLLBACK" ]; then close_update_step FAILED; else close_update_step OK; fi
+		UPDATE_STEP_OPEN="$step"
+		UPDATE_STEP_OPEN_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+	elif [ "$state" = "FAILED" ]; then
+		close_update_step FAILED
+	else
+		close_update_step OK
+	fi
+}
+
 write_update_status() {
 	local state="$1" step="$2" dir="$INSTALL_DIR/run/update-status" finished="null"
 	[ "$state" != "RUNNING" ] || UPDATE_STEP="$step"
 	[ "$DRY_RUN" -eq 0 ] && [ -n "$UPDATE_STARTED_AT" ] && [ -d "$dir" ] || return 0
+	track_update_step "$state" "$step"
 	[ "$state" = "RUNNING" ] || finished="\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\""
 	(
 		umask 022
-		printf '{"state":"%s","step":"%s","from_version":%s,"to_version":%s,"started_at":"%s","finished_at":%s,%s}\n' \
+		printf '{"state":"%s","step":"%s","from_version":%s,"to_version":%s,"started_at":"%s","finished_at":%s,%s,%s}\n' \
 			"$state" "$step" "$(json_version "$UPDATE_FROM")" "$(json_version "$UPDATE_TO")" \
-			"$UPDATE_STARTED_AT" "$finished" "$(json_reason)" >"$dir/status.json.tmp"
+			"$UPDATE_STARTED_AT" "$finished" "$(json_reason)" "$(json_steps)" >"$dir/status.json.tmp"
 	)
 	mv -f "$dir/status.json.tmp" "$dir/status.json"
 }
@@ -1298,6 +1335,7 @@ cmd_update() {
 		fi
 		SRC_LABEL="$(source_url)"
 		if [ "$DRY_RUN" -eq 0 ]; then
+			write_update_status RUNNING DOWNLOAD
 			download_sources
 			# download_sources ustawia własne sprzątanie — przywracamy pułapkę aktualizacji.
 			trap update_trap EXIT
@@ -1329,6 +1367,7 @@ cmd_update() {
 		return 0
 	fi
 	confirm "Zaktualizować $PRODUCT z $UPDATE_FROM do $UPDATE_TO?" || die "Przerwano."
+	write_update_status RUNNING DISK
 	ensure_update_disk
 
 	say "== Kopia zapasowa"
@@ -1367,6 +1406,7 @@ cmd_update() {
 	compose build
 	write_update_status RUNNING START
 	compose up -d --remove-orphans "${CORE_SERVICES[@]}"
+	write_update_status RUNNING VERIFY
 	wait_healthy
 	compose up -d agent
 	if simulator_enabled; then

@@ -82,6 +82,13 @@ export function formatTime(iso: string, timeZone: string): string {
   )
 }
 
+/** Godzina z sekundami, np. „23:45:07” — dla przebiegu etapów. */
+export function formatClock(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat(LOCALE, { timeZone, hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(
+    new Date(iso),
+  )
+}
+
 /** Wiek wartości w czytelnej postaci, np. „12 s”, „5 min”, „3 h”. */
 export function formatAge(seconds: number): string {
   if (seconds < 60) {
