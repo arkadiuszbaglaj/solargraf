@@ -41,7 +41,7 @@ const ALARMS = [
   }),
 ]
 
-const SUMMARY = { critical_active: 1, warning_active: 1, unacknowledged: 2, closed: 1 }
+const SUMMARY = { critical_active: 1, warning_active: 1, unacknowledged: 2, unacknowledged_closed: 1, closed: 1 }
 
 function page(alarms: unknown[], overrides: Record<string, unknown> = {}) {
   return {
@@ -108,6 +108,8 @@ describe('AlarmsPage', () => {
     expect(value('Krytyczne aktywne')).toBe('1')
     expect(value('Ostrzeżenia aktywne')).toBe('1')
     expect(value('Niepotwierdzone')).toBe('2')
+    // Zamknięty, ale niepotwierdzony — widać, że nie jest aktywny.
+    expect(within(summary).getByText('w tym już zamknięte: 1')).toBeTruthy()
     expect(value('Zamknięte (24 h)')).toBe('1')
     expect(screen.getByText('Pokazane: 3 z 3')).toBeTruthy()
     // VIEWER (serwer nie pozwala na historię) — bez przełącznika okresu.
@@ -170,6 +172,10 @@ describe('AlarmsPage', () => {
 
   it('parser strony: wymagane liczby, okres i podsumowanie', () => {
     expect(parseAlarmPage(page([alarm()]))?.summary.unacknowledged).toBe(2)
+    expect(parseAlarmPage(page([alarm()]))?.summary.unacknowledgedClosed).toBe(1)
+    const { unacknowledged_closed: _, ...older } = SUMMARY
+    expect(parseAlarmPage(page([], { summary: older }))?.summary.unacknowledgedClosed).toBeNull()
+    expect(parseAlarmPage(page([], { summary: { ...SUMMARY, unacknowledged_closed: -1 } }))).toBeNull()
     expect(parseAlarmPage(page([], { days: 14 }))).toBeNull()
     expect(parseAlarmPage(page([], { total: -1 }))).toBeNull()
     expect(parseAlarmPage(page([], { summary: { ...SUMMARY, closed: null } }))).toBeNull()

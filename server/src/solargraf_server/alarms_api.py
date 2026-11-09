@@ -65,6 +65,8 @@ class AlarmSummaryOut(BaseModel):
     critical_active: int
     warning_active: int
     unacknowledged: int
+    # W tym zamknięte (warunek ustąpił), czekające tylko na potwierdzenie.
+    unacknowledged_closed: int
     closed: int
 
 
@@ -147,6 +149,7 @@ async def list_alarms(
                 func.count().filter(active & (Alarm.severity == AlarmSeverity.WARNING.value)),
                 func.count().filter(Alarm.acknowledged_at.is_(None)),
                 func.count().filter(Alarm.closed_at.is_not(None)),
+                func.count().filter(Alarm.acknowledged_at.is_(None) & Alarm.closed_at.is_not(None)),
             ).where(in_period)
         )
     ).one()
@@ -187,6 +190,7 @@ async def list_alarms(
             critical_active=counts[0],
             warning_active=counts[1],
             unacknowledged=counts[2],
+            unacknowledged_closed=counts[4],
             closed=counts[3],
         ),
     )
