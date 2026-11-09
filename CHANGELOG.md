@@ -4,6 +4,11 @@ Sekcja `## X.Y.Z` jest opisem wydania na GitHubie i w podpisanym manifeście (D6
 właściciel instalacji w Ustawienia → Aktualizacje. Najwyżej 2000 znaków na wersję. Nową sekcję
 dodaje się w tym samym PR co podniesienie wersji (`tools/release.py version X.Y.Z`).
 
+## 0.8.1
+
+- Agent odrzuca odczyty fizycznie niemożliwe (np. napięcie 6553,5 V, częstotliwość 0 Hz, temperatura 200 °C): taka wartość jest zapisywana jako niewiarygodna i nie trafia na wykresy ani do wskaźników. Wcześniej sprawdzany był tylko poziom naładowania magazynu.
+- Wykres „Produkcja i zużycie dziś” na telefonie: legenda w jednym wierszu, bez nachodzenia na godziny.
+
 ## 0.8.0
 
 - Nowa zakładka „Alarmy”: podsumowanie (krytyczne i ostrzeżenia aktywne, niepotwierdzone, zamknięte w 24 h), filtry stanu i priorytetu oraz lista z potwierdzaniem.
