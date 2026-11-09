@@ -7,6 +7,15 @@ import { WidgetState, type WidgetStatus } from '../components/WidgetState'
 import { RESOLUTION_LABEL } from '../components/historyChartOption'
 import type { Origin, Site } from '../data/types'
 import { useAsync } from '../hooks/useAsync'
+import {
+  FULL_ZOOM,
+  isFullZoom,
+  panZoom,
+  visibleRange,
+  type Zoom,
+  zoomIn,
+  zoomOut,
+} from '../lib/chartZoom'
 import { customRange, type Period, rangeFor, shiftAnchor, today } from '../lib/historyRange'
 import { type LoadedSeries, loadSiteHistory, SessionExpiredError, seriesHasValues } from '../lib/siteHistory'
 import { localDate } from '../lib/time'
@@ -22,6 +31,52 @@ type Choice = Period | 'custom'
 const OPTIONS: Array<PeriodOption<Choice>> = [...CALENDAR_PERIODS, { value: 'custom', label: 'Własny' }]
 
 const browserFetch: typeof fetch = (...args) => fetch(...args)
+
+/**
+ * Przyciski przybliżenia wspólne dla wykresów strony — także z klawiatury (suwak ECharts jej nie
+ * obsługuje). Pokazuje widoczny fragment, gdy wykres jest przybliżony.
+ */
+function ZoomControls({
+  zoom,
+  onZoom,
+  range,
+  timeZone,
+}: {
+  zoom: Zoom
+  onZoom: (zoom: Zoom) => void
+  range: { from: Date; to: Date }
+  timeZone: string
+}) {
+  const full = isFullZoom(zoom)
+  const visible = visibleRange(range, zoom)
+  const fmt = new Intl.DateTimeFormat('pl-PL', { timeZone, dateStyle: 'short', timeStyle: 'short' })
+  return (
+    <div className={styles.zoom}>
+      <div className={styles.zoomButtons} role="group" aria-label="Przybliżenie wykresów">
+        <button type="button" className={styles.zoomButton} onClick={() => onZoom(zoomIn(zoom))} disabled={zoom.end - zoom.start <= 1}>
+          Przybliż
+        </button>
+        <button type="button" className={styles.zoomButton} onClick={() => onZoom(zoomOut(zoom))} disabled={full}>
+          Oddal
+        </button>
+        <button type="button" className={styles.zoomButton} onClick={() => onZoom(panZoom(zoom, -1))} disabled={zoom.start <= 0}>
+          ← Wcześniej
+        </button>
+        <button type="button" className={styles.zoomButton} onClick={() => onZoom(panZoom(zoom, 1))} disabled={zoom.end >= 100}>
+          Później →
+        </button>
+        <button type="button" className={styles.zoomButton} onClick={() => onZoom(FULL_ZOOM)} disabled={full}>
+          Cały okres
+        </button>
+      </div>
+      <p className={styles.muted} aria-live="polite">
+        {full
+          ? 'Zaznacz fragment wykresu myszą, użyj suwaka pod wykresem albo Ctrl + kółka myszy, aby przybliżyć.'
+          : `Widoczne: ${fmt.format(visible.from)} – ${fmt.format(visible.to)}`}
+      </p>
+    </div>
+  )
+}
 
 /**
  * Wykresy i historia instalacji (D66): moc PV, zużycia, sieci i baterii oraz SoC dla wybranego
@@ -82,6 +137,11 @@ function Charts({
     return r.kind === 'ok' ? r.range : rangeFor(anchor, 'day', tz)
   }, [choice, anchor, custom, tz])
   const isCurrent = range.from <= now && now < range.to
+  // Przybliżenie dotyczy oglądanego zakresu — po zmianie okresu wraca cały zakres.
+  const rangeKey = `${range.from.getTime()}-${range.to.getTime()}`
+  const [zoomState, setZoomState] = useState<{ key: string; zoom: Zoom }>({ key: rangeKey, zoom: FULL_ZOOM })
+  const zoom = zoomState.key === rangeKey ? zoomState.zoom : FULL_ZOOM
+  const setZoom = (next: Zoom) => setZoomState({ key: rangeKey, zoom: next })
 
   const { state, reload } = useAsync(
     async (signal) => {
@@ -196,6 +256,9 @@ function Charts({
             <span className={styles.muted}> · rozdzielczość: {RESOLUTION_LABEL[data.resolution]}</span>
           ) : null}
         </p>
+        {data && (data.power.some(seriesHasValues) || (data.soc !== null && seriesHasValues(data.soc))) ? (
+          <ZoomControls zoom={zoom} onZoom={setZoom} range={range} timeZone={tz} />
+        ) : null}
         <WidgetState
           status={status(data?.power ?? [], 'Urządzenia instalacji nie podają mocy PV, zużycia, sieci ani baterii.')}
         >
@@ -206,6 +269,8 @@ function Charts({
                 timeZone={tz}
                 range={range}
                 label={`Wykres mocy w kW: ${data.power.map((s) => s.name).join(', ')}; ${range.label}.`}
+                zoom={zoom}
+                onZoom={setZoom}
               />
             </Suspense>
           ) : null}
@@ -224,6 +289,9 @@ function Charts({
                 timeZone={tz}
                 range={range}
                 label={`Wykres stanu naładowania baterii w %; ${range.label}.`}
+                zoom={zoom}
+                onZoom={setZoom}
+                slider={false}
               />
             </Suspense>
           </WidgetState>

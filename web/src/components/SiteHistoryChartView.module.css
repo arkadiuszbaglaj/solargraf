@@ -1,0 +1,6 @@
+.chart {
+  width: 100%;
+  height: 21rem;
+  /* Przeciąganie zaznacza fragment wykresu do przybliżenia. */
+  cursor: crosshair;
+}
