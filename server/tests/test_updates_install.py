@@ -86,6 +86,44 @@ def test_read_job_validates_status_file(tmp_path: Path) -> None:
     assert install.read_job(dirs) is None
 
 
+def test_read_job_steps(tmp_path: Path) -> None:
+    """Przebieg etapów: brak pola u starszego skryptu, walidacja kroków, wyników i czasów."""
+    dirs = _dirs(tmp_path)
+    _write_status(dirs, finished_at=NOW.isoformat())
+    job = install.read_job(dirs)
+    assert job is not None
+    assert job.steps is None
+    done = {
+        "step": "BUILD",
+        "started_at": NOW.isoformat(),
+        "finished_at": (NOW + timedelta(minutes=2)).isoformat(),
+        "result": "OK",
+    }
+    running = {
+        "step": "START",
+        "started_at": NOW.isoformat(),
+        "finished_at": None,
+        "result": "RUNNING",
+    }
+    _write_status(dirs, state="RUNNING", step="START", steps=[done, running])
+    job = install.read_job(dirs)
+    assert job is not None
+    assert job.steps is not None
+    assert [(s.step, s.result) for s in job.steps] == [
+        (install.JobStep.BUILD, install.StepResult.OK),
+        (install.JobStep.START, install.StepResult.RUNNING),
+    ]
+    assert job.steps[1].finished_at is None
+    for bad in (
+        [done | {"step": "OTHER"}],
+        [done | {"result": "MAYBE"}],
+        [done | {"started_at": "2026-11-08T12:00:00"}],
+        [done] * (install.MAX_STEPS + 1),
+    ):
+        _write_status(dirs, steps=bad)
+        assert install.read_job(dirs) is None
+
+
 def test_read_job_low_disk_reason(tmp_path: Path) -> None:
     """Plik stanu z ``install.sh`` po braku miejsca (D65): przyczyna i liczby dla UI."""
     dirs = _dirs(tmp_path)

@@ -1,4 +1,4 @@
-import type { CheckError, JobState, JobStep } from '../api/updates'
+import type { CheckError, JobState, JobStep, UpdateJob } from '../api/updates'
 
 /** Opis wyniku sprawdzenia — bez szczegółów technicznych (D63: błąd nie jest alarmem). */
 export const CHECK_ERROR_TEXT: Record<CheckError, string> = {
@@ -12,9 +12,12 @@ export const CHECK_ERROR_TEXT: Record<CheckError, string> = {
 /** Etap aktualizacji wykonywanej na serwerze (D65). */
 export const JOB_STEP_TEXT: Record<JobStep, string> = {
   CHECK: 'sprawdzanie wersji',
+  DOWNLOAD: 'pobieranie nowej wersji',
+  DISK: 'sprawdzanie wolnego miejsca',
   BACKUP: 'kopia zapasowa',
   BUILD: 'budowanie nowej wersji',
   START: 'migracje bazy i uruchamianie',
+  VERIFY: 'sprawdzanie działania aplikacji',
   ROLLBACK: 'przywracanie poprzedniej wersji',
   CLEANUP: 'sprzątanie',
   DONE: 'zakończono',
@@ -59,16 +62,24 @@ export function clearPostponed(): void {
   }
 }
 
-/** Etapy pokazywane na liście postępu (kolejność skryptu aktualizacji, D65). */
-export const JOB_STEPS_SHOWN: readonly { step: JobStep; label: string }[] = [
-  { step: 'CHECK', label: 'Przygotowanie i sprawdzenie miejsca' },
-  { step: 'BACKUP', label: 'Kopia zapasowa' },
-  { step: 'BUILD', label: 'Pobieranie i budowanie nowej wersji' },
-  { step: 'START', label: 'Migracje bazy i uruchamianie usług' },
-  { step: 'CLEANUP', label: 'Sprzątanie' },
-]
+/** Nazwa etapu na liście przebiegu aktualizacji. */
+export const JOB_STEP_LABEL: Record<JobStep, string> = {
+  CHECK: 'Przygotowanie i sprawdzenie wersji',
+  DOWNLOAD: 'Pobieranie nowej wersji',
+  DISK: 'Sprawdzenie wolnego miejsca',
+  BACKUP: 'Kopia zapasowa',
+  BUILD: 'Budowanie nowej wersji',
+  START: 'Migracje bazy i uruchamianie usług',
+  VERIFY: 'Sprawdzenie działania aplikacji',
+  ROLLBACK: 'Przywracanie poprzedniej wersji',
+  CLEANUP: 'Sprzątanie',
+  DONE: 'Zakończenie',
+}
 
-export type StepStatus = 'done' | 'active' | 'failed' | 'interrupted' | 'pending' | 'skipped'
+/** Kolejność etapów skryptu (D65) — do pokazania etapów, które jeszcze czekają. */
+const STEP_ORDER: readonly JobStep[] = ['CHECK', 'DOWNLOAD', 'DISK', 'BACKUP', 'BUILD', 'START', 'VERIFY', 'CLEANUP']
+
+export type StepStatus = 'done' | 'active' | 'failed' | 'interrupted' | 'pending'
 
 export const STEP_STATUS_TEXT: Record<StepStatus, string> = {
   done: 'gotowe',
@@ -76,27 +87,58 @@ export const STEP_STATUS_TEXT: Record<StepStatus, string> = {
   failed: 'błąd',
   interrupted: 'przerwane',
   pending: 'oczekuje',
-  skipped: 'pominięte',
 }
 
+export interface StepRow {
+  step: JobStep
+  label: string
+  status: StepStatus
+  startedAt: string | null
+  finishedAt: string | null
+  /** Czas trwania; dla etapu w toku — do `now`; `null` — etap nie rozpoczęty albo przerwany. */
+  seconds: number | null
+}
+
+const secondsBetween = (from: string, to: number): number => Math.max(0, (to - Date.parse(from)) / 1000)
+
 /**
- * Stan każdego etapu z zapisu ostatniej aktualizacji. `null` — nie da się go uczciwie odtworzyć
- * (brak aktualizacji do zainstalowania, powrót do poprzedniej wersji, etap spoza listy) —
- * wtedy UI pokazuje sam opis wyniku zamiast zgadywać, który etap zawiódł.
+ * Wiersze przebiegu aktualizacji wyłącznie z etapów zapisanych przez skrypt (czasy i wynik).
+ * `null` — skrypt sprzed zapisu etapów: przebiegu nie odtwarzamy z samego bieżącego etapu.
+ * W trakcie aktualizacji (bez powrotu do poprzedniej wersji) dochodzą etapy, które czekają.
  */
-export function stepStatuses(
-  job: { state: JobState; step: JobStep },
-  running: boolean,
-): { step: JobStep; label: string; status: StepStatus }[] | null {
-  if (job.state === 'SUCCESS') return JOB_STEPS_SHOWN.map(({ step, label }) => ({ step, label, status: 'done' }))
-  if (job.state === 'NO_UPDATE' || job.state === 'ROLLED_BACK') return null
-  const current = JOB_STEPS_SHOWN.findIndex((s) => s.step === job.step)
-  if (current < 0) return null
-  const at: StepStatus = job.state === 'FAILED' ? 'failed' : running ? 'active' : 'interrupted'
-  const after: StepStatus = job.state === 'RUNNING' && running ? 'pending' : 'skipped'
-  return JOB_STEPS_SHOWN.map(({ step, label }, i) => ({
-    step,
-    label,
-    status: i < current ? 'done' : i === current ? at : after,
-  }))
+export function stepRows(job: Pick<UpdateJob, 'state' | 'steps'>, running: boolean, now: Date): StepRow[] | null {
+  if (job.steps === null) return null
+  const live = running && job.state === 'RUNNING'
+  const rows: StepRow[] = job.steps.map((s) => {
+    const status: StepStatus =
+      s.result === 'OK' ? 'done' : s.result === 'FAILED' ? 'failed' : live ? 'active' : 'interrupted'
+    const end = s.finishedAt !== null ? Date.parse(s.finishedAt) : status === 'active' ? now.getTime() : null
+    return {
+      step: s.step,
+      label: JOB_STEP_LABEL[s.step],
+      status,
+      startedAt: s.startedAt,
+      finishedAt: s.finishedAt,
+      seconds: end === null ? null : secondsBetween(s.startedAt, end),
+    }
+  })
+  if (live && !job.steps.some((s) => s.step === 'ROLLBACK')) {
+    const last = job.steps.at(-1)
+    const next = last === undefined ? 0 : STEP_ORDER.indexOf(last.step) + 1
+    for (const step of STEP_ORDER.slice(next)) {
+      rows.push({ step, label: JOB_STEP_LABEL[step], status: 'pending', startedAt: null, finishedAt: null, seconds: null })
+    }
+  }
+  return rows
+}
+
+const pad = (n: number): string => String(n).padStart(2, '0')
+
+/** Czas trwania etapu, np. „< 1 s”, „42 s”, „3 min 05 s”, „1 h 02 min”. */
+export function formatDuration(seconds: number): string {
+  const total = Math.floor(seconds)
+  if (total < 1) return '< 1 s'
+  if (total < 60) return `${total} s`
+  if (total < 3600) return `${Math.floor(total / 60)} min ${pad(total % 60)} s`
+  return `${Math.floor(total / 3600)} h ${pad(Math.floor((total % 3600) / 60))} min`
 }

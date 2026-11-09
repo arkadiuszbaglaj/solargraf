@@ -18,7 +18,26 @@ export interface UpdateAvailability {
 }
 
 export type JobState = 'RUNNING' | 'SUCCESS' | 'FAILED' | 'ROLLED_BACK' | 'NO_UPDATE'
-export type JobStep = 'CHECK' | 'BACKUP' | 'BUILD' | 'START' | 'ROLLBACK' | 'CLEANUP' | 'DONE'
+export type JobStep =
+  | 'CHECK'
+  | 'DOWNLOAD'
+  | 'DISK'
+  | 'BACKUP'
+  | 'BUILD'
+  | 'START'
+  | 'VERIFY'
+  | 'ROLLBACK'
+  | 'CLEANUP'
+  | 'DONE'
+export type StepResult = 'OK' | 'FAILED' | 'RUNNING'
+
+/** Etap zapisany przez skrypt aktualizacji: czasy z zegara serwera i wynik. */
+export interface JobStepRecord {
+  step: JobStep
+  startedAt: string
+  finishedAt: string | null
+  result: StepResult
+}
 /** Znana przyczyna błędu; `LOW_DISK` — za mało miejsca na dysku serwera. */
 export type JobReason = 'LOW_DISK'
 
@@ -36,6 +55,8 @@ export interface UpdateJob {
   requiredMb: number | null
   /** MB odzyskane przy sprzątaniu po udanej aktualizacji; `null` — brak (np. starszy skrypt). */
   reclaimedMb: number | null
+  /** Przebieg etapów w kolejności wykonania; `null` — skrypt sprzed zapisu etapów. */
+  steps: JobStepRecord[] | null
 }
 
 export interface InstallState {
@@ -85,7 +106,19 @@ const isTime = (v: unknown): v is string => typeof v === 'string' && !Number.isN
 const timeOrNull = (v: unknown): string | null | undefined => (v === null ? null : isTime(v) ? v : undefined)
 
 const JOB_STATES: ReadonlySet<string> = new Set(['RUNNING', 'SUCCESS', 'FAILED', 'ROLLED_BACK', 'NO_UPDATE'])
-const JOB_STEPS: ReadonlySet<string> = new Set(['CHECK', 'BACKUP', 'BUILD', 'START', 'ROLLBACK', 'CLEANUP', 'DONE'])
+const JOB_STEPS: ReadonlySet<string> = new Set([
+  'CHECK',
+  'DOWNLOAD',
+  'DISK',
+  'BACKUP',
+  'BUILD',
+  'START',
+  'VERIFY',
+  'ROLLBACK',
+  'CLEANUP',
+  'DONE',
+])
+const STEP_RESULTS: ReadonlySet<string> = new Set(['OK', 'FAILED', 'RUNNING'])
 const mbOrNull = (v: unknown): number | null | undefined =>
   v === null || v === undefined ? null : typeof v === 'number' && Number.isInteger(v) && v >= 0 ? v : undefined
 // Brak pola (starszy serwer) — brak przyczyny; nieznana wartość — odrzucenie jak dla state/step.
@@ -93,6 +126,30 @@ const reasonOrNull = (v: unknown): JobReason | null | undefined =>
   v === null || v === undefined ? null : v === 'LOW_DISK' ? v : undefined
 const versionOrNull = (v: unknown): string | null | undefined =>
   v === null ? null : typeof v === 'string' && /^\d+\.\d+\.\d+$/.test(v) ? v : undefined
+
+function parseStep(v: unknown): JobStepRecord | undefined {
+  if (!isRecord(v)) return undefined
+  const finishedAt = timeOrNull(v.finished_at ?? null)
+  if (
+    typeof v.step !== 'string' ||
+    !JOB_STEPS.has(v.step) ||
+    !isTime(v.started_at) ||
+    finishedAt === undefined ||
+    typeof v.result !== 'string' ||
+    !STEP_RESULTS.has(v.result)
+  ) {
+    return undefined
+  }
+  return { step: v.step as JobStep, startedAt: v.started_at, finishedAt, result: v.result as StepResult }
+}
+
+// Brak pola (starszy serwer lub skrypt) — null; niepoprawny etap — odrzucenie całego stanu.
+function parseSteps(v: unknown): JobStepRecord[] | null | undefined {
+  if (v === null || v === undefined) return null
+  if (!Array.isArray(v)) return undefined
+  const steps = v.map(parseStep)
+  return steps.every((s): s is JobStepRecord => s !== undefined) ? steps : undefined
+}
 
 function parseJob(v: unknown): UpdateJob | null | undefined {
   if (v === null) return null
@@ -104,6 +161,7 @@ function parseJob(v: unknown): UpdateJob | null | undefined {
   const freeMb = mbOrNull(v.free_mb)
   const requiredMb = mbOrNull(v.required_mb)
   const reclaimedMb = mbOrNull(v.reclaimed_mb)
+  const steps = parseSteps(v.steps)
   if (
     typeof v.state !== 'string' ||
     !JOB_STATES.has(v.state) ||
@@ -116,7 +174,8 @@ function parseJob(v: unknown): UpdateJob | null | undefined {
     reason === undefined ||
     freeMb === undefined ||
     requiredMb === undefined ||
-    reclaimedMb === undefined
+    reclaimedMb === undefined ||
+    steps === undefined
   ) {
     return undefined
   }
@@ -131,6 +190,7 @@ function parseJob(v: unknown): UpdateJob | null | undefined {
     freeMb,
     requiredMb,
     reclaimedMb,
+    steps,
   }
 }
 

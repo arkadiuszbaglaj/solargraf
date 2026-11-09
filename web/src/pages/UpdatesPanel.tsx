@@ -3,7 +3,6 @@ import {
   CircleAlert,
   CircleArrowUp,
   CircleCheck,
-  CircleMinus,
   CircleX,
   Info,
   LoaderCircle,
@@ -18,8 +17,16 @@ import { useOptionalSession } from '../auth/SessionContext'
 import { WidgetState } from '../components/WidgetState'
 import { useNow } from '../hooks/useNow'
 import { usePeriodic } from '../hooks/usePeriodic'
-import { formatAge, formatDateTime } from '../lib/format'
-import { CHECK_ERROR_TEXT, JOB_STEP_TEXT, STEP_STATUS_TEXT, type StepStatus, stepStatuses } from '../lib/updates'
+import { formatAge, formatClock, formatDateTime } from '../lib/format'
+import {
+  CHECK_ERROR_TEXT,
+  formatDuration,
+  JOB_STEP_TEXT,
+  STEP_STATUS_TEXT,
+  type StepRow,
+  type StepStatus,
+  stepRows,
+} from '../lib/updates'
 import styles from './UpdatesPanel.module.css'
 
 /** Stan zmienia worker najwyżej raz na dobę — częste odświeżanie nic nie wnosi. */
@@ -162,7 +169,69 @@ const STEP_ICON: Record<StepStatus, { icon: LucideIcon; tone: Tone }> = {
   failed: { icon: CircleX, tone: 'danger' },
   interrupted: { icon: CircleAlert, tone: 'warning' },
   pending: { icon: Circle, tone: 'muted' },
-  skipped: { icon: CircleMinus, tone: 'muted' },
+}
+
+/** Lista etapów z rzeczywistymi czasami; etap w toku liczy czas na żywo. */
+function StepList({ rows }: { rows: StepRow[] }) {
+  return (
+    <ol className={styles.steps} aria-label="Etapy aktualizacji">
+      {rows.map((s) => {
+        const { icon: Icon, tone } = STEP_ICON[s.status]
+        return (
+          <li key={s.step} className={`${styles.step} ${s.status === 'pending' ? styles.stepPending : ''}`}>
+            <Icon
+              size={18}
+              aria-hidden="true"
+              className={`${styles.icon} ${styles[tone]} ${s.status === 'active' ? styles.spin : ''}`}
+            />
+            <span className={styles.stepLabel}>{s.label}</span>
+            {s.seconds !== null ? <span className={styles.stepTime}>{formatDuration(s.seconds)}</span> : null}
+            <span className={`${styles.stepStatus} ${s.status === 'failed' ? styles.danger : ''}`}>
+              {STEP_STATUS_TEXT[s.status]}
+            </span>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
+/** Szczegóły przebiegu: godziny rozpoczęcia i zakończenia każdego etapu (strefa instalacji). */
+function StepDetails({ rows, job, timeZone }: { rows: StepRow[]; job: UpdateJob; timeZone: string }) {
+  const started = rows.filter((r) => r.startedAt !== null)
+  if (started.length === 0) return null
+  const total =
+    job.finishedAt !== null ? Math.max(0, (Date.parse(job.finishedAt) - Date.parse(job.startedAt)) / 1000) : null
+  return (
+    <details className={styles.details}>
+      <summary className={styles.summary}>Szczegóły</summary>
+      <div className={styles.tableWrap}>
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th scope="col">Etap</th>
+              <th scope="col">Początek</th>
+              <th scope="col">Koniec</th>
+              <th scope="col">Czas</th>
+              <th scope="col">Wynik</th>
+            </tr>
+          </thead>
+          <tbody>
+            {started.map((r) => (
+              <tr key={r.step}>
+                <th scope="row">{r.label}</th>
+                <td>{r.startedAt !== null ? formatClock(r.startedAt, timeZone) : '—'}</td>
+                <td>{r.finishedAt !== null ? formatClock(r.finishedAt, timeZone) : '—'}</td>
+                <td>{r.seconds !== null ? formatDuration(r.seconds) : '—'}</td>
+                <td>{STEP_STATUS_TEXT[r.status]}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {total !== null ? <p className={styles.muted}>Łączny czas: {formatDuration(total)}.</p> : null}
+    </details>
+  )
 }
 
 /** Ostatnia aktualizacja zapisana przez skrypt serwera (D65): wynik, wersje, czas i etapy. */
@@ -195,7 +264,9 @@ function LastJob({
               ? { icon: CircleX, tone: 'danger', title: 'Aktualizacja nie powiodła się' }
               : // RUNNING bez trwającej aktualizacji — przerwana (np. restart serwera); nie zgadujemy wyniku.
                 { icon: CircleAlert, tone: 'warning', title: 'Przerwana — brak informacji o zakończeniu' }
-  const steps = lowDisk ? null : stepStatuses(job, running)
+  // Etap w toku liczy czas co sekundę; poza aktualizacją wystarczy rzadkie odświeżenie.
+  const now = useNow(inProgress ? 1000 : 60_000)
+  const steps = stepRows(job, running, now)
   const versions =
     job.fromVersion !== null && job.toVersion !== null
       ? `z wersji ${job.fromVersion} do ${job.toVersion}`
@@ -233,19 +304,16 @@ function LastJob({
           albo nieużywane obrazy (<code>sudo docker system df</code> pokaże, co zajmuje miejsce), i spróbuj ponownie.
         </p>
       ) : null}
-      {steps ? (
-        <ol className={styles.steps} aria-label="Etapy aktualizacji">
-          {steps.map((s) => {
-            const { icon: Icon, tone } = STEP_ICON[s.status]
-            return (
-              <li key={s.step} className={styles.step}>
-                <Icon size={18} aria-hidden="true" className={`${styles.icon} ${styles[tone]}`} />
-                <span className={styles.stepLabel}>{s.label}</span>
-                <span className={styles.stepStatus}>{STEP_STATUS_TEXT[s.status]}</span>
-              </li>
-            )
-          })}
-        </ol>
+      {steps !== null && steps.length > 0 ? (
+        <>
+          <StepList rows={steps} />
+          <StepDetails rows={steps} job={job} timeZone={timeZone} />
+        </>
+      ) : steps === null && job.state !== 'NO_UPDATE' && !lowDisk ? (
+        <p className={styles.muted}>
+          Tę aktualizację wykonała starsza wersja skryptu, która nie zapisywała przebiegu etapów. Etapy z czasami
+          będą widoczne od następnej aktualizacji.
+        </p>
       ) : null}
       {job.state === 'SUCCESS' && job.reclaimedMb !== null ? (
         <p className={styles.muted}>Sprzątanie odzyskało {job.reclaimedMb} MB.</p>
