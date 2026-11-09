@@ -94,8 +94,16 @@ export function parseAlarmList(v: unknown): AlarmList | null {
 
 const base = (siteId: string) => `/api/sites/${encodeURIComponent(siteId)}/alarms`
 
-export const listAlarms = (siteId: string, fetchFn: typeof fetch = fetch, signal?: AbortSignal): Promise<Loaded<AlarmList>> =>
-  load(base(siteId), parseAlarmList, fetchFn, signal)
+/** Najwięcej alarmów w jednej odpowiedzi (limit API, D55). */
+export const ALARMS_MAX_LIMIT = 200
+
+export const listAlarms = (
+  siteId: string,
+  fetchFn: typeof fetch = fetch,
+  signal?: AbortSignal,
+  limit?: number,
+): Promise<Loaded<AlarmList>> =>
+  load(limit === undefined ? base(siteId) : `${base(siteId)}?limit=${limit}`, parseAlarmList, fetchFn, signal)
 
 export type AckResult = { ok: true; alarm: ApiAlarm } | { ok: false; message: string }
 

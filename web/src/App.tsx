@@ -14,6 +14,8 @@ import { DashboardPage } from './pages/DashboardPage'
 import { DeviceHistoryPage } from './pages/DeviceHistoryPage'
 import { DevicesPage } from './pages/DevicesPage'
 import { ServerHealthPage } from './pages/ServerHealthPage'
+import { AlarmsPage } from './pages/AlarmsPage'
+import { ReportsPage } from './pages/ReportsPage'
 import { SiteChartsPage } from './pages/SiteChartsPage'
 import { SitesPage } from './pages/SitesPage'
 import { UpdatesPage } from './pages/UpdatesPage'
@@ -30,6 +32,8 @@ const TOPBAR: Partial<Record<AppPage, { title: string; subtitle: string; showSit
   history: { title: 'Historia', subtitle: 'Historia pomiarów urządzenia', showSiteSwitcher: false },
   // Wykresy instalacji (D66): instalację wybiera przełącznik w pasku górnym.
   charts: { title: 'Wykresy i historia', subtitle: 'Historia pomiarów instalacji' },
+  alarms: { title: 'Alarmy', subtitle: 'Aktywne alarmy instalacji i zamknięte w ostatnich 24 h' },
+  reports: { title: 'Raporty', subtitle: 'Bilans energii instalacji za miesiąc albo rok' },
   server: { title: 'Stan serwera', subtitle: 'Zasoby, składniki i ocena stabilności', showSiteSwitcher: false },
   updates: {
     title: 'Aktualizacje',
@@ -101,6 +105,10 @@ export function App({
               origin={source.origin}
               initialDeviceId={site.id === routeSiteId ? routeDeviceId : ''}
             />
+          ) : site && page === 'alarms' ? (
+            <AlarmsPage key={site.id} site={site} origin={source.origin} />
+          ) : site && page === 'reports' ? (
+            <ReportsPage key={site.id} site={site} now={now} origin={source.origin} />
           ) : site && page === 'charts' ? (
             <SiteChartsPage key={site.id} site={site} now={now} origin={source.origin} />
           ) : site ? (

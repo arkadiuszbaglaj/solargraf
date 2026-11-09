@@ -39,3 +39,13 @@
     padding: var(--space-4);
   }
 }
+
+@media print {
+  .shell {
+    display: block;
+  }
+
+  .main {
+    padding: 0;
+  }
+}

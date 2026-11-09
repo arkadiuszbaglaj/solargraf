@@ -437,6 +437,8 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 
 - Odzyskane miejsce w UI: skrypt zapisuje `reclaimed_mb` w pliku stanu aktualizacji, API przekazuje je w `install.last`, „Stan serwera” ma wiersze „Ostatnia aktualizacja” i „Odzyskane miejsce przy sprzątaniu” (brak danych — „niedostępne”, błąd API aktualizacji nie blokuje strony), panel „Aktualizacje” dopisuje odzyskane MB. Testy: pytest aktualizacji, web 375, tsc, oxlint; CI sprawdza `reclaimed_mb` po udanej aktualizacji.
 
+- Strony „Alarmy” i „Raporty” (D74): `/alarmy` — karty podsumowania, filtry stanu i priorytetu, lista z potwierdzaniem (wspólny hook z panelem dashboardu, `limit=200`); `/raporty` — nowy endpoint raportu (miesiąc/rok w strefie instalacji, 403 dla VIEWER, 422 dla przyszłego okresu) i CSV z audytem; UI z kartami, wykresem, tabelą, CSV i wydrukiem. Poprawka przy okazji: mobilna reguła karty KPI była nadpisywana (kolejność w CSS) i długa etykieta rozpychała stronę na telefonie. Testy: Python bez bazy 202 + nowe testy integracyjne raportu (CI z PostgreSQL), web 384, ruff, mypy, tsc, oxlint; podgląd z atrapą SIMULATED 1440 px i 375 px. Niezweryfikowane: raport na prawdziwych danych serwera testowego.
+
 ## Szablon kolejnego wpisu
 
 - Data:

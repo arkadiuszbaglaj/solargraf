@@ -7,6 +7,12 @@ export const SERVER_HEALTH_PATH = '/ustawienia/serwer'
 /** Ustawienia → Aktualizacje (D63, D65). */
 export const UPDATES_PATH = '/ustawienia/aktualizacje'
 
+/** Alarmy instalacji wybranej w przełączniku (D55). */
+export const ALARMS_PATH = '/alarmy'
+
+/** Raporty energii instalacji wybranej w przełączniku — OWNER/ADMIN (D74). */
+export const REPORTS_PATH = '/raporty'
+
 /** Zakładka „Urządzenia” instalacji wybranej w przełączniku. */
 export const DEVICES_TAB_PATH = '/urzadzenia'
 

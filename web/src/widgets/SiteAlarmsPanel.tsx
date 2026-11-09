@@ -13,13 +13,18 @@ export const ALARMS_REFRESH_MS = 30_000
 
 const browserFetch: typeof fetch = (...args) => fetch(...args)
 
-async function loadAlarms(siteId: string, fetchFn: typeof fetch, signal: AbortSignal): Promise<AlarmList> {
-  const result = await listAlarms(siteId, fetchFn, signal)
+async function loadAlarms(
+  siteId: string,
+  fetchFn: typeof fetch,
+  signal: AbortSignal,
+  limit: number | undefined,
+): Promise<AlarmList> {
+  const result = await listAlarms(siteId, fetchFn, signal, limit)
   if (result.kind !== 'ok') throw new Error('Nie udało się pobrać alarmów.')
   return result.data
 }
 
-function AlarmItem({
+export function AlarmItem({
   alarm,
   timeZone,
   canAcknowledge,
@@ -67,10 +72,37 @@ function AlarmItem({
 }
 
 /**
- * Alarmy instalacji (D55): otwarte i zamknięte w ostatnich 24 h, czas w strefie instalacji.
- * Odświeżanie co 30 s i po powrocie do karty. Przycisk „Potwierdź” tylko, gdy serwer na to
- * pozwala (`canAcknowledge`) i UI działa za logowaniem (token CSRF z sesji).
+ * Alarmy instalacji (D55) z odświeżaniem co 30 s i po powrocie do karty oraz potwierdzaniem.
+ * `canAcknowledge` tylko, gdy serwer na to pozwala i UI działa za logowaniem (token CSRF z sesji).
  */
+export function useSiteAlarms(siteId: string, fetchFn: typeof fetch, limit?: number) {
+  const { state, reload } = usePeriodic(
+    `alarms|${siteId}|${limit ?? ''}`,
+    (_now, signal) => loadAlarms(siteId, fetchFn, signal, limit),
+    ALARMS_REFRESH_MS,
+  )
+  const session = useOptionalSession()
+  const [busy, setBusy] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const ready = state.status === 'ready' ? state : null
+  const csrfToken = session?.session.csrfToken ?? null
+  const canAcknowledge = (ready?.data.canAcknowledge ?? false) && csrfToken !== null
+
+  const acknowledge = async (alarm: ApiAlarm): Promise<void> => {
+    if (!csrfToken) return
+    setBusy(alarm.id)
+    setError(null)
+    const result = await acknowledgeAlarm(siteId, alarm.id, csrfToken, fetchFn)
+    setBusy(null)
+    if (result.ok) reload()
+    else setError(result.message)
+  }
+
+  return { state, ready, reload, canAcknowledge, busy, error, acknowledge }
+}
+
+/** Panel „Alarmy” dashboardu: otwarte i zamknięte w ostatnich 24 h, czas w strefie instalacji. */
 export function SiteAlarmsPanel({
   siteId,
   timeZone,
@@ -80,23 +112,7 @@ export function SiteAlarmsPanel({
   timeZone: string
   fetchFn?: typeof fetch
 }) {
-  const { state, reload } = usePeriodic(
-    `alarms|${siteId}`,
-    (_now, signal) => loadAlarms(siteId, fetchFn, signal),
-    ALARMS_REFRESH_MS,
-  )
-  const session = useOptionalSession()
-  const [busy, setBusy] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  const acknowledge = async (alarm: ApiAlarm, csrfToken: string): Promise<void> => {
-    setBusy(alarm.id)
-    setError(null)
-    const result = await acknowledgeAlarm(siteId, alarm.id, csrfToken, fetchFn)
-    setBusy(null)
-    if (result.ok) reload()
-    else setError(result.message)
-  }
+  const { state, ready, reload, canAcknowledge, busy, error, acknowledge } = useSiteAlarms(siteId, fetchFn)
 
   let status: WidgetStatus
   if (state.status === 'loading') status = { kind: 'loading' }
@@ -104,9 +120,6 @@ export function SiteAlarmsPanel({
   else if (state.data.alarms.length === 0) status = { kind: 'empty', message: 'Brak alarmów z ostatnich 24 h.' }
   else status = { kind: 'ready' }
 
-  const ready = state.status === 'ready' ? state : null
-  const csrfToken = session?.session.csrfToken ?? null
-  const canAcknowledge = (ready?.data.canAcknowledge ?? false) && csrfToken !== null
   const active = ready?.data.alarms.filter((a) => a.closedAt === null).length ?? 0
 
   return (
@@ -129,9 +142,7 @@ export function SiteAlarmsPanel({
                 timeZone={timeZone}
                 canAcknowledge={canAcknowledge}
                 busy={busy === alarm.id}
-                onAcknowledge={() => {
-                  if (csrfToken) void acknowledge(alarm, csrfToken)
-                }}
+                onAcknowledge={() => void acknowledge(alarm)}
               />
             ))}
           </ul>

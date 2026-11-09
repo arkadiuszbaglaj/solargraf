@@ -119,6 +119,7 @@ UI:
 - `GET /api/sites/{site_id}/measurements?metric=...&from=...&to=...&resolution=...`
 - `GET /api/sites/{site_id}/alarms`
 - `POST /api/sites/{site_id}/alarms/{alarm_id}/acknowledge`
+- `GET /api/sites/{site_id}/reports/energy?year=...&month=...` i `…/reports/energy.csv` — raport miesięczny/roczny, tylko OWNER/ADMIN (D74)
 - `GET /api/sites/{site_id}/live` — strumień SSE z ostatnimi wartościami
 - `POST /api/sites/{site_id}/connection-tests`, `GET …/connection-tests/{test_id}` — test komunikacji w kreatorze (D72)
 

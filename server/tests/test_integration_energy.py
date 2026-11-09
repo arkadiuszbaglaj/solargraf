@@ -332,3 +332,53 @@ class TestSiteEnergy:
         login(client)
         assert site_get(client, world.site_a, DAY + H1, DAY).status_code == 422
         assert site_get(client, world.site_b, DAY, DAY + H1).status_code == 404
+
+
+def report_get(client: TestClient, site: uuid.UUID, csv: bool = False, **params: int) -> Any:  # noqa: ANN401
+    path = "energy.csv" if csv else "energy"
+    return client.get(f"/api/sites/{site}/reports/{path}", params=params)
+
+
+class TestEnergyReport:
+    def test_month_report_in_local_days(self, world: World, client: TestClient) -> None:
+        for i, last in enumerate([1000.0, 1500.0]):
+            aggregate(world, "pv_energy_total", "1h", DAY + (i - 1) * H1, last=last)
+        login(client)
+        body = report_get(client, world.site_a, year=2026, month=6).json()
+        assert (body["period"], body["year"], body["month"], body["bucket"]) == (
+            "month",
+            2026,
+            6,
+            "1d",
+        )
+        assert body["start"].startswith("2026-05-31T22:00:00")
+        pv = next(s for s in body["series"] if s["key"] == "pv")
+        assert len(pv["buckets"]) == 30
+        assert pv["total_wh"] == 500.0
+        year = report_get(client, world.site_a, year=2026).json()
+        assert (year["period"], year["bucket"], year["month"]) == ("year", "1mo", None)
+
+    def test_csv_with_audit(self, world: World, client: TestClient) -> None:
+        for i, last in enumerate([1000.0, 1500.0]):
+            aggregate(world, "pv_energy_total", "1h", DAY + (i - 1) * H1, last=last)
+        login(client)
+        resp = report_get(client, world.site_a, csv=True, year=2026, month=6)
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/csv")
+        assert 'filename="raport_a1_2026-06' in resp.headers["content-disposition"]
+        assert resp.content.startswith("﻿".encode())
+        text_body = resp.content.decode("utf-8-sig")
+        assert "2026-06-21;0,5;" in text_body
+        assert "2026-06-20;;" in text_body  # brak danych — puste pole, nie 0
+        [(target,)] = _sql("SELECT target FROM audit_events WHERE action = 'DATA_EXPORTED'")
+        assert str(target).startswith(f"report:{world.site_a};month;")
+
+    def test_access_and_validation(self, world: World, client: TestClient) -> None:
+        assert report_get(client, world.site_a, year=2026).status_code == 401
+        login(client, "viewer@example.pl")
+        assert report_get(client, world.site_a, year=2026).status_code == 403  # tylko OWNER/ADMIN
+        assert report_get(client, world.site_a, csv=True, year=2026).status_code == 403
+        login(client)
+        assert report_get(client, world.site_b, year=2026).status_code == 404
+        assert report_get(client, world.site_a, year=2026, month=13).status_code == 422
+        assert report_get(client, world.site_a, year=2099).status_code == 422  # przyszły okres

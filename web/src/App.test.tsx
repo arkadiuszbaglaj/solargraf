@@ -83,6 +83,10 @@ describe('Dashboard (DEMO)', () => {
     await userEvent.tab()
     expect(document.activeElement?.getAttribute('href')).toBe('/urzadzenia')
     await userEvent.tab()
+    expect(document.activeElement?.getAttribute('href')).toBe('/alarmy')
+    await userEvent.tab()
+    expect(document.activeElement?.getAttribute('href')).toBe('/raporty')
+    await userEvent.tab()
     // Przycisk menu (widoczny na małych ekranach) i select instalacji są osiągalne z klawiatury.
     expect(document.activeElement?.getAttribute('aria-controls')).toBeTruthy()
     await userEvent.tab()
@@ -97,8 +101,11 @@ describe('Dashboard (DEMO)', () => {
       'Instalacje',
       'Wykresy i historia',
       'Urządzenia',
+      'Alarmy',
+      'Raporty',
     ])
-    expect(within(nav).getByText('Alarmy').closest('[aria-disabled="true"]')).toBeTruthy()
+    // Ustawienia tylko dla OWNER — bez sesji (DEMO) pozycja nieaktywna.
+    expect(within(nav).getByText('Ustawienia').closest('[aria-disabled="true"]')).toBeTruthy()
   })
 
   it('strona wykresów w DEMO: aktywna pozycja menu i komunikat zamiast danych', async () => {

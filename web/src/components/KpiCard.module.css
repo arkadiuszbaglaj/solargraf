@@ -42,22 +42,8 @@
   letter-spacing: 0.03em;
   overflow-wrap: break-word;
   hyphens: auto;
-}
-
-/* Telefon: dwie karty w rzędzie — mniejsza etykieta, by długie słowa mieściły się w całości. */
-@media (max-width: 599px) {
-  .card {
-    padding: var(--space-3);
-  }
-
-  .label {
-    font-size: var(--font-size-xs);
-    letter-spacing: 0;
-  }
-
-  .value {
-    font-size: var(--font-size-lg);
-  }
+  /* Element flex: bez tego długie słowo rozpycha kartę zamiast się zawinąć. */
+  min-width: 0;
 }
 
 .value {
@@ -108,4 +94,20 @@
   font-size: var(--font-size-sm);
   color: var(--color-warning);
   font-weight: 600;
+}
+
+/* Telefon: dwie karty w rzędzie — mniejsza etykieta, by długie słowa mieściły się w całości. */
+@media (max-width: 599px) {
+  .card {
+    padding: var(--space-3);
+  }
+
+  .label {
+    font-size: var(--font-size-xs);
+    letter-spacing: 0;
+  }
+
+  .value {
+    font-size: var(--font-size-lg);
+  }
 }

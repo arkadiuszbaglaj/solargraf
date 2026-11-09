@@ -10,10 +10,10 @@ import {
 } from 'lucide-react'
 import { useOptionalSession } from '../auth/SessionContext'
 import { branding } from '../branding'
-import { DEVICES_TAB_PATH } from '../paths'
+import { ALARMS_PATH, DEVICES_TAB_PATH, REPORTS_PATH } from '../paths'
 import styles from './Sidebar.module.css'
 
-export type Page = 'dashboard' | 'sites' | 'charts' | 'devices' | 'server'
+export type Page = 'dashboard' | 'sites' | 'charts' | 'devices' | 'alarms' | 'reports' | 'server'
 
 interface NavItem {
   label: string
@@ -22,6 +22,8 @@ interface NavItem {
   href?: string
   /** Pozycja tylko dla roli OWNER (D60); dostęp i tak sprawdza serwer. */
   ownerOnly?: boolean
+  /** Pozycja tylko dla ról OWNER i ADMIN (D74); dostęp i tak sprawdza serwer. */
+  managerOnly?: boolean
 }
 
 const NAV: NavItem[] = [
@@ -29,23 +31,26 @@ const NAV: NavItem[] = [
   { label: 'Instalacje', icon: SolarPanel, page: 'sites', href: '/instalacje' },
   { label: 'Wykresy i historia', icon: ChartColumn, page: 'charts', href: '/wykresy' },
   { label: 'Urządzenia', icon: Cpu, page: 'devices', href: DEVICES_TAB_PATH },
-  { label: 'Alarmy', icon: Bell },
-  { label: 'Raporty', icon: FileText },
+  { label: 'Alarmy', icon: Bell, page: 'alarms', href: ALARMS_PATH },
+  { label: 'Raporty', icon: FileText, page: 'reports', href: REPORTS_PATH, managerOnly: true },
   { label: 'Ustawienia', icon: Settings, page: 'server', href: '/ustawienia/serwer', ownerOnly: true },
 ]
 
 export function Sidebar({ open, id, current = 'dashboard' }: { open: boolean; id: string; current?: Page }) {
   const auth = useOptionalSession()
   const isOwner = auth?.session.memberships.some((m) => m.role === 'OWNER') ?? false
+  // Bez sesji (DEMO w serwerze deweloperskim) pozycja jest widoczna — dane i tak z serwera.
+  const isManager = auth ? auth.session.memberships.some((m) => m.role === 'OWNER' || m.role === 'ADMIN') : true
   return (
-    <aside id={id} className={`${styles.sidebar} ${open ? styles.open : ''}`}>
+    <aside id={id} data-print="hide" className={`${styles.sidebar} ${open ? styles.open : ''}`}>
       <div className={styles.brand}>
         <span className={styles.name}>{branding.productName}</span>
         <span className={styles.status}>{branding.nameStatus}</span>
       </div>
       <nav aria-label="Główna nawigacja">
         <ul className={styles.nav}>
-          {NAV.map(({ label, icon: Icon, page, href, ownerOnly }) => (
+          {/* Raporty bez uprawnień są ukryte — nie „wkrótce”, bo funkcja istnieje. */}
+          {NAV.filter((item) => !item.managerOnly || isManager).map(({ label, icon: Icon, page, href, ownerOnly }) => (
             <li key={label}>
               {href && (!ownerOnly || isOwner) ? (
                 <a
