@@ -94,7 +94,7 @@ O1 (topologia sieci) rozstrzygnięte 2026-11-04 → D14. O8 (retencja) rozstrzyg
 |---|---|---|---|
 | O2 | Pierwszy sprzęt docelowy. | Deye SUN-12K-SG05LP3 + BOS-G16 przez logger Solarman V5, licznik Eastron SDM630; równolegle ogólny SunSpec. | Pierwszy adapter (P3) |
 | O4 | Nazwa handlowa. | Wybrać nową nazwę i sprawdzić w EUIPO/UPRP przed jakimkolwiek materiałem sprzedażowym. | Sprzedaż, branding UI |
-| O5 | Model licencjonowania (np. per instalacja, per serwer, subskrypcja aktualizacji). | Podpisany plik licencji weryfikowany offline; limit liczby instalacji; okres aktualizacji. | P7 |
+| O5 | Model licencjonowania (np. per instalacja, per serwer, subskrypcja aktualizacji). | Podpisany plik licencji weryfikowany offline; limit liczby instalacji; okres aktualizacji. Projekt z 30-dniową próbą, aktywacją kodem (online) i plikiem (offline): `LICENSING.md` — 5 decyzji do zatwierdzenia. | P7 |
 | O7 | Opóźnienie danych i liczba urządzeń. | Interwał zależny od profilu urządzenia (zwykle 5–30 s dla loggerów Wi-Fi); UI pokazuje wiek danych. Stan: w kodzie interwał domyślny z profilu z nadpisaniem w połączeniu (D44) i wiek danych w UI (D50); otwarte — zatwierdzenie zakresu interwału i limit liczby urządzeń na serwer (zależy od testów wydajności na RPi, P7). | P3, P7 |
 | O9 | Deklarowany okres wsparcia produktu (wymóg CRA). | Min. 5 lat aktualizacji bezpieczeństwa od wydania wersji. | P7 |
 | O13 | Skąd instalator pobiera skrypt i obrazy (domena, rejestr obrazów) i czy dostęp do obrazów wymaga licencji? | Własna domena producenta dla skryptu i manifestu; prywatny rejestr obrazów z tokenem z licencji albo publiczne obrazy, w których działanie ogranicza plik licencji. Decyzja razem z O5. | P1 (wersja dev), P7 |

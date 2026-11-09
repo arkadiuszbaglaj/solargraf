@@ -80,6 +80,6 @@ Obie nazwy pozostają wyłącznie roboczymi. Przed jakimkolwiek materiałem sprz
 
 ## Licencjonowanie produktu
 
-- Podpisany plik licencji weryfikowany offline (szczegóły w `SECURITY.md`).
+- Podpisany plik licencji weryfikowany offline (szczegóły w `SECURITY.md`; projekt próby i aktywacji w `LICENSING.md`).
 - Zakres licencji (liczba instalacji, okres aktualizacji, edycje) — `DECISIONS.md` O5.
 - Kod Pythona da się odczytać z obrazu; ochrona opiera się głównie na umowie licencyjnej. Kompilacja wybranych modułów (np. Nuitka, Cython) jest opcją do oceny kosztu w P7.

@@ -447,6 +447,8 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 
 - Nowy układ dashboardu (na prośbę właściciela): karty bez zmian; „Produkcja i zużycie dziś” na całą szerokość; rząd przepływ | magazyn | zużycie i samowystarczalność; niżej fotowoltaika | sieć (| BMS) i urządzenia | alarmy. Brakujący panel — pozostałe dzielą rząd. `SiteDetailsPanels` ma wybór paneli (`panels`). Testy web 390, tsc, oxlint; podgląd 1440, 1024 i 375 px.
 
+- Projekt licencjonowania (`docs/LICENSING.md`, tylko dokumentacja): próba 30 dni od pierwszego uruchomienia, kod 16 znaków aktywowany online i plik licencji offline, oba kończą się podpisanym plikiem (Ed25519, osobny klucz); tryb ograniczony bez utraty danych; etapy 1–4. Następny krok: zatwierdzenie 5 decyzji, potem etap 1.
+
 ## Szablon kolejnego wpisu
 
 - Data:
