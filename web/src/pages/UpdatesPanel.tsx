@@ -1,13 +1,26 @@
-import { useEffect, useState } from 'react'
+import {
+  Circle,
+  CircleAlert,
+  CircleArrowUp,
+  CircleCheck,
+  CircleMinus,
+  CircleX,
+  Info,
+  LoaderCircle,
+  RefreshCw,
+  SquareTerminal,
+  type LucideIcon,
+} from 'lucide-react'
+import { useEffect, useId, useState } from 'react'
 import type { ChangeResult, UpdateJob, UpdatesState } from '../api/updates'
 import { checkUpdates, getUpdates, installUpdate, setAutomaticCheck } from '../api/updates'
 import { useOptionalSession } from '../auth/SessionContext'
-import { Panel } from '../components/Panel'
 import { WidgetState } from '../components/WidgetState'
+import { useNow } from '../hooks/useNow'
 import { usePeriodic } from '../hooks/usePeriodic'
-import { formatDateTime } from '../lib/format'
-import { CHECK_ERROR_TEXT, JOB_STATE_TEXT, JOB_STEP_TEXT } from '../lib/updates'
-import styles from './ServerHealthPage.module.css'
+import { formatAge, formatDateTime } from '../lib/format'
+import { CHECK_ERROR_TEXT, JOB_STEP_TEXT, STEP_STATUS_TEXT, type StepStatus, stepStatuses } from '../lib/updates'
+import styles from './UpdatesPanel.module.css'
 
 /** Stan zmienia worker najwyżej raz na dobę — częste odświeżanie nic nie wnosi. */
 export const UPDATES_REFRESH_MS = 5 * 60_000
@@ -25,35 +38,14 @@ interface Override {
   data: UpdatesState
 }
 
-function AvailableVersion({ state, timeZone }: { state: UpdatesState; timeZone: string }) {
-  const a = state.available
-  if (a === null) {
-    return (
-      <p className={styles.updateLine}>
-        {state.lastSuccessAt === null ? 'Brak informacji o nowszej wersji.' : 'Masz najnowszą wersję.'}
-      </p>
-    )
-  }
+type Tone = 'ok' | 'accent' | 'warning' | 'danger' | 'muted'
+
+function StatusLine({ icon: Icon, tone, children }: { icon: LucideIcon; tone: Tone; children: React.ReactNode }) {
   return (
-    <div className={styles.updateBox}>
-      <p className={styles.updateLine}>
-        <strong>Dostępna wersja {a.version}</strong>{' '}
-        <span className={styles.muted}>(wydana {formatDateTime(a.releasedAt, timeZone)})</span>
-        {a.security ? <span className={styles.securityTag}>Poprawki bezpieczeństwa</span> : null}
-        {state.dismissed ? <span className={styles.muted}> · komunikat ukryty</span> : null}
-      </p>
-      {a.notes ? <p className={styles.notes}>{a.notes}</p> : null}
-      {a.directUpgrade ? null : (
-        <p className={styles.WARNING}>
-          Ta wersja wymaga wcześniejszej aktualizacji pośredniej — sprawdź informacje o wydaniu.
-        </p>
-      )}
-      <p className={styles.muted}>
-        <a href={a.infoUrl} target="_blank" rel="noopener noreferrer">
-          Informacje o wydaniu
-        </a>
-      </p>
-    </div>
+    <p className={`${styles.statusLine} ${styles[tone]}`}>
+      <Icon size={18} aria-hidden="true" className={styles.icon} />
+      <span>{children}</span>
+    </p>
   )
 }
 
@@ -71,92 +63,73 @@ export function versionsText(job: UpdateJob): string {
   return job.fromVersion === null ? '' : ` (z wersji ${job.fromVersion})`
 }
 
-function LastJob({ job, running, timeZone }: { job: UpdateJob; running: boolean; timeZone: string }) {
-  if (running && job.state === 'RUNNING') {
-    return (
-      <p className={styles.updateLine} role="status">
-        <strong>Aktualizacja w toku{versionsText(job)}</strong> — etap: {JOB_STEP_TEXT[job.step]}. Aplikacja może być
-        przez chwilę niedostępna.
-      </p>
-    )
-  }
-  // RUNNING bez trwającej aktualizacji — przerwana (np. restart serwera); nie zgadujemy wyniku.
-  const problem = job.state === 'FAILED' || job.state === 'ROLLED_BACK' || job.state === 'RUNNING'
-  const when = formatDateTime(job.finishedAt ?? job.startedAt, timeZone)
-  if (job.reason === 'LOW_DISK') {
-    return (
-      <p className={styles.WARNING}>
-        Ostatnia aktualizacja{versionsText(job)}, {when}: nie rozpoczęła się — za mało miejsca na dysku serwera
-        {job.freeMb !== null && job.requiredMb !== null
-          ? ` (wolne ${job.freeMb} MB, wymagane ${job.requiredMb} MB)`
-          : ''}
-        . Cache budowania Dockera został już usunięty. Zwolnij miejsce na serwerze, np. usuń stare kopie zapasowe
-        albo nieużywane obrazy (<code>sudo docker system df</code> pokaże, co zajmuje miejsce), i spróbuj ponownie.
-      </p>
-    )
-  }
-  const step = job.state === 'FAILED' ? ` (etap: ${JOB_STEP_TEXT[job.step]})` : ''
+/** „3 godz. temu” z dokładną datą w podpowiedzi; brak czasu — tekst zastępczy. */
+function Ago({ iso, now, timeZone, empty }: { iso: string | null; now: Date; timeZone: string; empty: string }) {
+  if (iso === null) return <>{empty}</>
+  const age = Math.max(0, (now.getTime() - Date.parse(iso)) / 1000)
   return (
-    <p className={problem ? styles.WARNING : styles.muted}>
-      Ostatnia aktualizacja{versionsText(job)}, {when}: {JOB_STATE_TEXT[job.state]}
-      {step}.{job.state === 'SUCCESS' && job.reclaimedMb !== null ? ` Sprzątanie odzyskało ${job.reclaimedMb} MB.` : ''}
-    </p>
+    <time dateTime={iso} title={formatDateTime(iso, timeZone)}>
+      {formatAge(age)} temu
+    </time>
   )
 }
 
-/** Instalacja dostępnej wersji (D65): zlecenie usłudze serwera, postęp i wynik ostatniej. */
-function InstallSection({
+/** Dostępna wersja: opis, znaczniki, odnośnik i instalacja (D63, D65). */
+function AvailableVersion({
   state,
   busy,
   canChange,
-  watching,
   onInstall,
   timeZone,
 }: {
   state: UpdatesState
   busy: boolean
   canChange: boolean
-  watching: boolean
   onInstall: (version: string) => void
   timeZone: string
 }) {
   const [confirming, setConfirming] = useState<string | null>(null)
-  const { install, available } = state
+  const a = state.available
+  if (a === null) return null
+  const { install } = state
   const active = install.running || install.requested
-  const installable = available !== null && available.directUpgrade && install.supported && canChange && !active
-  const justInstalled =
-    watching && !active && install.last?.state === 'SUCCESS' && install.last.toVersion === state.currentVersion
+  const installable = a.directUpgrade && install.supported && canChange && !active
   return (
-    <section className={styles.installBox} aria-label="Instalacja aktualizacji">
+    <div className={styles.available}>
+      <p className={styles.availableMeta}>
+        Wydana {formatDateTime(a.releasedAt, timeZone)}
+        {a.security ? <span className={styles.securityTag}>Poprawki bezpieczeństwa</span> : null}
+        {state.dismissed ? <span> · komunikat ukryty</span> : null}
+      </p>
+      {a.notes ? <p className={styles.notes}>{a.notes}</p> : null}
+      {a.directUpgrade ? null : (
+        <StatusLine icon={CircleAlert} tone="warning">
+          Ta wersja wymaga wcześniejszej aktualizacji pośredniej — sprawdź informacje o wydaniu.
+        </StatusLine>
+      )}
+      <a href={a.infoUrl} target="_blank" rel="noopener noreferrer" className={styles.link}>
+        Informacje o wydaniu
+      </a>
       {install.requested && !install.running ? (
-        <p className={styles.updateLine} role="status">
-          <strong>Instalacja zlecona</strong> — czeka na uruchomienie na serwerze.
+        <p role="status" className={styles.muted}>
+          <strong className={styles.strong}>Instalacja zlecona</strong> — czeka na uruchomienie na serwerze.
         </p>
       ) : null}
-      {install.last ? <LastJob job={install.last} running={install.running} timeZone={timeZone} /> : null}
-      {justInstalled ? (
-        <div className={styles.updateActions}>
-          <span>Zainstalowano wersję {state.currentVersion}.</span>
-          <button type="button" className={styles.button} onClick={() => window.location.reload()}>
-            Wczytaj nową wersję strony
-          </button>
-        </div>
-      ) : null}
-      {available !== null && installable ? (
-        confirming === available.version ? (
+      {installable ? (
+        confirming === a.version ? (
           <div className={styles.confirmBox} role="group" aria-label="Potwierdzenie instalacji">
             <p>
-              Zainstalować wersję {available.version}? Najpierw powstanie kopia zapasowa. Aplikacja będzie niedostępna
-              przez kilka–kilkanaście minut; jeśli coś się nie uda, serwer sam wróci do wersji {state.currentVersion}.
+              Zainstalować wersję {a.version}? Najpierw powstanie kopia zapasowa. Aplikacja będzie niedostępna przez
+              kilka–kilkanaście minut; jeśli coś się nie uda, serwer sam wróci do wersji {state.currentVersion}.
             </p>
-            <div className={styles.updateActions}>
+            <div className={styles.actions}>
               <button
                 type="button"
                 className={`${styles.button} ${styles.primary}`}
                 disabled={busy}
                 onClick={() => {
                   setConfirming(null)
-                  onInstall(available.version)
+                  onInstall(a.version)
                 }}
               >
                 Zainstaluj teraz
@@ -167,28 +140,124 @@ function InstallSection({
             </div>
           </div>
         ) : (
-          <div className={styles.updateActions}>
+          <div className={styles.actions}>
             <button
               type="button"
               className={`${styles.button} ${styles.primary}`}
               disabled={busy}
-              onClick={() => setConfirming(available.version)}
+              onClick={() => setConfirming(a.version)}
             >
-              Zainstaluj wersję {available.version}
+              Zainstaluj wersję {a.version}
             </button>
           </div>
         )
       ) : null}
-      {available !== null && !install.supported ? (
+    </div>
+  )
+}
+
+const STEP_ICON: Record<StepStatus, { icon: LucideIcon; tone: Tone }> = {
+  done: { icon: CircleCheck, tone: 'ok' },
+  active: { icon: LoaderCircle, tone: 'accent' },
+  failed: { icon: CircleX, tone: 'danger' },
+  interrupted: { icon: CircleAlert, tone: 'warning' },
+  pending: { icon: Circle, tone: 'muted' },
+  skipped: { icon: CircleMinus, tone: 'muted' },
+}
+
+/** Ostatnia aktualizacja zapisana przez skrypt serwera (D65): wynik, wersje, czas i etapy. */
+function LastJob({
+  job,
+  running,
+  justInstalled,
+  currentVersion,
+  timeZone,
+}: {
+  job: UpdateJob
+  running: boolean
+  justInstalled: boolean
+  currentVersion: string
+  timeZone: string
+}) {
+  const inProgress = running && job.state === 'RUNNING'
+  const lowDisk = job.reason === 'LOW_DISK'
+  const head: { icon: LucideIcon; tone: Tone; title: string } = inProgress
+    ? { icon: LoaderCircle, tone: 'accent', title: `Aktualizacja w toku${versionsText(job)}` }
+    : lowDisk
+      ? { icon: CircleAlert, tone: 'warning', title: 'Aktualizacja nie rozpoczęła się' }
+      : job.state === 'SUCCESS'
+        ? { icon: CircleCheck, tone: 'ok', title: 'Zaktualizowano' }
+        : job.state === 'NO_UPDATE'
+          ? { icon: Info, tone: 'muted', title: 'Brak nowszej wersji do zainstalowania' }
+          : job.state === 'ROLLED_BACK'
+            ? { icon: CircleAlert, tone: 'warning', title: 'Nie powiodła się — przywrócono poprzednią wersję' }
+            : job.state === 'FAILED'
+              ? { icon: CircleX, tone: 'danger', title: 'Aktualizacja nie powiodła się' }
+              : // RUNNING bez trwającej aktualizacji — przerwana (np. restart serwera); nie zgadujemy wyniku.
+                { icon: CircleAlert, tone: 'warning', title: 'Przerwana — brak informacji o zakończeniu' }
+  const steps = lowDisk ? null : stepStatuses(job, running)
+  const versions =
+    job.fromVersion !== null && job.toVersion !== null
+      ? `z wersji ${job.fromVersion} do ${job.toVersion}`
+      : job.fromVersion !== null
+        ? `z wersji ${job.fromVersion}`
+        : null
+  const HeadIcon = head.icon
+  return (
+    <section className={styles.card} aria-label="Ostatnia aktualizacja">
+      <div className={styles.jobHead}>
+        <HeadIcon size={24} aria-hidden="true" className={`${styles.icon} ${styles[head.tone]}`} />
+        <div>
+          <h3 className={`${styles.jobTitle} ${styles[head.tone]}`} role={inProgress ? 'status' : undefined}>
+            {head.title}
+          </h3>
+          {versions && !inProgress ? <p className={styles.jobVersions}>{versions}</p> : null}
+          <p className={styles.muted}>
+            Rozpoczęto: {formatDateTime(job.startedAt, timeZone)}
+            {job.finishedAt ? ` · zakończono: ${formatDateTime(job.finishedAt, timeZone)}` : ''}
+          </p>
+        </div>
+      </div>
+      {inProgress ? (
         <p className={styles.muted}>
-          Na tym serwerze instalacja z aplikacji jest niedostępna. Zainstaluj poleceniem: <code>{UPDATE_COMMAND}</code>
+          Etap: {JOB_STEP_TEXT[job.step]}. Aplikacja może być przez chwilę niedostępna.
         </p>
-      ) : (
-        <p className={styles.muted}>
-          Aktualizację można też zainstalować na serwerze poleceniem <code>{UPDATE_COMMAND}</code> — robi kopię zapasową i
-          przy błędzie wraca do poprzedniej wersji.
+      ) : null}
+      {lowDisk ? (
+        <p className={styles.warning}>
+          Za mało miejsca na dysku serwera
+          {job.freeMb !== null && job.requiredMb !== null
+            ? ` (wolne ${job.freeMb} MB, wymagane ${job.requiredMb} MB)`
+            : ''}
+          . Cache budowania Dockera został już usunięty. Zwolnij miejsce na serwerze, np. usuń stare kopie zapasowe
+          albo nieużywane obrazy (<code>sudo docker system df</code> pokaże, co zajmuje miejsce), i spróbuj ponownie.
         </p>
-      )}
+      ) : null}
+      {steps ? (
+        <ol className={styles.steps} aria-label="Etapy aktualizacji">
+          {steps.map((s) => {
+            const { icon: Icon, tone } = STEP_ICON[s.status]
+            return (
+              <li key={s.step} className={styles.step}>
+                <Icon size={18} aria-hidden="true" className={`${styles.icon} ${styles[tone]}`} />
+                <span className={styles.stepLabel}>{s.label}</span>
+                <span className={styles.stepStatus}>{STEP_STATUS_TEXT[s.status]}</span>
+              </li>
+            )
+          })}
+        </ol>
+      ) : null}
+      {job.state === 'SUCCESS' && job.reclaimedMb !== null ? (
+        <p className={styles.muted}>Sprzątanie odzyskało {job.reclaimedMb} MB.</p>
+      ) : null}
+      {justInstalled ? (
+        <div className={styles.actions}>
+          <span>Zainstalowano wersję {currentVersion}.</span>
+          <button type="button" className={styles.button} onClick={() => window.location.reload()}>
+            Wczytaj nową wersję strony
+          </button>
+        </div>
+      ) : null}
     </section>
   )
 }
@@ -205,6 +274,8 @@ export function UpdatesPanel({
 }) {
   const auth = useOptionalSession()
   const csrfToken = auth?.session.csrfToken ?? null
+  const now = useNow(60_000)
+  const uid = useId()
   const [override, setOverride] = useState<Override | null>(null)
   const [busy, setBusy] = useState(false)
   const [checking, setChecking] = useState(false)
@@ -237,7 +308,10 @@ export function UpdatesPanel({
   }
   const loaded = state.data
   const data = override?.base === loaded ? override.data : loaded.data
-  const active = data.install.running || data.install.requested
+  const { install } = data
+  const active = install.running || install.requested
+  const justInstalled =
+    watching && !active && install.last?.state === 'SUCCESS' && install.last.toVersion === data.currentVersion
 
   const run = async (action: (token: string) => Promise<ChangeResult>, done: (next: UpdatesState) => string) => {
     if (csrfToken === null) return
@@ -271,86 +345,150 @@ export function UpdatesPanel({
       (token) => setAutomaticCheck(!data.automatic, token, fetchFn),
       (next) => (next.automatic ? 'Automatyczne sprawdzanie włączone.' : 'Automatyczne sprawdzanie wyłączone.'),
     )
-  const install = (version: string) =>
+  const installVersion = (version: string) =>
     run(
       (token) => installUpdate(version, token, fetchFn),
       () => {
         setWatching(true)
-        return 'Zlecono instalację. Postęp pojawi się powyżej.'
+        return 'Zlecono instalację. Postęp pojawi się poniżej.'
       },
     )
 
-  const time = (iso: string | null, empty: string): string => (iso === null ? empty : formatDateTime(iso, timeZone))
   const failedNotice = active
     ? 'Serwer jest chwilowo niedostępny — to normalne w trakcie aktualizacji. Odświeżam co kilka sekund.'
     : 'Nie udało się odświeżyć — stan z poprzedniego pobrania.'
 
   return (
-    <Panel title="Aktualizacje">
-      <WidgetState status={{ kind: 'ready' }} staleNotice={state.failed ? failedNotice : null}>
-        {active ? <ActivePoller onTick={reload} /> : null}
-        <dl className={styles.list}>
-          <div className={styles.row}>
-            <dt>Zainstalowana wersja</dt>
-            <dd>{data.currentVersion}</dd>
-          </div>
-          {data.configured ? (
-            <>
-              <div className={styles.row}>
-                <dt>Ostatnie sprawdzenie</dt>
-                <dd>{time(data.lastCheckedAt, 'jeszcze nie sprawdzano')}</dd>
-              </div>
-              {data.lastError === null ? null : (
-                <div className={styles.row}>
-                  <dt>Wynik</dt>
-                  <dd className={styles.WARNING}>Nie udało się sprawdzić: {CHECK_ERROR_TEXT[data.lastError]}</dd>
-                </div>
-              )}
-              <div className={styles.row}>
-                <dt>Ostatnie udane sprawdzenie</dt>
-                <dd>{time(data.lastSuccessAt, 'brak')}</dd>
-              </div>
-              <div className={styles.row}>
-                <dt>Następne automatyczne</dt>
-                <dd>{data.automatic ? time(data.nextCheckAt, 'wkrótce') : 'wyłączone'}</dd>
-              </div>
-            </>
-          ) : null}
-        </dl>
+    <div className={styles.stack}>
+      {active ? <ActivePoller onTick={reload} /> : null}
+      {state.failed ? (
+        <p className={styles.warning} role="status">
+          {failedNotice}
+        </p>
+      ) : null}
 
+      <section className={styles.card} aria-label="Wersja">
+        <div>
+          <p className={styles.label}>Zainstalowana wersja</p>
+          <p className={styles.version}>{data.currentVersion}</p>
+        </div>
+        <hr className={styles.divider} />
         {data.configured ? (
           <>
-            <AvailableVersion state={data} timeZone={timeZone} />
-            <InstallSection
+            {data.lastError !== null ? (
+              <StatusLine icon={CircleAlert} tone="warning">
+                Nie udało się sprawdzić: {CHECK_ERROR_TEXT[data.lastError]}
+              </StatusLine>
+            ) : null}
+            {data.available !== null ? (
+              <StatusLine icon={CircleArrowUp} tone="accent">
+                <strong>Dostępna wersja {data.available.version}</strong>
+              </StatusLine>
+            ) : data.lastSuccessAt === null ? (
+              <StatusLine icon={Info} tone="muted">
+                Brak informacji o nowszej wersji.
+              </StatusLine>
+            ) : data.lastError === null ? (
+              <StatusLine icon={CircleCheck} tone="ok">
+                Masz najnowszą wersję.
+              </StatusLine>
+            ) : null}
+            <p className={styles.muted}>
+              Sprawdzono: <Ago iso={data.lastCheckedAt} now={now} timeZone={timeZone} empty="jeszcze nie sprawdzano" />
+              {data.lastError !== null ? (
+                <>
+                  {' '}
+                  · ostatnie udane: <Ago iso={data.lastSuccessAt} now={now} timeZone={timeZone} empty="brak" />
+                </>
+              ) : null}
+            </p>
+            <AvailableVersion
               state={data}
               busy={busy}
               canChange={csrfToken !== null}
-              watching={watching}
-              onInstall={(version) => void install(version)}
+              onInstall={(version) => void installVersion(version)}
               timeZone={timeZone}
             />
             {csrfToken === null ? null : (
-              <div className={styles.updateActions}>
-                <label className={styles.checkbox}>
-                  <input type="checkbox" checked={data.automatic} disabled={busy} onChange={() => void toggle()} />
-                  Sprawdzaj automatycznie raz w tygodniu
-                </label>
+              <div className={styles.actions}>
                 <button type="button" className={styles.button} disabled={busy} onClick={() => void check()}>
+                  <RefreshCw size={16} aria-hidden="true" className={checking ? styles.spin : undefined} />
                   {checking ? 'Sprawdzanie…' : 'Sprawdź aktualizacje'}
                 </button>
               </div>
             )}
-            <p className={styles.muted}>
-              Sprawdzenie pobiera tylko podpisaną informację o najnowszej wersji — bez danych instalacji.
-            </p>
           </>
         ) : (
           <p className={styles.muted}>Ta wersja aplikacji nie ma skonfigurowanego sprawdzania aktualizacji.</p>
         )}
-        <p role="status" aria-live="polite" className={message?.error ? styles.CRITICAL : styles.muted}>
+        <p role="status" aria-live="polite" className={message?.error ? styles.danger : styles.muted}>
           {message?.text ?? ''}
         </p>
-      </WidgetState>
-    </Panel>
+      </section>
+
+      {data.configured ? (
+        <section className={styles.card} aria-labelledby={`${uid}-auto`}>
+          <h3 id={`${uid}-auto`} className={styles.cardTitle}>
+            Automatyczne sprawdzanie
+          </h3>
+          <div className={styles.switchRow}>
+            <span id={`${uid}-auto-label`}>Automatycznie sprawdzaj aktualizacje</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={data.automatic}
+              aria-labelledby={`${uid}-auto-label`}
+              className={styles.switch}
+              disabled={busy || csrfToken === null}
+              onClick={() => void toggle()}
+            >
+              <span className={styles.knob} aria-hidden="true" />
+            </button>
+          </div>
+          <p className={styles.strong}>
+            {data.automatic ? (
+              <>
+                Aktualizacje są sprawdzane raz w tygodniu. Następne sprawdzenie:{' '}
+                {data.nextCheckAt === null ? 'wkrótce' : formatDateTime(data.nextCheckAt, timeZone)}.
+              </>
+            ) : (
+              'Wyłączone — sprawdzaj aktualizacje ręcznie.'
+            )}
+          </p>
+          <p className={styles.muted}>
+            Serwer sam sprawdza, czy jest nowa wersja, i przypomina o niej w pasku górnym. Niczego nie instaluje bez
+            Twojej zgody. Sprawdzenie pobiera tylko podpisaną informację o najnowszej wersji — bez danych instalacji.
+          </p>
+        </section>
+      ) : null}
+
+      {install.last ? (
+        <LastJob
+          job={install.last}
+          running={install.running}
+          justInstalled={justInstalled}
+          currentVersion={data.currentVersion}
+          timeZone={timeZone}
+        />
+      ) : null}
+
+      <section className={`${styles.card} ${styles.terminal}`} aria-labelledby={`${uid}-terminal`}>
+        <div className={styles.jobHead}>
+          <SquareTerminal size={20} aria-hidden="true" className={`${styles.icon} ${styles.accent}`} />
+          <div>
+            <h3 id={`${uid}-terminal`} className={`${styles.cardTitle} ${styles.accent}`}>
+              Aktualizacja z terminala
+            </h3>
+            {data.available !== null && !install.supported ? (
+              <p>Na tym serwerze instalacja z aplikacji jest niedostępna. Zainstaluj poleceniem:</p>
+            ) : (
+              <p>Aktualizację możesz też wykonać na serwerze, w terminalu, poleceniem:</p>
+            )}
+            <code className={styles.command}>{UPDATE_COMMAND}</code>
+            <p className={styles.muted}>Robi kopię zapasową i przy błędzie wraca do poprzedniej wersji.</p>
+          </div>
+        </div>
+      </section>
+    </div>
   )
 }
