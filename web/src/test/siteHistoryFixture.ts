@@ -46,6 +46,53 @@ export function history(metric: string, values: Array<number | null>, origins = 
   }
 }
 
+/**
+ * Energia instalacji (D48): produkcja PV i zużycie w dwóch przedziałach — drugi przedział PV
+ * z niepełnym pokryciem, zużycie bez pomiaru w drugim; bateria niedostępna (brak źródła).
+ */
+export function siteEnergy(from: string, to: string, origins = ['SIMULATED']) {
+  const span = Date.parse(to) - Date.parse(from)
+  const bucket = span <= 25 * 3_600_000 ? '1h' : span <= 32 * 86_400_000 ? '1d' : '1mo'
+  const step = bucket === '1h' ? 3_600_000 : 86_400_000
+  const t = (i: number) => new Date(Date.parse(from) + i * step).toISOString()
+  const kpi = { value: null, status: 'UNAVAILABLE', reason: null, coverage: 0, definition: 'x' }
+  return {
+    timezone: 'Europe/Warsaw',
+    bucket,
+    origins,
+    series: [
+      {
+        key: 'pv',
+        metric: 'pv_energy_total',
+        device_id: 'inv',
+        source: 'COUNTER',
+        total_wh: 12_400,
+        coverage: 0.9,
+        reset_detected: false,
+        buckets: [
+          { t: t(0), wh: 8_000, coverage: 1 },
+          { t: t(1), wh: 4_400, coverage: 0.5 },
+        ],
+      },
+      {
+        key: 'load',
+        metric: 'load_power',
+        device_id: 'inv',
+        source: 'POWER',
+        total_wh: 5_250,
+        coverage: 1,
+        reset_detected: false,
+        buckets: [
+          { t: t(0), wh: 5_250, coverage: 1 },
+          { t: t(1), wh: null, coverage: 0 },
+        ],
+      },
+    ],
+    kpis: { self_consumption: kpi, self_sufficiency: kpi },
+    unavailable: [{ key: 'battery_charge', metric: 'battery_charge_energy_total', reason: 'NOT_PROVIDED', sources: 0 }],
+  }
+}
+
 /** Serwer z listą urządzeń i historią; `values` dla metryki albo domyślne [1000, null, 1200]. */
 export function fakeServer(devices: unknown[], values: Record<string, Array<number | null>> = {}, status = 200) {
   return vi.fn<typeof fetch>(async (input) => {
@@ -55,6 +102,11 @@ export function fakeServer(devices: unknown[], values: Record<string, Array<numb
       if (status !== 200) return json(status, { detail: 'x' })
       const metric = new URL(url, 'https://x').searchParams.get('metric') ?? ''
       return json(200, history(metric, values[metric] ?? [1000, null, 1200]))
+    }
+    if (url.includes('/energy?')) {
+      if (status !== 200) return json(status, { detail: 'x' })
+      const params = new URL(url, 'https://x').searchParams
+      return json(200, siteEnergy(params.get('from') ?? '', params.get('to') ?? ''))
     }
     return json(404, { detail: 'x' })
   })

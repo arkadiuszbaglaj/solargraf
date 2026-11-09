@@ -13,16 +13,20 @@ const EnergyChartView = lazy(() =>
   import('../components/EnergyChartView').then((m) => ({ default: m.EnergyChartView })),
 )
 
+// `optional` — brak źródła to zwykła instalacja bez tego elementu (np. bez magazynu), nie brak danych.
 const LINES = [
-  { metric: 'pv_power', name: 'produkcja PV' },
-  { metric: 'load_power', name: 'zużycie domu' },
-  { metric: 'grid_power', name: 'sieć' },
+  { metric: 'pv_power', name: 'produkcja PV', optional: false },
+  { metric: 'load_power', name: 'zużycie domu', optional: false },
+  { metric: 'grid_power', name: 'sieć', optional: false },
+  { metric: 'battery_power', name: 'magazyn energii', optional: true },
 ] as const
 
 export interface TodayChart {
   chart: EnergyChart
   /** Linie bez jednego źródła (brak albo kilka urządzeń) — opis pod wykresem. */
   missing: string[]
+  /** Liczba linii z jednym urządzeniem-źródłem; 0 — nie ma czego pokazać. */
+  sources: number
   simulated: boolean
 }
 
@@ -45,8 +49,9 @@ export async function loadTodayChart(
   const from = startOfLocalDay(now, timeZone)
   const missing: string[] = []
   const histories = await Promise.all(
-    LINES.map(async ({ metric, name }) => {
+    LINES.map(async ({ metric, name, optional }) => {
       const source = singleSource(devices.data, metric)
+      if (source.kind === 'none' && optional) return null
       if (source.kind !== 'one') {
         missing.push(source.kind === 'many' ? `${name} — wiele źródeł` : `${name} — brak źródła`)
         return null
@@ -62,7 +67,7 @@ export async function loadTodayChart(
       return result.data
     }),
   )
-  const [pv = null, home = null, grid = null] = histories
+  const [pv = null, home = null, grid = null, battery = null] = histories
   return {
     chart: {
       origin: 'DEVICE',
@@ -72,8 +77,10 @@ export async function loadTodayChart(
       home: points(home),
       gridImport: points(grid),
       gridLabel: 'Sieć (+ pobór, − oddawanie)',
+      ...(battery ? { battery: points(battery) } : {}),
     },
     missing,
+    sources: histories.filter((h) => h !== null).length,
     simulated: histories.some((h) => h?.origins.includes('SIMULATED') ?? false),
   }
 }
@@ -81,7 +88,7 @@ export async function loadTodayChart(
 const browserFetch: typeof fetch = (...args) => fetch(...args)
 
 const hasValues = (chart: EnergyChart): boolean =>
-  [chart.pv, chart.home, chart.gridImport].some((s) => s.some(([, v]) => v !== null))
+  [chart.pv, chart.home, chart.gridImport, chart.battery ?? []].some((s) => s.some(([, v]) => v !== null))
 
 export function TodayPowerChart({
   siteId,
@@ -99,8 +106,8 @@ export function TodayPowerChart({
   let status: WidgetStatus
   if (state.status === 'loading') status = { kind: 'loading' }
   else if (state.status === 'error') status = { kind: 'error', onRetry: reload }
-  else if (state.data.missing.length === LINES.length)
-    status = { kind: 'empty', message: 'Urządzenia instalacji nie podają mocy PV, zużycia ani sieci.' }
+  else if (state.data.sources === 0)
+    status = { kind: 'empty', message: 'Urządzenia instalacji nie podają mocy PV, zużycia, sieci ani magazynu energii.' }
   else if (!hasValues(state.data.chart)) status = { kind: 'empty', message: 'Brak danych od północy.' }
   else status = { kind: 'ready' }
 
@@ -120,7 +127,7 @@ export function TodayPowerChart({
               <EnergyChartView
                 chart={ready.data.chart}
                 timeZone={timeZone}
-                label="Wykres mocy od północy: produkcja PV, zużycie domu i sieć w kW (średnie 5 min)."
+                label={`Wykres mocy od północy: produkcja PV, zużycie domu, sieć${ready.data.chart.battery ? ' i magazyn energii' : ''} w kW (średnie 5 min).`}
               />
             </Suspense>
             {ready.data.missing.length > 0 ? <p>Niedostępne: {ready.data.missing.join('; ')}.</p> : null}

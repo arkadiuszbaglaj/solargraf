@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { EnergyChart } from '../data/types'
 import { buildChartOption, buildSeries } from './energyChartOption'
 
-const COLORS = { pv: 'g', home: 'h', grid: 'b', text: 't', border: 'x' }
+const COLORS = { pv: 'g', home: 'h', grid: 'b', battery: 'v', text: 't', border: 'x' }
 
 const CHART: EnergyChart = {
   origin: 'DEMO',
@@ -25,6 +25,16 @@ describe('opcje wykresu', () => {
       [Date.parse('2026-11-07T12:00:00.000Z'), null],
       [Date.parse('2026-11-07T12:05:00.000Z'), 2.5],
     ])
+  })
+
+  it('magazyn energii jako czwarta linia tylko, gdy instalacja go ma', () => {
+    expect(buildSeries(CHART, COLORS)).toHaveLength(3)
+    const withBattery = buildSeries({ ...CHART, battery: [['2026-11-06T23:00:00.000Z', -1500]] }, COLORS)
+    expect(withBattery[3]).toEqual({
+      name: 'Magazyn energii (+ rozładowanie, − ładowanie)',
+      color: 'v',
+      data: [[Date.parse('2026-11-06T23:00:00.000Z'), -1.5]],
+    })
   })
 
   it('nie łączy punktów przez luki i ma włączone aria', () => {

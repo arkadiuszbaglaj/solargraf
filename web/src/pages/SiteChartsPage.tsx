@@ -19,6 +19,7 @@ import {
 import { customRange, type Period, rangeFor, shiftAnchor, today } from '../lib/historyRange'
 import { type LoadedSeries, loadSiteHistory, SessionExpiredError, seriesHasValues } from '../lib/siteHistory'
 import { localDate } from '../lib/time'
+import { SiteEnergyPanel } from './SiteEnergyPanel'
 import styles from './SiteChartsPage.module.css'
 
 // ECharts ładowany osobno — nie blokuje pierwszego renderu strony.
@@ -297,6 +298,7 @@ function Charts({
           </WidgetState>
         </Panel>
       ) : null}
+      <SiteEnergyPanel siteId={site.id} range={range} timeZone={tz} fetchFn={fetchFn} navigate={navigate} />
     </div>
   )
 }

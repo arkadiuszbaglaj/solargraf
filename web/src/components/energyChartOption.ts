@@ -5,6 +5,7 @@ export interface ChartColors {
   pv: string
   home: string
   grid: string
+  battery: string
   text: string
   border: string
 }
@@ -25,6 +26,9 @@ export function buildSeries(chart: EnergyChart, colors: ChartColors): ChartSerie
     { name: 'Produkcja PV', color: colors.pv, data: toKw(chart.pv) },
     { name: 'Zużycie domu', color: colors.home, data: toKw(chart.home) },
     { name: chart.gridLabel ?? 'Pobór z sieci', color: colors.grid, data: toKw(chart.gridImport) },
+    ...(chart.battery
+      ? [{ name: 'Magazyn energii (+ rozładowanie, − ładowanie)', color: colors.battery, data: toKw(chart.battery) }]
+      : []),
   ]
 }
 

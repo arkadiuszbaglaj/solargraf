@@ -59,6 +59,8 @@ export interface EnergyChart {
   gridImport: SeriesPoint[]
   /** Nazwa serii sieci w legendzie; domyślnie „Pobór z sieci”. */
   gridLabel?: string
+  /** Moc magazynu energii ze znakiem (+ rozładowanie, − ładowanie); brak — instalacja bez magazynu. */
+  battery?: SeriesPoint[]
 }
 
 export type DeviceKind = 'INVERTER' | 'BATTERY' | 'BMS' | 'METER' | 'MPPT' | 'SENSOR'

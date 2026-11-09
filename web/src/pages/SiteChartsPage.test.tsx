@@ -2,13 +2,18 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { CHARTS_PATH, routeFor } from '../Root'
-import { device, fakeServer, historyUrls, json, SITE_ID } from '../test/siteHistoryFixture'
+import { device, fakeServer, historyUrls, json, SITE_ID, siteEnergy } from '../test/siteHistoryFixture'
 import { SiteChartsPage } from './SiteChartsPage'
 
 // ECharts wymaga przeglądarki (wymiary, ResizeObserver); opcje wykresu testujemy osobno.
 vi.mock('../components/SiteHistoryChartView', () => ({
   SiteHistoryChartView: ({ label, zoom }: { label: string; zoom: { start: number; end: number } }) => (
     <div role="img" aria-label={label} data-zoom={`${zoom.start}-${zoom.end}`} />
+  ),
+}))
+vi.mock('../components/EnergyBarsView', () => ({
+  EnergyBarsView: ({ label, energy }: { label: string; energy: { bucket: string } }) => (
+    <div role="img" aria-label={label} data-bucket={energy.bucket} />
   ),
 }))
 
@@ -23,7 +28,19 @@ describe('trasa wykresów', () => {
   })
 })
 
-const zooms = () => screen.getAllByRole('img').map((i) => i.getAttribute('data-zoom'))
+/** Energia bez żadnego pomiaru; pozostałe adresy — `null` (obsłuży atrapa serwera). */
+function emptyEnergy(input: RequestInfo | URL): Response | null {
+  if (!String(input).includes('/energy?')) return null
+  const body = siteEnergy('2026-11-06T23:00:00.000Z', '2026-11-07T23:00:00.000Z')
+  for (const s of body.series) for (const b of s.buckets) Object.assign(b, { wh: null, coverage: 0 })
+  return json(200, body)
+}
+
+const zooms = () =>
+  screen
+    .getAllByRole('img')
+    .filter((i) => i.hasAttribute('data-zoom'))
+    .map((i) => i.getAttribute('data-zoom'))
 const button = (name: string) => screen.getByRole('button', { name })
 
 describe('SiteChartsPage (D66)', () => {
@@ -32,7 +49,8 @@ describe('SiteChartsPage (D66)', () => {
     render(<SiteChartsPage site={SITE} now={NOW} origin="DEVICE" fetchFn={fetchFn} />)
     expect(await screen.findByRole('img', { name: /^Wykres mocy w kW: Produkcja PV, Zużycie domu/ })).toBeTruthy()
     expect(screen.getByRole('img', { name: /stanu naładowania baterii/ })).toBeTruthy()
-    expect(screen.getAllByText('SIMULATED')).toHaveLength(2)
+    // Moc, SoC i energia w okresie.
+    expect(await screen.findAllByText('SIMULATED')).toHaveLength(3)
     expect(screen.getByText(/rozdzielczość: 5 min/)).toBeTruthy()
     expect(screen.getByText('7 listopada 2026')).toBeTruthy()
     const url = historyUrls(fetchFn)[0]
@@ -118,7 +136,7 @@ describe('SiteChartsPage (D66)', () => {
     const fetchFn = fakeServer([device('inv', ['pv_power'])], { pv_power: [null, null] })
     render(<SiteChartsPage site={SITE} now={NOW} origin="DEVICE" fetchFn={fetchFn} />)
     expect(await screen.findByText('Brak danych w tym okresie.')).toBeTruthy()
-    expect(screen.queryByRole('img')).toBeNull()
+    expect(screen.queryByRole('img', { name: /Wykres mocy/ })).toBeNull()
     expect(screen.getByText(/Niedostępne: .*Stan naładowania baterii — brak źródła/)).toBeTruthy()
   })
 
@@ -131,12 +149,43 @@ describe('SiteChartsPage (D66)', () => {
     render(
       <SiteChartsPage site={SITE} now={NOW} origin="DEVICE" fetchFn={fakeServer([HYBRID], {}, 500)} />,
     )
-    expect(await screen.findByRole('button', { name: 'Spróbuj ponownie' })).toBeTruthy()
+    // Moc i energia mają osobne stany błędu — każdy z własnym ponowieniem.
+    expect(await screen.findAllByRole('button', { name: 'Spróbuj ponownie' })).toHaveLength(2)
 
     const navigate = vi.fn<(url: string) => void>()
     const anon = vi.fn<typeof fetch>(async () => json(401, {}))
     render(<SiteChartsPage site={SITE} now={NOW} origin="DEVICE" fetchFn={anon} navigate={navigate} />)
     await vi.waitFor(() => expect(navigate).toHaveBeenCalledWith(expect.stringContaining('reason=expired')))
+  })
+
+  it('energia w okresie: sumy, słupki w przedziałach, niepełne dane i niedostępne serie', async () => {
+    const user = userEvent.setup()
+    const fetchFn = fakeServer([HYBRID])
+    render(<SiteChartsPage site={SITE} now={NOW} origin="DEVICE" fetchFn={fetchFn} />)
+    expect(await screen.findByRole('heading', { name: 'Energia godzina po godzinie' })).toBeTruthy()
+    const totals = screen.getByRole('list', { name: 'Suma energii: 7 listopada 2026' })
+    expect(Array.from(totals.querySelectorAll('li'), (li) => li.textContent)).toEqual([
+      'Produkcja PV12,4 kWhpokrycie danymi 90%',
+      'Zużycie domu5,3 kWhwyliczone z mocy',
+    ])
+    expect(screen.getByRole('img', { name: /^Energia instalacji w kWh: Produkcja PV, Zużycie domu; 7 listopada 2026/ })).toBeTruthy()
+    expect(screen.getByText(/Część przedziałów ma niepełne dane/)).toBeTruthy()
+    expect(screen.getByText('Niedostępne: ładowanie baterii — brak źródła.')).toBeTruthy()
+    const energyUrl = fetchFn.mock.calls.map(([u]) => String(u)).find((u) => u.includes('/energy?'))
+    const params = new URL(energyUrl ?? '', 'https://x').searchParams
+    expect([params.get('from'), params.get('to')]).toEqual(['2026-11-06T23:00:00.000Z', '2026-11-07T23:00:00.000Z'])
+
+    await user.click(screen.getByRole('button', { name: 'Tydzień' }))
+    expect(await screen.findByRole('heading', { name: 'Energia dzień po dniu' })).toBeTruthy()
+  })
+
+  it('energia bez żadnego pomiaru to stan pusty, nie słupki zer', async () => {
+    const base = fakeServer([HYBRID])
+    const fetchFn = vi.fn<typeof fetch>(async (input, init) => emptyEnergy(input) ?? base(input, init))
+    render(<SiteChartsPage site={SITE} now={NOW} origin="DEVICE" fetchFn={fetchFn} />)
+    expect(await screen.findByRole('heading', { name: 'Energia w okresie' })).toBeTruthy()
+    expect(await screen.findAllByText('Brak danych w tym okresie.')).toHaveLength(1)
+    expect(screen.queryByRole('img', { name: /Energia instalacji/ })).toBeNull()
   })
 
   it('w trybie DEMO nie pyta serwera i mówi, że historia jest niedostępna', () => {

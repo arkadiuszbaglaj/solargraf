@@ -21,6 +21,7 @@ function readColors(el: HTMLElement): ChartColors {
     pv: v('--chart-pv', '#2e9e5b'),
     home: v('--chart-home', '#3b4a42'),
     grid: v('--chart-grid', '#2f80c7'),
+    battery: v('--chart-battery', '#7556c2'),
     text: v('--color-text-muted', '#56635c'),
     border: v('--color-border', '#dfe6e2'),
   }
