@@ -63,7 +63,15 @@ def test_connection_defaults_and_limits() -> None:
         }
     )
     assert (body.name, body.port, body.unit_id, body.transport) == ("Logger", 502, 1, "MODBUS_TCP")
+    assert body.live_interval_seconds is None  # z profilu (D78)
+    live = ConnectionSettings.model_validate(
+        {"name": "L", "host": "10.0.0.1", "poll_interval_seconds": 10, "live_interval_seconds": 1.5}
+    )
+    assert live.live_interval_seconds == 1.5
     for bad in (
+        {"live_interval_seconds": 0.5},
+        {"live_interval_seconds": float("nan")},
+        {"poll_interval_seconds": 5, "live_interval_seconds": 6},
         {"port": 0},
         {"unit_id": 256},
         {"poll_interval_seconds": 0},

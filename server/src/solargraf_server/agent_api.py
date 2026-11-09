@@ -3,6 +3,9 @@
 Uwierzytelnienie wyłącznie tokenem agenta (``Authorization: Bearer``); sesja użytkownika nie
 daje tu dostępu, a token agenta nie działa na endpointach użytkownika. Proxy zwraca dla tych
 ścieżek 404 — lokalny agent łączy się z API w sieci Compose.
+
+``POST /api/agent/live`` (D78) przyjmuje szybkie odczyty tylko do podglądu na żywo: bez zapisu
+w bazie, bez agregatów i bez zmiany statusu urządzenia. Do bazy trafiają wyłącznie partie.
 """
 
 from __future__ import annotations
@@ -39,6 +42,7 @@ from solargraf_server.models import (
 router = APIRouter(prefix="/api/agent", tags=["agent"])
 
 MAX_BATCH_BYTES = 1_000_000
+MAX_LIVE_BYTES = 200_000
 MAX_CLOCK_SKEW = timedelta(minutes=5)
 MAX_TOKEN_LENGTH = 128
 UNAUTHORIZED = "Nieprawidłowe poświadczenie agenta."
@@ -104,6 +108,7 @@ class ConnectionConfig(BaseModel):
     unit_id: int | None
     poll_interval_seconds: int | None
     timeout_seconds: int | None
+    live_interval_seconds: float | None
     devices: list[DeviceConfig]
 
 
@@ -142,6 +147,7 @@ async def config(
                 unit_id=c.unit_id,
                 poll_interval_seconds=c.poll_interval_seconds,
                 timeout_seconds=c.timeout_seconds,
+                live_interval_seconds=c.live_interval_seconds,
                 devices=[
                     DeviceConfig(
                         id=d.id,
@@ -219,9 +225,13 @@ class BatchIn(BaseModel):
     runs: list[RunIn] = Field(min_length=1, max_length=200)
 
     def latest_time(self) -> datetime:
-        times = [r.finished_at for r in self.runs]
-        times += [x.received_at for r in self.runs for x in r.readings]
-        return max(times)
+        return _latest_time(self.runs)
+
+
+def _latest_time(runs: list[RunIn]) -> datetime:
+    times = [r.finished_at for r in runs]
+    times += [x.received_at for r in runs for x in r.readings]
+    return max(times)
 
 
 class BatchOut(BaseModel):
@@ -234,27 +244,30 @@ def _reject(detail: object) -> HTTPException:
     return HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail)
 
 
-@router.post("/batches", response_model=BatchOut)
-async def ingest(request: Request, agent: CurrentAgent, db: DbSession) -> BatchOut:
+async def _body(request: Request, limit: int) -> bytes:
     declared = request.headers.get("content-length")
-    if declared is not None and declared.isdigit() and int(declared) > MAX_BATCH_BYTES:
+    if declared is not None and declared.isdigit() and int(declared) > limit:
         raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "Partia jest za duża.")
     raw = await request.body()
-    if len(raw) > MAX_BATCH_BYTES:
+    if len(raw) > limit:
         raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "Partia jest za duża.")
+    return raw
+
+
+def _parse[M: BaseModel](model: type[M], raw: bytes) -> M:
     try:
-        batch = BatchIn.model_validate_json(raw)
+        return model.model_validate_json(raw)
     except ValidationError as exc:
         raise _reject(
             exc.errors(include_url=False, include_input=False, include_context=False)
         ) from None
 
-    now = utcnow()
-    if batch.latest_time() > now + MAX_CLOCK_SKEW:
-        raise _reject("Czas odczytu jest w przyszłości — sprawdź zegar agenta (NTP).")
 
-    # Tylko urządzenia połączeń tego agenta; obce i nieistniejące wyglądają tak samo.
-    device_ids = {r.device_id for r in batch.runs}
+async def _device_sites(
+    db: DbSession, agent: Agent, device_ids: set[uuid.UUID]
+) -> dict[uuid.UUID, uuid.UUID]:
+    """Instalacja każdego urządzenia; tylko urządzenia połączeń tego agenta (inaczej 422)."""
+    # Obce i nieistniejące wyglądają tak samo.
     rows = await db.execute(
         select(Device.id, Device.site_id)
         .join(
@@ -266,6 +279,33 @@ async def ingest(request: Request, agent: CurrentAgent, db: DbSession) -> BatchO
     sites: dict[uuid.UUID, uuid.UUID] = dict(rows.all())
     if set(sites) != device_ids:
         raise _reject("Partia zawiera urządzenie nieprzypisane do tego agenta.")
+    return sites
+
+
+def _live_readings(device_id: uuid.UUID, readings: list[ReadingIn]) -> list[LiveReading]:
+    return [
+        LiveReading(
+            device_id=device_id,
+            metric=r.metric,
+            channel=r.channel,
+            value=r.value,
+            quality=r.quality,
+            origin=r.origin,
+            received_at=r.received_at,
+        )
+        for r in readings
+    ]
+
+
+@router.post("/batches", response_model=BatchOut)
+async def ingest(request: Request, agent: CurrentAgent, db: DbSession) -> BatchOut:
+    batch = _parse(BatchIn, await _body(request, MAX_BATCH_BYTES))
+
+    now = utcnow()
+    if batch.latest_time() > now + MAX_CLOCK_SKEW:
+        raise _reject("Czas odczytu jest w przyszłości — sprawdź zegar agenta (NTP).")
+
+    sites = await _device_sites(db, agent, {r.device_id for r in batch.runs})
 
     accepted = await db.scalar(
         insert(AgentBatch)
@@ -315,18 +355,7 @@ async def ingest(request: Request, agent: CurrentAgent, db: DbSession) -> BatchO
             ]
             await db.execute(insert(Measurement).values(values).on_conflict_do_nothing())
             readings += len(values)
-            published.setdefault(site_id, []).extend(
-                LiveReading(
-                    device_id=run.device_id,
-                    metric=r.metric,
-                    channel=r.channel,
-                    value=r.value,
-                    quality=r.quality,
-                    origin=r.origin,
-                    received_at=r.received_at,
-                )
-                for r in run.readings
-            )
+            published.setdefault(site_id, []).extend(_live_readings(run.device_id, run.readings))
             dirty.update((run.device_id, floor_utc(r.received_at, H1)) for r in run.readings)
         success = run.finished_at if run.result is not RunResult.FAILED else None
         await db.execute(
@@ -360,3 +389,36 @@ async def ingest(request: Request, agent: CurrentAgent, db: DbSession) -> BatchO
         for site, site_readings in published.items():
             bus.publish(site, site_readings)
     return BatchOut(duplicate=False, runs=len(batch.runs), readings=readings)
+
+
+# --- podgląd na żywo (D78) ---
+
+
+class LiveIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    runs: list[RunIn] = Field(min_length=1, max_length=50)
+
+
+@router.post("/live", status_code=status.HTTP_204_NO_CONTENT)
+async def live(request: Request, agent: CurrentAgent, db: DbSession) -> Response:
+    """Szybkie odczyty tylko dla widoków na żywo — niczego nie zapisuje w bazie.
+
+    Odczyt widoczny tylko na żywo różni się od zapisanego wyłącznie czasem: ta sama walidacja,
+    jakość i pochodzenie; zapisywany jest co ``interval_seconds`` tą samą drogą co dotąd.
+    """
+    body = _parse(LiveIn, await _body(request, MAX_LIVE_BYTES))
+    if _latest_time(body.runs) > utcnow() + MAX_CLOCK_SKEW:
+        raise _reject("Czas odczytu jest w przyszłości — sprawdź zegar agenta (NTP).")
+    sites = await _device_sites(db, agent, {r.device_id for r in body.runs})
+    await db.rollback()  # tylko odczyt — nie trzymamy transakcji
+    bus: LiveBus | None = getattr(request.app.state, "live_bus", None)
+    if bus is not None:
+        published: dict[uuid.UUID, list[LiveReading]] = {}
+        for run in body.runs:
+            published.setdefault(sites[run.device_id], []).extend(
+                _live_readings(run.device_id, run.readings)
+            )
+        for site, site_readings in published.items():
+            bus.publish(site, site_readings)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

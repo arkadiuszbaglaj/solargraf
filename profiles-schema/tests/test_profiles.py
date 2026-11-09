@@ -213,6 +213,16 @@ class TestProfile:
         data["polling"]["max_block_registers"] = 126
         assert "max_block_registers" in errors_of(data)
 
+    def test_live_interval_optional_at_least_1_s_and_not_above_interval(self) -> None:
+        assert parse_profile(yaml.safe_dump(base())).polling.live_interval_seconds is None
+        data = base()
+        data["polling"]["live_interval_seconds"] = 1.5
+        assert parse_profile(yaml.safe_dump(data)).polling.live_interval_seconds == 1.5
+        data["polling"]["live_interval_seconds"] = 0.5
+        assert "live_interval_seconds" in errors_of(data)
+        data["polling"]["live_interval_seconds"] = data["polling"]["interval_seconds"] + 1
+        assert "live_interval_seconds" in errors_of(data)
+
     def test_verified_requires_hardware_test_and_verified_points(self) -> None:
         data = base()
         data["support_level"] = "VERIFIED"

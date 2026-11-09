@@ -449,6 +449,8 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 
 - Projekt licencjonowania (`docs/LICENSING.md`, tylko dokumentacja): próba 30 dni od pierwszego uruchomienia, kod 16 znaków aktywowany online i plik licencji offline, oba kończą się podpisanym plikiem (Ed25519, osobny klucz); tryb ograniczony bez utraty danych; etapy 1–4. Następny krok: zatwierdzenie 5 decyzji, potem etap 1.
 
+- Szybki podgląd na żywo (D78, na prośbę właściciela — odświeżanie ~1,5 s): agent odpytuje co `live_interval_seconds` (profil/połączenie, migracja 0013) i wysyła każdy cykl do nowego `POST /api/agent/live` (tylko publikacja SSE, bez zapisu); do bazy nadal średnio co `interval_seconds`. Pole w formularzu i szczegółach urządzenia. Testy: Python bez bazy (agent, profile, serwer), nowe testy integracyjne endpointu (CI z PostgreSQL), web 391, ruff, mypy, tsc, oxlint, build. Niezweryfikowane: pełny tor na serwerze testowym i obciążenie prawdziwego urządzenia przy 1,5 s. Następny krok (opcjonalny): statusy urządzeń ze strumienia zamiast co 30 s.
+
 ## Szablon kolejnego wpisu
 
 - Data:

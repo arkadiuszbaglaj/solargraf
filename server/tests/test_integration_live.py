@@ -182,6 +182,28 @@ def post_batch(client: TestClient, world: World, at: datetime) -> None:
     assert resp.status_code == 200, resp.text
 
 
+def live_body(world: World, at: datetime, device: uuid.UUID | None = None) -> dict[str, Any]:
+    return {
+        "runs": [
+            {
+                "device_id": str(device or world.device_a),
+                "started_at": at.isoformat(),
+                "finished_at": at.isoformat(),
+                "result": "OK",
+                "readings": [
+                    {
+                        "metric": "pv_power",
+                        "value": 2600.0,
+                        "quality": "GOOD",
+                        "origin": "SIMULATED",
+                        "received_at": at.isoformat(),
+                    }
+                ],
+            }
+        ]
+    }
+
+
 def snapshot_of(body: str) -> dict[str, Any]:
     for block in body.split("\n\n"):
         lines = dict(line.split(": ", 1) for line in block.splitlines() if ": " in line)
@@ -233,3 +255,33 @@ class TestLive:
         assert {r.metric for r in update.readings} == {"pv_power", "battery_soc"}
         assert all(r.device_id == world.device_a for r in update.readings)
         assert other.queue.empty()
+
+    def test_live_readings_reach_subscribers_without_being_stored(
+        self, world: World, client: TestClient
+    ) -> None:
+        """Szybki podgląd (D78): tylko magistrala — bez pomiarów, cykli i zmiany statusu."""
+        bus: LiveBus = client.app.state.live_bus  # type: ignore[attr-defined]
+        mine = bus.subscribe(world.site_a, uuid.uuid4())
+        other = bus.subscribe(world.site_b, uuid.uuid4())
+        auth = {"Authorization": f"Bearer {world.token}"}
+        at = datetime.now(UTC).replace(microsecond=0)
+        resp = client.post("/api/agent/live", json=live_body(world, at), headers=auth)
+        assert resp.status_code == 204, resp.text
+        [reading] = mine.queue.get_nowait().readings
+        assert (reading.metric, reading.value, reading.origin) == ("pv_power", 2600.0, "SIMULATED")
+        assert other.queue.empty()
+        assert _sql("SELECT count(*) FROM measurements") == [(0,)]
+        assert _sql("SELECT count(*) FROM polling_runs") == [(0,)]
+        assert _sql("SELECT last_success_at FROM devices") == [(None,)]
+
+    def test_live_rejects_foreign_device_future_time_and_user_session(
+        self, world: World, client: TestClient
+    ) -> None:
+        auth = {"Authorization": f"Bearer {world.token}"}
+        now = datetime.now(UTC)
+        foreign = live_body(world, now, device=uuid.uuid4())
+        assert client.post("/api/agent/live", json=foreign, headers=auth).status_code == 422
+        future = live_body(world, now + timedelta(minutes=10))
+        assert client.post("/api/agent/live", json=future, headers=auth).status_code == 422
+        login(client, "viewer@example.pl")
+        assert client.post("/api/agent/live", json=live_body(world, now)).status_code == 401

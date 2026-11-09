@@ -105,6 +105,7 @@ class ConnectionOut(BaseModel):
     unit_id: int | None
     poll_interval_seconds: int | None
     timeout_seconds: int | None
+    live_interval_seconds: float | None = None
 
 
 class DeviceDetails(BaseModel):
@@ -179,6 +180,7 @@ class AgentOut(BaseModel):
 Name = Annotated[str, Field(min_length=1, max_length=200)]
 Interval = Annotated[int, Field(ge=1, le=3600)]
 Timeout = Annotated[int, Field(ge=1, le=60)]
+LiveInterval = Annotated[float, Field(ge=1, le=3600, allow_inf_nan=False)]
 
 
 class DeviceIn(BaseModel):
@@ -196,6 +198,7 @@ class ConnectionSettings(BaseModel):
     unit_id: int = Field(default=1, ge=0, le=255)
     poll_interval_seconds: Interval | None = None
     timeout_seconds: Timeout | None = None
+    live_interval_seconds: LiveInterval | None = None
 
     _name = field_validator("name")(_clean_name)
     _host = field_validator("host")(validate_host)
@@ -205,6 +208,9 @@ class ConnectionSettings(BaseModel):
         interval, timeout = self.poll_interval_seconds, self.timeout_seconds
         if interval is not None and timeout is not None and timeout >= interval:
             raise ValueError("Limit czasu musi być krótszy niż interwał odczytu.")
+        live = self.live_interval_seconds
+        if interval is not None and live is not None and live > interval:
+            raise ValueError("Odświeżanie na żywo nie może być rzadsze niż interwał zapisu.")
         return self
 
 
@@ -238,6 +244,7 @@ def _connection_out(conn: Connection) -> ConnectionOut:
         unit_id=conn.unit_id,
         poll_interval_seconds=conn.poll_interval_seconds,
         timeout_seconds=conn.timeout_seconds,
+        live_interval_seconds=conn.live_interval_seconds,
     )
 
 
@@ -569,6 +576,7 @@ async def create_connection(
         unit_id=body.unit_id,
         poll_interval_seconds=body.poll_interval_seconds,
         timeout_seconds=body.timeout_seconds,
+        live_interval_seconds=body.live_interval_seconds,
     )
     db.add(conn)
     await db.flush()
@@ -626,6 +634,7 @@ async def update_connection(
     conn.unit_id = body.unit_id
     conn.poll_interval_seconds = body.poll_interval_seconds
     conn.timeout_seconds = body.timeout_seconds
+    conn.live_interval_seconds = body.live_interval_seconds
     for device in (await db.scalars(select(Device).where(Device.connection_id == conn.id))).all():
         profile = catalog.get(device.profile_id or "", device.profile_version or "")
         device.freshness_threshold_seconds = freshness_threshold(conn, profile)

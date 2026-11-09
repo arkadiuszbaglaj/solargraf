@@ -11,6 +11,8 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 from solargraf_profiles.catalog import DeviceKind, Transport
 
 REQUEST_TIMEOUT_S = 10.0
+# Podgląd na żywo (D78) — krótko: spóźniony odczyt i tak zastąpi następny.
+LIVE_TIMEOUT_S = 2.0
 
 
 class DeviceConfig(BaseModel):
@@ -34,6 +36,8 @@ class ConnectionConfig(BaseModel):
     unit_id: int | None
     poll_interval_seconds: int | None
     timeout_seconds: int | None
+    # Brak u starszego serwera — wtedy z profilu (D78).
+    live_interval_seconds: float | None = None
     devices: tuple[DeviceConfig, ...]
 
 
@@ -125,6 +129,16 @@ class ApiClient:
         if response.status_code in (413, 422):
             raise BatchRejected(f"HTTP {response.status_code}")
         if response.status_code != 200:
+            raise ApiUnavailable(f"HTTP {response.status_code}")
+
+    async def send_live(self, runs: list[dict[str, Any]]) -> None:
+        """Odczyty tylko do podglądu na żywo (D78): bez bufora i bez ponawiania."""
+        response = await self._request(
+            "POST", "/api/agent/live", json={"runs": runs}, timeout=LIVE_TIMEOUT_S
+        )
+        if response.status_code in (413, 422):
+            raise BatchRejected(f"HTTP {response.status_code}")
+        if response.status_code != 204:
             raise ApiUnavailable(f"HTTP {response.status_code}")
 
     async def connection_tests(self) -> list[TestJob]:

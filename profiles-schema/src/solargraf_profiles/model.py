@@ -113,11 +113,18 @@ class Polling(_Strict):
     timeout_seconds: Annotated[StrictInt, Field(ge=1, le=60)]
     retries: Annotated[StrictInt, Field(ge=0, le=5)]
     max_block_registers: Annotated[StrictInt, Field(ge=1, le=MODBUS_MAX_BLOCK)]
+    # Szybki odczyt tylko do podglądu na żywo (D78); do bazy trafia co ``interval_seconds``.
+    # Brak = podgląd w rytmie zapisu.
+    live_interval_seconds: Annotated[float, Field(ge=1, le=3600, allow_inf_nan=False)] | None = None
 
     @model_validator(mode="after")
     def _timeout_below_interval(self) -> Self:
         if self.timeout_seconds >= self.interval_seconds:
             raise ValueError("timeout_seconds musi być mniejszy niż interval_seconds")
+        if self.live_interval_seconds is not None and (
+            self.live_interval_seconds > self.interval_seconds
+        ):
+            raise ValueError("live_interval_seconds nie może być dłuższy niż interval_seconds")
         return self
 
 
