@@ -13,16 +13,17 @@ import type { Page } from './layout/Sidebar'
 import { DashboardPage } from './pages/DashboardPage'
 import { DeviceHistoryPage } from './pages/DeviceHistoryPage'
 import { DevicesPage } from './pages/DevicesPage'
+import { InverterSettingsPage } from './pages/InverterSettingsPage'
 import { ServerHealthPage } from './pages/ServerHealthPage'
 import { AlarmsPage } from './pages/AlarmsPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { SiteChartsPage } from './pages/SiteChartsPage'
 import { SitesPage } from './pages/SitesPage'
 import { UpdatesPage } from './pages/UpdatesPage'
-import { devicesUrl } from './paths'
+import { devicesUrl, inverterSettingsUrl } from './paths'
 import styles from './App.module.css'
 
-type AppPage = Page | 'history' | 'updates'
+type AppPage = Page | 'history' | 'updates' | 'inverter'
 
 /** Tytuł strony w pasku górnym; bez wpisu — dashboard z przełącznikiem instalacji. */
 const TOPBAR: Partial<Record<AppPage, { title: string; subtitle: string; showSiteSwitcher?: boolean }>> = {
@@ -35,6 +36,8 @@ const TOPBAR: Partial<Record<AppPage, { title: string; subtitle: string; showSit
   alarms: { title: 'Alarmy', subtitle: 'Aktywne alarmy instalacji i ich historia' },
   reports: { title: 'Raporty', subtitle: 'Bilans energii instalacji za miesiąc albo rok' },
   server: { title: 'Stan serwera', subtitle: 'Zasoby, składniki i ocena stabilności', showSiteSwitcher: false },
+  // Konfiguracja falownika dotyczy instalacji wybranej w przełączniku (D80).
+  inverter: { title: 'Falownik', subtitle: 'Agent i połączenia z urządzeniami instalacji' },
   updates: {
     title: 'Aktualizacje',
     subtitle: 'Wersja aplikacji, sprawdzanie i instalacja aktualizacji',
@@ -67,7 +70,7 @@ export function App({
       <Sidebar
         open={menuOpen}
         id={menuId}
-        current={page === 'history' ? 'devices' : page === 'updates' ? 'server' : page}
+        current={page === 'history' ? 'devices' : page === 'updates' || page === 'inverter' ? 'server' : page}
         alarmSiteId={source.origin === 'DEMO' ? '' : (site?.id ?? '')}
       />
       <div className={styles.content}>
@@ -78,6 +81,7 @@ export function App({
           onSiteChange={(id) => {
             setSelected(id)
             if (page === 'devices') window.history.replaceState(null, '', devicesUrl(id))
+            if (page === 'inverter') window.history.replaceState(null, '', inverterSettingsUrl(id))
           }}
           now={now}
           origin={source.origin}
@@ -110,6 +114,11 @@ export function App({
               origin={source.origin}
               initialDeviceId={site.id === routeSiteId ? routeDeviceId : ''}
             />
+          ) : site && page === 'inverter' ? (
+            <>
+              <SettingsTabs current="inverter" />
+              <InverterSettingsPage key={site.id} siteId={site.id} now={now} origin={source.origin} />
+            </>
           ) : site && page === 'alarms' ? (
             <AlarmsPage key={site.id} site={site} origin={source.origin} />
           ) : site && page === 'reports' ? (

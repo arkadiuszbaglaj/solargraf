@@ -1,4 +1,4 @@
-import type { DeviceStatus, SupportLevel } from '../api/devices'
+import type { AgentStatus, DeviceStatus, SupportLevel } from '../api/devices'
 
 /** Etykiety statusu urządzenia z serwera (D38). Nigdy „offline” — brak agenta to stan nieznany. */
 export const STATUS_LABEL: Record<DeviceStatus, string> = {
@@ -34,4 +34,11 @@ export const KIND_LABEL: Record<string, string> = {
   MPPT: 'MPPT',
   SENSOR: 'Czujnik',
   GATEWAY: 'Bramka',
+}
+
+/** Status agenta z heartbeatu (D52). */
+export const AGENT_STATUS_LABEL: Record<AgentStatus, string> = {
+  ONLINE: 'połączony',
+  UNREACHABLE: 'nieosiągalny',
+  DISABLED: 'wyłączony',
 }

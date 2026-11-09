@@ -453,6 +453,7 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 
 - Dashboard bez „Odczyt N s temu” (na prośbę właściciela): usunięte z kart KPI i nagłówków paneli PV/magazynu/sieci; nieaktualność nadal oznaczana („Wartość nieaktualna”, „nieaktualne, odczyt … temu”). Testy web 391, tsc, oxlint.
 - Liczniki alarmów (D79): „Aktywne: 0” przy „Niepotwierdzone: 1” było zgodne z D55 (zamknięty alarm bez potwierdzenia), ale mylące — karta dopisuje „w tym już zamknięte”; w menu znacznik aktywnych / kropka do potwierdzenia. Testy: Python bez bazy, test integracyjny podsumowania (CI), web 395, tsc, oxlint.
+- Ustawienia → Falownik (D80, na prośbę właściciela): nowa zakładka z panelem agenta i połączeniami instalacji (adres, Unit ID, interwały, profil, status urządzeń), edycją połączenia z testem komunikacji nowego adresu, włączaniem odczytu i kreatorem dodania (D72). Konfiguracja przeniesiona z „Urządzeń” (tam odnośnik). Bez zmian API. Testy web 408 (nowe: grupowanie, walidacja edycji, PATCH z CSRF i zachowanym limitem czasu, VIEWER, DEMO, agent nieosiągalny, routing), tsc, oxlint; podgląd z tymczasową atrapą SIMULATED 1024 px i 375 px (atrapa usunięta). Niezweryfikowane: z prawdziwym backendem i agentem na serwerze testowym.
 
 ## Szablon kolejnego wpisu
 

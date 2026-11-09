@@ -4,6 +4,14 @@ export const CHARTS_PATH = '/wykresy'
 /** Ustawienia → Stan serwera (D60). */
 export const SERVER_HEALTH_PATH = '/ustawienia/serwer'
 
+/** Ustawienia → Falownik: agent i połączenia z urządzeniami wybranej instalacji (D80). */
+export const INVERTER_SETTINGS_PATH = '/ustawienia/falownik'
+
+/** Adres zakładki „Falownik” z wybraną instalacją. */
+export function inverterSettingsUrl(siteId: string): string {
+  return `${INVERTER_SETTINGS_PATH}?${new URLSearchParams({ instalacja: siteId })}`
+}
+
 /** Ustawienia → Aktualizacje (D63, D65). */
 export const UPDATES_PATH = '/ustawienia/aktualizacje'
 

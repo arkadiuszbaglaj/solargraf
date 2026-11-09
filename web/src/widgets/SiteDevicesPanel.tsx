@@ -4,19 +4,13 @@ import { SupportLevelLabel } from '../components/SupportLevelLabel'
 import { WidgetState, type WidgetStatus } from '../components/WidgetState'
 import { useNow } from '../hooks/useNow'
 import { usePeriodic } from '../hooks/usePeriodic'
-import { KIND_LABEL, STATUS_LABEL } from '../lib/deviceLabels'
+import { AGENT_STATUS_LABEL, KIND_LABEL, STATUS_LABEL } from '../lib/deviceLabels'
 import { formatAge } from '../lib/format'
 import { ageSeconds } from '../lib/freshness'
 import { devicesUrl } from '../paths'
 import styles from './SiteDevicesPanel.module.css'
 
 export const DEVICES_REFRESH_MS = 30_000
-
-const AGENT_LABEL: Record<ApiAgent['status'], string> = {
-  ONLINE: 'połączony',
-  UNREACHABLE: 'nieosiągalny',
-  DISABLED: 'wyłączony',
-}
 
 const PROBLEMS: ReadonlySet<DeviceStatus> = new Set(['ERROR', 'STALE', 'UNKNOWN'])
 
@@ -104,7 +98,7 @@ export function SiteDevicesPanel({
               <ul className={styles.agents} aria-label="Agenci">
                 {ready.data.agents.map((a) => (
                   <li key={a.id} className={styles[a.status]}>
-                    Agent {a.name} — {AGENT_LABEL[a.status]}, heartbeat {ago(a.lastHeartbeatAt, now)}
+                    Agent {a.name} — {AGENT_STATUS_LABEL[a.status]}, heartbeat {ago(a.lastHeartbeatAt, now)}
                   </li>
                 ))}
               </ul>
