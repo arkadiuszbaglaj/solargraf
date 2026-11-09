@@ -229,6 +229,30 @@ describe('SiteDetailsPanels', () => {
     ])
     expect(within(balance).getByText('SIMULATED')).toBeTruthy()
   })
+
+  it('wybór paneli: tylko wskazane, w podanej kolejności; brak paneli — nic', () => {
+    const streamed = ready([['pv_power'], ['battery_soc'], ['grid_power']], [
+      reading('pv_power', 1000),
+      reading('battery_soc', 50),
+      reading('grid_power', 200),
+    ])
+    const { unmount } = render(
+      <SiteDetailsPanels
+        now={NOW}
+        live={streamed}
+        today={{ status: 'ready', data: ENERGY }}
+        panels={['balance', 'battery']}
+        label="Magazyn i bilans dnia"
+      />,
+    )
+    const group = screen.getByRole('region', { name: 'Magazyn i bilans dnia' })
+    const titles = within(group).getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
+    expect(titles).toEqual(['Zużycie i samowystarczalność', 'Magazyn energii'])
+    unmount()
+
+    const { container } = render(<SiteDetailsPanels now={NOW} live={streamed} panels={['bms']} />)
+    expect(container.innerHTML).toBe('')
+  })
 })
 
 function series(key: SiteEnergy['series'][number]['key'], totalWh: number | null): SiteEnergy['series'][number] {

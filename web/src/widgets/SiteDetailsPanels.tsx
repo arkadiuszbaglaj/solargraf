@@ -18,6 +18,7 @@ import {
   sectionValue,
   sectionValues,
   type DetailGroup,
+  type DetailKey,
   type DetailRow,
   type DetailSection,
 } from '../lib/siteDetails'
@@ -387,10 +388,16 @@ function SectionPanel({
   )
 }
 
+/** Panel szczegółów: sekcja z odczytów albo bilans dnia („Zużycie i samowystarczalność”). */
+export type DetailPanelKey = DetailKey | 'balance'
+
+const ALL_PANELS: readonly DetailPanelKey[] = ['pv', 'battery', 'grid', 'balance', 'bms']
+
 /**
  * Szczegóły PV, magazynu energii, sieci i BMS (D56, D69) z tego samego strumienia co karty
  * i diagram, oraz bilans dnia. Panel i wiersz tylko dla metryk, które profil udostępnia.
- * Wykres MPPT i energia dzienna tylko z `siteId`/`today` (dashboard z API).
+ * Wykres MPPT i energia dzienna tylko z `siteId`/`today` (dashboard z API). `panels` wybiera
+ * panele i ich kolejność (dashboard dzieli je na dwa rzędy); `className` — układ grupy.
  */
 export function SiteDetailsPanels({
   live,
@@ -399,6 +406,9 @@ export function SiteDetailsPanels({
   timeZone,
   today,
   fetchFn,
+  panels = ALL_PANELS,
+  label = 'Szczegóły instalacji',
+  className,
 }: {
   live: LiveSite
   now?: Date
@@ -406,6 +416,9 @@ export function SiteDetailsPanels({
   timeZone?: string
   today?: TodayState
   fetchFn?: typeof fetch
+  panels?: readonly DetailPanelKey[]
+  label?: string
+  className?: string | undefined
 }) {
   const tickingNow = useNow(1000)
   const now = fixedNow ?? tickingNow
@@ -413,22 +426,28 @@ export function SiteDetailsPanels({
 
   if (state.status === 'connecting' || state.status === 'error') {
     return (
-      <Panel title="Szczegóły instalacji">
+      <Panel title={label}>
         <WidgetState status={state.status === 'connecting' ? { kind: 'loading' } : { kind: 'error', onRetry: retry }} />
       </Panel>
     )
   }
 
   const sections = detailSections(state.devices, state.readings, now)
-  if (sections.length === 0 && !today) return null
   const chart: ChartContext | null =
     siteId && timeZone ? { siteId, timeZone, devices: state.devices, ...(fetchFn ? { fetchFn } : {}) } : null
-  const panel = (s: DetailSection) => <SectionPanel key={s.key} section={s} chart={chart} today={today} />
+  const shown: ReactNode[] = []
+  for (const key of panels) {
+    if (key === 'balance') {
+      if (today) shown.push(<EnergyBalancePanel key="balance" today={today} />)
+      continue
+    }
+    const s = sections.find((x: DetailSection) => x.key === key)
+    if (s) shown.push(<SectionPanel key={s.key} section={s} chart={chart} today={today} />)
+  }
+  if (shown.length === 0) return null
   return (
-    <section aria-label="Szczegóły instalacji" className={styles.panels}>
-      {sections.filter((s) => s.key !== 'bms').map(panel)}
-      {today ? <EnergyBalancePanel today={today} /> : null}
-      {sections.filter((s) => s.key === 'bms').map(panel)}
+    <section aria-label={label} className={className ?? styles.panels}>
+      {shown}
     </section>
   )
 }
