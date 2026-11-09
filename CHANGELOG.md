@@ -4,6 +4,12 @@ Sekcja `## X.Y.Z` jest opisem wydania na GitHubie i w podpisanym manifeście (D6
 właściciel instalacji w Ustawienia → Aktualizacje. Najwyżej 2000 znaków na wersję. Nową sekcję
 dodaje się w tym samym PR co podniesienie wersji (`tools/release.py version X.Y.Z`).
 
+## 0.9.0
+
+- Nowy alarm „Niepełne odczyty”: ostrzega, gdy urządzenie odpowiada, ale przez ostatnie 15 minut każdy odczyt pomijał część parametrów (np. zły profil albo adres).
+- Panel urządzenia: sekcja „Jakość odczytów (24 h)” — ile odczytów było pełnych, częściowych i nieudanych, jaki procent parametrów odczytano poprawnie oraz 5 ostatnich błędów z godziną.
+- Strona „Alarmy”: właściciel i administrator mogą przeglądać historię z 7, 30, 90 dni albo roku; filtry stanu i priorytetu oraz przycisk „Pokaż więcej” dla długich list. Podgląd (VIEWER) widzi nadal ostatnie 24 h.
+
 ## 0.8.1
 
 - Agent odrzuca odczyty fizycznie niemożliwe (np. napięcie 6553,5 V, częstotliwość 0 Hz, temperatura 200 °C): taka wartość jest zapisywana jako niewiarygodna i nie trafia na wykresy ani do wskaźników. Wcześniej sprawdzany był tylko poziom naładowania magazynu.
