@@ -1,6 +1,6 @@
 [project]
 name = "solargraf-simulator"
-version = "0.15.0"
+version = "0.16.0"
 description = "SolarGraf (nazwa robocza) — symulator urządzeń do testów (dane SIMULATED)"
 requires-python = ">=3.12,<3.13"
 license = "LicenseRef-Proprietary"
