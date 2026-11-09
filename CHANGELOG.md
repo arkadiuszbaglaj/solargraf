@@ -4,6 +4,11 @@ Sekcja `## X.Y.Z` jest opisem wydania na GitHubie i w podpisanym manifeście (D6
 właściciel instalacji w Ustawienia → Aktualizacje. Najwyżej 2000 znaków na wersję. Nową sekcję
 dodaje się w tym samym PR co podniesienie wersji (`tools/release.py version X.Y.Z`).
 
+## 0.16.0
+
+- Ustawienia → Aktualizacje: przebieg aktualizacji pokazuje prawdziwe etapy zapisane przez serwer — przygotowanie, pobieranie, sprawdzenie miejsca, kopia zapasowa, budowanie, uruchamianie, sprawdzenie działania i sprzątanie — z czasem trwania każdego etapu, na żywo w trakcie aktualizacji. W „Szczegółach” godziny rozpoczęcia i zakończenia etapów oraz łączny czas. Przy błędzie widać etap, który zawiódł, i przywracanie poprzedniej wersji.
+- Etapy są zapisywane od tej wersji: aktualizację wykonuje skrypt wersji zainstalowanej, więc pełny przebieg zobaczysz przy kolejnej aktualizacji z wersji 0.16.0.
+
 ## 0.15.0
 
 - Wykresy i historia: przybliżanie wykresów — zaznacz fragment myszą, użyj suwaka czasu pod wykresem, Ctrl + kółka myszy albo przycisków Przybliż / Oddal / Wcześniej / Później / Cały okres. Wykres mocy i stanu naładowania baterii pokazują ten sam fragment, a oś czasu dopasowuje się do widocznego zakresu.
