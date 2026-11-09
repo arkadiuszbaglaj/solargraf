@@ -5,9 +5,11 @@ import type { Session } from '../api/auth'
 import type { ApiProfile, ConnectionForm } from '../api/devices'
 import { parseDevice, parseProfile, validateConnection } from '../api/devices'
 import type { LiveEventSource, LiveSourceFactory } from '../api/live'
+import { parsePollingStats } from '../api/pollingStats'
 import { SessionProvider } from '../auth/SessionContext'
 import { devicesSiteId, devicesTabIds, routeFor } from '../Root'
 import { devicesUrl } from '../paths'
+import { percentCell } from './DeviceReadQuality'
 import { DevicesPage } from './DevicesPage'
 
 // ECharts wymaga przeglądarki (wymiary, ResizeObserver); opcje wykresu testujemy osobno.
@@ -113,6 +115,28 @@ function session(role: 'OWNER' | 'ADMIN' | 'VIEWER'): Session {
   }
 }
 
+const POLLING = {
+  window_start: '2026-11-06T12:00:00Z',
+  window_end: '2026-11-07T12:00:00Z',
+  runs_ok: 2,
+  runs_partial: 1,
+  runs_failed: 1,
+  ok_points: 55,
+  failed_points: 25,
+  points_ok_ratio: 55 / 80,
+  last_run_at: '2026-11-07T11:59:00Z',
+  recent_errors: [
+    { started_at: '2026-11-07T11:58:00Z', result: 'PARTIAL', error_code: null, error_detail: null, failed_points: 5 },
+    {
+      started_at: '2026-11-07T11:57:00Z',
+      result: 'FAILED',
+      error_code: 'TIMEOUT',
+      error_detail: 'Urządzenie nie odpowiedziało w czasie.',
+      failed_points: 20,
+    },
+  ],
+}
+
 type Route = (url: string, init?: RequestInit) => Response | undefined
 
 function server(route: Route = () => undefined, role: 'OWNER' | 'VIEWER' = 'OWNER', devices: object[] = [DEVICE]) {
@@ -129,6 +153,7 @@ function server(route: Route = () => undefined, role: 'OWNER' | 'VIEWER' = 'OWNE
     }
     if (url === '/api/profiles') return json(200, [PROFILE])
     if (url.includes('/history?')) return json(200, history([1000, null, 1500]))
+    if (url.endsWith('/polling-stats')) return json(200, POLLING)
     return json(404, { detail: 'x' })
   })
 }
@@ -425,6 +450,29 @@ describe('DevicesPage', () => {
     expect(screen.getByRole('link', { name: 'Pełna historia' }).getAttribute('href')).toBe(
       `/instalacje/${SITE_ID}/urzadzenia/d1/historia`,
     )
+  })
+
+  it('jakość odczytów: liczniki przebiegów, udział parametrów i ostatnie błędy bez adresu', async () => {
+    renderPage(server(undefined, 'VIEWER'), session('VIEWER'))
+    const heading = await screen.findByRole('heading', { level: 3, name: 'Jakość odczytów (24 h)' })
+    const section = heading.parentElement as HTMLElement
+    await within(section).findByText('Odczyty pełne')
+    expect(within(section).getByText('Odczyty częściowe').nextElementSibling?.textContent).toBe('1')
+    expect(within(section).getByText('Odczyty nieudane').nextElementSibling?.textContent).toBe('1')
+    expect(within(section).getByText('Poprawne parametry').nextElementSibling?.textContent).toBe('68,8% (55 z 80)')
+    const table = within(section).getByRole('table', { name: 'Ostatnie błędy' })
+    const rows = within(table).getAllByRole('row').map((r) => Array.from(r.children, (c) => c.textContent))
+    expect(rows[1]).toEqual(['07.11.2026, 12:58', 'częściowy · 5 param.', 'Pominięte parametry.'])
+    expect(rows[2]).toEqual(['07.11.2026, 12:57', 'nieudany · 20 param.', 'Urządzenie nie odpowiedziało w czasie.'])
+  })
+
+  it('jakość odczytów: brak przebiegów to stan pusty, nie 0 %', async () => {
+    const empty = { ...POLLING, runs_ok: 0, runs_partial: 0, runs_failed: 0, ok_points: 0, failed_points: 0, points_ok_ratio: null, last_run_at: null, recent_errors: [] }
+    renderPage(server((url) => (url.endsWith('/polling-stats') ? json(200, empty) : undefined)))
+    expect(await screen.findByText('Brak przebiegów odczytu w ostatnich 24 h.')).toBeTruthy()
+    expect(percentCell(null)).toBe('—')
+    expect(parsePollingStats({ ...POLLING, points_ok_ratio: 1.5 })).toBeNull()
+    expect(parsePollingStats({ ...POLLING, recent_errors: [{ ...POLLING.recent_errors[0], result: 'OK' }] })).toBeNull()
   })
 
   it('wykres bez danych w zakresie — stan pusty, nie zero', async () => {

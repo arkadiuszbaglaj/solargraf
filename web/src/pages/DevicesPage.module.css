@@ -458,3 +458,15 @@
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
+
+.captionLeft {
+  margin-top: var(--space-3);
+  padding-bottom: var(--space-1);
+  text-align: left;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.errorsTable td:nth-child(2) {
+  white-space: normal;
+}

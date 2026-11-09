@@ -441,6 +441,8 @@ Utrzymuj ten plik krótki. Nie zapisuj tutaj pełnych rozmów ani długich podsu
 
 - Małe porządki (0.8.1): legenda wykresu „Produkcja i zużycie dziś” w jednym przewijanym wierszu (na telefonie nie nachodzi na oś); DECISIONS — usunięte rozstrzygnięte O8 z tabeli otwartych, O7 z opisem stanu; ROADMAP P2 oznaczone zgodnie z kodem (encje, endpointy, historia z limitem punktów); walidacja zakresów (D75) — ogólne granice wiarygodności według wielkości we wspólnym katalogu, poza nimi `INVALID` (wcześniej tylko SoC). Testy: Python 428 (bez bazy), web 385, ruff, mypy, tsc, oxlint; podgląd 375 px.
 
+- Jakość odczytów i historia alarmów (D76): alarm „Niepełne odczyty” (`DEVICE_PARTIAL_READ`, migracja 0012 rozszerza ograniczenie kodów, reguły w wersji 2), endpoint `polling-stats` i sekcja „Jakość odczytów (24 h)” w panelu urządzenia; `GET /alarms` z okresem, filtrami po stronie serwera, stronicowaniem i podsumowaniem; strona „Alarmy” z przełącznikiem okresu (OWNER/ADMIN) i „Pokaż więcej”. Testy: Python bez bazy + nowe testy integracyjne (CI z PostgreSQL), web 389, ruff, mypy, tsc, oxlint; podgląd z atrapą SIMULATED 1440 px i 375 px. Niezweryfikowane: progi alarmu na prawdziwym falowniku.
+
 ## Szablon kolejnego wpisu
 
 - Data:

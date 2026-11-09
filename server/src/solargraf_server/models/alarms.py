@@ -22,6 +22,7 @@ class AlarmCode(enum.StrEnum):
     AGENT_UNREACHABLE = "AGENT_UNREACHABLE"
     DEVICE_READ_ERROR = "DEVICE_READ_ERROR"
     DEVICE_STALE = "DEVICE_STALE"
+    DEVICE_PARTIAL_READ = "DEVICE_PARTIAL_READ"
 
 
 def _in(values: type[enum.StrEnum], column: str) -> str:

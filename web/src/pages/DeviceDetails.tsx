@@ -11,6 +11,7 @@ import { usePeriodic } from '../hooks/usePeriodic'
 import { KIND_LABEL, STATUS_LABEL } from '../lib/deviceLabels'
 import { CHART_SPANS, type ChartSpan, chartMetrics, metricId, metricLabel, spanRange } from '../lib/deviceList'
 import { MISSING, formatAge, formatDateTime } from '../lib/format'
+import { DeviceReadQuality } from './DeviceReadQuality'
 import { deviceValue } from '../lib/liveValues'
 import styles from './DevicesPage.module.css'
 
@@ -78,6 +79,14 @@ export function DeviceDetails({
         siteId={siteId}
         timeZone={timeZone}
         historyUrl={historyUrl}
+        onExpired={onExpired}
+        fetchFn={fetchFn}
+      />
+
+      <DeviceReadQuality
+        siteId={siteId}
+        deviceId={device.id}
+        timeZone={timeZone}
         onExpired={onExpired}
         fetchFn={fetchFn}
       />

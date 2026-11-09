@@ -1,6 +1,12 @@
 import { AlertTriangle, BellRing, CheckCheck, OctagonAlert } from 'lucide-react'
 import { useState } from 'react'
-import { ALARMS_MAX_LIMIT, type ApiAlarm } from '../api/alarms'
+import {
+  type AlarmHistoryDays,
+  type AlarmPage,
+  type AlarmQuery,
+  type AlarmStateFilter,
+  listAlarmPage,
+} from '../api/alarms'
 import { DemoBadge } from '../components/DemoBadge'
 import { KpiCard } from '../components/KpiCard'
 import { Panel } from '../components/Panel'
@@ -13,10 +19,12 @@ import styles from './AlarmsPage.module.css'
 
 const browserFetch: typeof fetch = (...args) => fetch(...args)
 
-type StateFilter = 'all' | 'active' | 'unacknowledged' | 'closed'
+/** Alarmy na jedną stronę listy; „Pokaż więcej” dobiera kolejne. */
+export const ALARMS_PAGE_SIZE = 50
+
 type SeverityFilter = 'all' | AlarmSeverity
 
-const STATE_OPTIONS: ReadonlyArray<{ value: StateFilter; label: string }> = [
+const STATE_OPTIONS: ReadonlyArray<{ value: AlarmStateFilter; label: string }> = [
   { value: 'all', label: 'Wszystkie' },
   { value: 'active', label: 'Aktywne' },
   { value: 'unacknowledged', label: 'Niepotwierdzone' },
@@ -30,25 +38,56 @@ const SEVERITY_OPTIONS: ReadonlyArray<{ value: SeverityFilter; label: string }> 
   { value: 'INFO', label: 'Informacje' },
 ]
 
-/** Alarm spełnia filtry stanu i priorytetu. */
-export function matches(alarm: ApiAlarm, state: StateFilter, severity: SeverityFilter): boolean {
-  if (severity !== 'all' && alarm.severity !== severity) return false
-  if (state === 'active') return alarm.closedAt === null
-  if (state === 'unacknowledged') return alarm.acknowledgedAt === null
-  if (state === 'closed') return alarm.closedAt !== null
-  return true
+type PeriodOption = 'd1' | 'd7' | 'd30' | 'd90' | 'd365'
+
+interface Period {
+  value: PeriodOption
+  days: AlarmHistoryDays
+  label: string
+  span: string
 }
 
-/** Liczby do kart podsumowania: aktywne według priorytetu, niepotwierdzone i zamknięte. */
-export function summarize(alarms: readonly ApiAlarm[]) {
-  const active = alarms.filter((a) => a.closedAt === null)
-  return {
-    critical: active.filter((a) => a.severity === 'CRITICAL').length,
-    warning: active.filter((a) => a.severity === 'WARNING').length,
-    unacknowledged: alarms.filter((a) => a.acknowledgedAt === null).length,
-    closed: alarms.length - active.length,
+const DAY: Period = { value: 'd1', days: 1, label: '24 h', span: '24 h' }
+
+const PERIOD_OPTIONS: readonly Period[] = [
+  DAY,
+  { value: 'd7', days: 7, label: '7 dni', span: '7 dni' },
+  { value: 'd30', days: 30, label: '30 dni', span: '30 dni' },
+  { value: 'd90', days: 90, label: '90 dni', span: '90 dni' },
+  { value: 'd365', days: 365, label: 'Rok', span: 'rok' },
+]
+
+const periodOf = (value: PeriodOption): Period => PERIOD_OPTIONS.find((p) => p.value === value) ?? DAY
+
+/**
+ * Pobiera `pages` kolejnych stron równolegle i skleja je bez powtórzeń (alarm mógł przesunąć się
+ * między stronami). Liczby, `hasMore` i uprawnienia pochodzą z ostatniej strony.
+ */
+export async function loadAlarmPages(
+  siteId: string,
+  query: Omit<AlarmQuery, 'offset' | 'limit'>,
+  pages: number,
+  fetchFn: typeof fetch,
+  signal: AbortSignal,
+): Promise<AlarmPage> {
+  const results = await Promise.all(
+    Array.from({ length: Math.max(1, pages) }, (_, page) =>
+      listAlarmPage(siteId, { ...query, offset: page * ALARMS_PAGE_SIZE, limit: ALARMS_PAGE_SIZE }, fetchFn, signal),
+    ),
+  )
+  const loaded: AlarmPage[] = []
+  for (const result of results) {
+    if (result.kind !== 'ok') throw new Error('Nie udało się pobrać alarmów.')
+    loaded.push(result.data)
   }
+  const last = loaded.at(-1)
+  if (!last) throw new Error('Nie udało się pobrać alarmów.')
+  const seen = new Set<string>()
+  const alarms = loaded.flatMap((page) => page.alarms).filter((a) => !seen.has(a.id) && Boolean(seen.add(a.id)))
+  return { ...last, alarms }
 }
+
+const card = (value: number | undefined): string => (value === undefined ? '—' : String(value))
 
 function Toggles<T extends string>({
   label,
@@ -79,8 +118,9 @@ function Toggles<T extends string>({
 }
 
 /**
- * Strona „Alarmy” instalacji (D55, D74): podsumowanie, filtry stanu i priorytetu oraz lista z
- * potwierdzaniem. Dane jak panel dashboardu — otwarte i zamknięte w ostatnich 24 h (do 200).
+ * Strona „Alarmy” instalacji (D55, D74, D76): podsumowanie okresu, filtry stanu i priorytetu po
+ * stronie serwera, stronicowanie „Pokaż więcej” i potwierdzanie. Historia dłuższa niż 24 h tylko
+ * dla właściciela i administratora — przełącznik okresu pokazujemy, gdy serwer na to pozwala.
  */
 export function AlarmsPage({
   site,
@@ -103,41 +143,62 @@ export function AlarmsPage({
 }
 
 function Alarms({ site, fetchFn }: { site: Site; fetchFn: typeof fetch }) {
-  const { state, ready, reload, canAcknowledge, busy, error, acknowledge } = useSiteAlarms(
-    site.id,
-    fetchFn,
-    ALARMS_MAX_LIMIT,
-  )
-  const [stateFilter, setStateFilter] = useState<StateFilter>('all')
+  const [period, setPeriod] = useState<PeriodOption>('d1')
+  const [stateFilter, setStateFilter] = useState<AlarmStateFilter>('all')
   const [severity, setSeverity] = useState<SeverityFilter>('all')
+  const [pages, setPages] = useState(1)
+  const { days, span } = periodOf(period)
+  const { state, ready, reload, canAcknowledge, busy, error, acknowledge } = useSiteAlarms(site.id, fetchFn, {
+    key: `${days}|${stateFilter}|${severity}|${pages}`,
+    load: (signal) => loadAlarmPages(site.id, { days, state: stateFilter, severity }, pages, fetchFn, signal),
+  })
 
-  const alarms = ready?.data.alarms ?? []
-  const shown = alarms.filter((a) => matches(a, stateFilter, severity))
-  const counts = summarize(alarms)
-  const card = (value: number) => (ready ? String(value) : '—')
+  // Zmiana filtra albo okresu zaczyna od pierwszej strony.
+  const changePeriod = (value: PeriodOption) => {
+    setPeriod(value)
+    setPages(1)
+  }
+  const changeState = (value: AlarmStateFilter) => {
+    setStateFilter(value)
+    setPages(1)
+  }
+  const changeSeverity = (value: SeverityFilter) => {
+    setSeverity(value)
+    setPages(1)
+  }
+
+  const data = ready?.data ?? null
+  const filtered = stateFilter !== 'all' || severity !== 'all'
 
   let status: WidgetStatus
   if (state.status === 'loading') status = { kind: 'loading' }
   else if (state.status === 'error') status = { kind: 'error', onRetry: reload }
-  else if (alarms.length === 0) status = { kind: 'empty', message: 'Brak alarmów z ostatnich 24 h.' }
-  else if (shown.length === 0) status = { kind: 'empty', message: 'Żaden alarm nie pasuje do filtrów.' }
-  else status = { kind: 'ready' }
+  else if (state.data.alarms.length > 0) status = { kind: 'ready' }
+  else if (filtered) status = { kind: 'empty', message: 'Żaden alarm nie pasuje do filtrów.' }
+  else
+    status = {
+      kind: 'empty',
+      message: days === 1 ? 'Brak alarmów z ostatnich 24 h.' : 'Brak alarmów w wybranym okresie.',
+    }
 
   return (
     <div className={styles.page}>
       <section className={styles.summary} aria-label="Podsumowanie alarmów">
-        <KpiCard label="Krytyczne aktywne" icon={OctagonAlert} value={card(counts.critical)} stale={false} />
-        <KpiCard label="Ostrzeżenia aktywne" icon={AlertTriangle} value={card(counts.warning)} stale={false} />
-        <KpiCard label="Niepotwierdzone" icon={BellRing} value={card(counts.unacknowledged)} stale={false} />
-        <KpiCard label="Zamknięte (24 h)" icon={CheckCheck} value={card(counts.closed)} stale={false} />
+        <KpiCard label="Krytyczne aktywne" icon={OctagonAlert} value={card(data?.summary.criticalActive)} stale={false} />
+        <KpiCard label="Ostrzeżenia aktywne" icon={AlertTriangle} value={card(data?.summary.warningActive)} stale={false} />
+        <KpiCard label="Niepotwierdzone" icon={BellRing} value={card(data?.summary.unacknowledged)} stale={false} />
+        <KpiCard label={`Zamknięte (${span})`} icon={CheckCheck} value={card(data?.summary.closed)} stale={false} />
       </section>
       <Panel
         title="Lista alarmów"
-        actions={ready ? <span className={styles.count}>{`Pokazane: ${shown.length} z ${alarms.length}`}</span> : null}
+        actions={data ? <span className={styles.count}>{`Pokazane: ${data.alarms.length} z ${data.total}`}</span> : null}
       >
         <div className={styles.filters}>
-          <Toggles label="Stan alarmu" options={STATE_OPTIONS} value={stateFilter} onChange={setStateFilter} />
-          <Toggles label="Priorytet" options={SEVERITY_OPTIONS} value={severity} onChange={setSeverity} />
+          {data?.canViewHistory ? (
+            <Toggles label="Okres" options={PERIOD_OPTIONS} value={period} onChange={changePeriod} />
+          ) : null}
+          <Toggles label="Stan alarmu" options={STATE_OPTIONS} value={stateFilter} onChange={changeState} />
+          <Toggles label="Priorytet" options={SEVERITY_OPTIONS} value={severity} onChange={changeSeverity} />
         </div>
         <WidgetState
           status={status}
@@ -149,7 +210,7 @@ function Alarms({ site, fetchFn }: { site: Site; fetchFn: typeof fetch }) {
             </p>
           ) : null}
           <ul className={list.list}>
-            {shown.map((alarm) => (
+            {data?.alarms.map((alarm) => (
               <AlarmItem
                 key={alarm.id}
                 alarm={alarm}
@@ -160,6 +221,11 @@ function Alarms({ site, fetchFn }: { site: Site; fetchFn: typeof fetch }) {
               />
             ))}
           </ul>
+          {data?.hasMore ? (
+            <button type="button" className={styles.more} onClick={() => setPages((p) => p + 1)}>
+              Pokaż więcej
+            </button>
+          ) : null}
         </WidgetState>
       </Panel>
     </div>

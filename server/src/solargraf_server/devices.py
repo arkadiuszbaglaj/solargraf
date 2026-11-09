@@ -415,6 +415,105 @@ async def list_devices(
     ]
 
 
+# --- jakość odczytów (D76) ---
+
+POLLING_STATS_WINDOW = timedelta(hours=24)
+RECENT_ERRORS = 5
+
+
+class PollingErrorOut(BaseModel):
+    """Przebieg z pominiętymi parametrami albo nieudany. ``error_detail`` to stały opis agenta
+    bez adresu urządzenia (D42)."""
+
+    started_at: datetime
+    result: Literal["PARTIAL", "FAILED"]
+    error_code: str | None
+    error_detail: str | None
+    failed_points: int
+
+
+class PollingStatsOut(BaseModel):
+    """Przebiegi odczytu urządzenia w ostatnich 24 h. ``points_ok_ratio`` = punkty poprawne /
+    wszystkie odczytane punkty (0-1); ``null``, gdy w oknie nie było żadnego punktu."""
+
+    window_start: datetime
+    window_end: datetime
+    runs_ok: int
+    runs_partial: int
+    runs_failed: int
+    ok_points: int
+    failed_points: int
+    points_ok_ratio: float | None
+    last_run_at: datetime | None
+    recent_errors: list[PollingErrorOut]
+
+
+@router.get("/{site_id}/devices/{device_id}/polling-stats", response_model=PollingStatsOut)
+async def device_polling_stats(
+    site_id: uuid.UUID,
+    device_id: uuid.UUID,
+    db: DbSession,
+    auth: Annotated[AuthContext, Depends(current_auth)],
+) -> PollingStatsOut:
+    access = await _authorize(db, auth, site_id, authz.SiteAction.READ)
+    device, _, _ = await _device_row(db, access.site.id, device_id)
+    end = utcnow()
+    start = end - POLLING_STATS_WINDOW
+    in_window = (PollingRun.device_id == device.id) & (PollingRun.started_at >= start)
+    by_result = {
+        row[0]: row[1:]
+        for row in (
+            await db.execute(
+                select(
+                    PollingRun.result,
+                    func.count(),
+                    func.coalesce(func.sum(PollingRun.ok_points), 0),
+                    func.coalesce(func.sum(PollingRun.failed_points), 0),
+                    func.max(PollingRun.started_at),
+                )
+                .where(in_window)
+                .group_by(PollingRun.result)
+            )
+        ).all()
+    }
+    errors = (
+        await db.scalars(
+            select(PollingRun)
+            .where(in_window, PollingRun.result.in_(("PARTIAL", "FAILED")))
+            .order_by(PollingRun.started_at.desc())
+            .limit(RECENT_ERRORS)
+        )
+    ).all()
+
+    def runs(result: str) -> int:
+        return int(by_result[result][0]) if result in by_result else 0
+
+    ok_points = sum(int(v[1]) for v in by_result.values())
+    failed_points = sum(int(v[2]) for v in by_result.values())
+    total = ok_points + failed_points
+    return PollingStatsOut(
+        window_start=start,
+        window_end=end,
+        runs_ok=runs("OK"),
+        runs_partial=runs("PARTIAL"),
+        runs_failed=runs("FAILED"),
+        ok_points=ok_points,
+        failed_points=failed_points,
+        points_ok_ratio=ok_points / total if total else None,
+        last_run_at=max((v[3] for v in by_result.values()), default=None),
+        recent_errors=[
+            PollingErrorOut(
+                started_at=r.started_at,
+                result="FAILED" if r.result == "FAILED" else "PARTIAL",
+                error_code=r.error_code,
+                error_detail=r.error_detail,
+                failed_points=r.failed_points,
+            )
+            for r in errors
+        ],
+    )
+
+
 @router.get("/{site_id}/agents", response_model=list[AgentOut])
 async def list_site_agents(
     site_id: uuid.UUID,
