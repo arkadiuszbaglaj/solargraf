@@ -1,0 +1,24 @@
+## meta
+wersja: 0.17.0 (commit bbf03eb)
+data: 2026-11-10
+srodowisko: npm run build (Vite), rozmiary gzip -9; pomiar w przeglądarce — serwer deweloperski, tryb DEMO
+
+## paczki (bajty: surowe / gzip)
+js_index_glowny: 975905 / 311816
+js_SiteHistoryChartView: 75065 / 25554
+js_install: 27038 / 10269
+js_StringChartView: 2281 / 1291
+js_EnergyChartView: 2100 / 1197
+js_HistoryChartView: 772 / 544
+css_index: 50944 / 8640
+uwaga: ECharts (core + BarChart) jest w głównej paczce — ReportsPage importuje EnergyBarsView bez lazy().
+
+## przeglądarka, DEMO, 30 s bezczynności
+dashboard_mutacje_dom: 25 (6 partii)
+dashboard_dlugie_zadania: 0
+dashboard_elementy_dom: 312 (svg: 124)
+dashboard_heap_MiB: 49.1
+wykresy_mutacje_dom: 6 (6 partii)
+wykresy_elementy_dom: 139 (svg: 41)
+wykresy_heap_MiB: 47.2
+uwaga: DEMO nie ma historii ani energii — strona wykresów bez wykresów; pełny pomiar wymaga zalogowania na serwerze.
