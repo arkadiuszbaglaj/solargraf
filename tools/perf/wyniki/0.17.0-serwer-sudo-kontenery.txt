@@ -1,0 +1,125 @@
+
+## meta
+czas_utc: 2026-11-10T10:04:42Z
+okno_s: 120
+root: tak
+
+## host
+cpu_rdzenie: 2
+kernel: 7.0.0-43-generic
+MemTotal_MiB: 3398
+MemAvailable_MiB: 2494
+SwapTotal_MiB: 3909
+SwapFree_MiB: 3909
+load_1_5_15: 0.14 0.10 0.09
+dysk_root: 16G / 24G (72%)
+uptime_s: 6468.23
+
+## cpu_okno
+host_cpu_zajete_proc: 3.7
+cpu_containerd-shim_proc_rdzenia: 4.53
+cpu_uvicorn_proc_rdzenia: 1.33
+cpu_kworker/u8:1-events_unbound_proc_rdzenia: 0.03
+cpu_kworker/1:1H-kblockd_proc_rdzenia: 0.03
+cpu_kworker/0:1-events_proc_rdzenia: 0.19
+cpu_dockerd_proc_rdzenia: 0.44
+cpu_caddy_proc_rdzenia: 0.31
+cpu_containerd_proc_rdzenia: 0.30
+cpu_solargraf-agent_proc_rdzenia: 0.24
+cpu_solargraf-worke_proc_rdzenia: 0.05
+cpu_solargraf-sim_proc_rdzenia: 0.03
+cpu_ksoftirqd/1_proc_rdzenia: 0.03
+cpu_rcu_preempt_proc_rdzenia: 0.02
+cpu_multipathd_proc_rdzenia: 0.02
+cpu_sshd-session_proc_rdzenia: 0.01
+
+## dysk_okno
+dysk_odczyt_KiB_s: 316.2
+dysk_zapis_KiB_s: 36.1
+
+## pamiec_procesow_RSS_MiB
+rss_caddy_MiB: 62
+rss_chronyd_MiB: 14
+rss_containerd_MiB: 63
+rss_containerd-shim_MiB: 70
+rss_dockerd_MiB: 112
+rss_docker-proxy_MiB: 22
+rss_fwupd_MiB: 45
+rss_ModemManager_MiB: 14
+rss_networkd-dispat_MiB: 30
+rss_postgres_MiB: 375
+rss_solargraf-agent_MiB: 51
+rss_solargraf-sim_MiB: 40
+rss_solargraf-worke_MiB: 92
+rss_sshd-session_MiB: 19
+rss_systemd-journal_MiB: 17
+rss_systemd_MiB: 29
+rss_systemd-network_MiB: 13
+rss_systemd-resolve_MiB: 15
+rss_systemd-udevd_MiB: 14
+rss_udisksd_MiB: 15
+rss_unattended-upgr_MiB: 32
+rss_upowerd_MiB: 11
+rss_uvicorn_MiB: 103
+
+## http
+http_health_kod: 200
+http_health_bajty: 59
+http_health_ms_mediana: 6.0
+http_health_ms_p95: 7.3
+http_ready_kod: 200
+http_ready_bajty: 15
+http_ready_ms_mediana: 9.1
+http_ready_ms_p95: 10.3
+http_index_kod: 200
+http_index_bajty: 410
+http_index_ms_mediana: 4.9
+http_index_ms_p95: 6.0
+http_index__css_kod: 200
+http_index__css_bajty: 10359
+http_index__css_ms_mediana: 5.5
+http_index__css_ms_p95: 6.4
+http_index__css_bajty_bez_kompresji: 50944
+http_index__js_kod: 200
+http_index__js_bajty: 328187
+http_index__js_ms_mediana: 18.5
+http_index__js_ms_p95: 21.9
+http_index__js_bajty_bez_kompresji: 975905
+http_js_pliki_w_index: 1
+
+## kontenery
+kontener_solargraf-simulator-1: cpu=0.00% pamiec=42.9MiB/3.319GiB blockio=44.2MB/0B
+kontener_solargraf-agent-1: cpu=0.89% pamiec=45.75MiB/3.319GiB blockio=41.5MB/113MB
+kontener_solargraf-proxy-1: cpu=0.27% pamiec=79.97MiB/3.319GiB blockio=94.5MB/180kB
+kontener_solargraf-api-1: cpu=2.31% pamiec=87.28MiB/3.319GiB blockio=25.4MB/0B
+kontener_solargraf-worker-1: cpu=0.00% pamiec=117.6MiB/3.319GiB blockio=123MB/0B
+kontener_solargraf-db-1: cpu=0.00% pamiec=147.3MiB/3.319GiB blockio=221MB/247MB
+kontener_solargraf-simulator-1_blockio_start: 44.2MB / 0B
+kontener_solargraf-agent-1_blockio_start: 41.5MB / 111MB
+kontener_solargraf-proxy-1_blockio_start: 94.5MB / 180kB
+kontener_solargraf-api-1_blockio_start: 25.4MB / 0B
+kontener_solargraf-worker-1_blockio_start: 123MB / 0B
+kontener_solargraf-db-1_blockio_start: 221MB / 244MB
+kontener_solargraf-simulator-1_restarty: 0 stan=running zdrowie=brak
+kontener_solargraf-simulator-1_log_MiB: 1
+kontener_solargraf-simulator-1_log_limit: json-file 
+kontener_solargraf-agent-1_restarty: 0 stan=running zdrowie=brak
+kontener_solargraf-agent-1_log_MiB: 1
+kontener_solargraf-agent-1_log_limit: json-file 
+kontener_solargraf-proxy-1_restarty: 0 stan=running zdrowie=brak
+kontener_solargraf-proxy-1_log_MiB: 1
+kontener_solargraf-proxy-1_log_limit: json-file 
+kontener_solargraf-api-1_restarty: 0 stan=running zdrowie=healthy
+kontener_solargraf-api-1_log_MiB: 4
+kontener_solargraf-api-1_log_limit: json-file 
+kontener_solargraf-worker-1_restarty: 0 stan=running zdrowie=brak
+kontener_solargraf-worker-1_log_MiB: 1
+kontener_solargraf-worker-1_log_limit: json-file 
+kontener_solargraf-migrate-1_restarty: 0 stan=exited zdrowie=unhealthy
+kontener_solargraf-migrate-1_log_MiB: 1
+kontener_solargraf-migrate-1_log_limit: json-file 
+kontener_solargraf-db-1_restarty: 0 stan=running zdrowie=healthy
+kontener_solargraf-db-1_log_MiB: 1
+kontener_solargraf-db-1_log_limit: json-file 
+docker_obrazy_i_wolumeny: Images=1.135GB Containers=61.44kB Local Volumes=144.4MB Build Cache=7.912GB 
+

@@ -1,0 +1,82 @@
+
+## meta
+czas_utc: 2026-11-10T10:34:36Z
+okno_s: 60
+root: tak
+tryb: baza
+
+## kontenery
+kontener_solargraf-simulator-1: cpu=0.08% pamiec=42.89MiB/3.319GiB blockio=44.2MB/0B
+kontener_solargraf-agent-1: cpu=0.07% pamiec=45.77MiB/3.319GiB blockio=42MB/142MB
+kontener_solargraf-proxy-1: cpu=0.11% pamiec=67.24MiB/3.319GiB blockio=94.5MB/180kB
+kontener_solargraf-api-1: cpu=0.19% pamiec=87.42MiB/3.319GiB blockio=25.4MB/0B
+kontener_solargraf-worker-1: cpu=0.00% pamiec=117.6MiB/3.319GiB blockio=123MB/0B
+kontener_solargraf-db-1: cpu=6.39% pamiec=163.8MiB/3.319GiB blockio=254MB/312MB
+kontener_solargraf-simulator-1_restarty: 0 stan=running zdrowie=brak
+kontener_solargraf-simulator-1_log_MiB: 1
+kontener_solargraf-simulator-1_log_limit: json-file 
+kontener_solargraf-agent-1_restarty: 0 stan=running zdrowie=brak
+kontener_solargraf-agent-1_log_MiB: 1
+kontener_solargraf-agent-1_log_limit: json-file 
+kontener_solargraf-proxy-1_restarty: 0 stan=running zdrowie=brak
+kontener_solargraf-proxy-1_log_MiB: 1
+kontener_solargraf-proxy-1_log_limit: json-file 
+kontener_solargraf-api-1_restarty: 0 stan=running zdrowie=healthy
+kontener_solargraf-api-1_log_MiB: 4
+kontener_solargraf-api-1_log_limit: json-file 
+kontener_solargraf-worker-1_restarty: 0 stan=running zdrowie=brak
+kontener_solargraf-worker-1_log_MiB: 1
+kontener_solargraf-worker-1_log_limit: json-file 
+kontener_solargraf-migrate-1_restarty: 0 stan=exited zdrowie=unhealthy
+kontener_solargraf-migrate-1_log_MiB: 1
+kontener_solargraf-migrate-1_log_limit: json-file 
+kontener_solargraf-db-1_restarty: 0 stan=running zdrowie=healthy
+kontener_solargraf-db-1_log_MiB: 1
+kontener_solargraf-db-1_log_limit: json-file 
+docker_obrazy_i_wolumeny: Images=1.135GB Containers=61.44kB Local Volumes=145.8MB Build Cache=7.912GB 
+
+## agent_bufor
+agent_plik_buffer.sqlite3_bajty: 32768
+agent_plik_buffer.sqlite3-shm_bajty: 32768
+agent_plik_buffer.sqlite3-wal_bajty: 4132392
+agent_bufor_cykli: 0 najstarszy: None
+
+## baza
+baza_rozmiar_MiB: 80
+tabela_measurements_y2026m11_MiB: 59.1 wiersze~208005
+tabela_system_metric_samples_MiB: 3.8 wiersze~22560
+tabela_polling_runs_MiB: 2.8 wiersze~9434
+tabela_aggregates_MiB: 2.3 wiersze~8065
+tabela_agent_batches_MiB: 1.7 wiersze~9947
+pomiary_wierszy_24h: 127425
+cykle_wierszy: 10995
+urzadzenia: 1
+instalacje: 1
+polaczenia_aktywne: 7
+cache_hit_proc: 99.65
+seq_scan_measurements_y2026m11: 19 idx_scan=21234
+seq_scan_aggregates: 239 idx_scan=4985
+seq_scan_polling_runs: 9 idx_scan=276
+seq_scan_devices: 56952 idx_scan=0
+seq_scan_agents: 11048 idx_scan=0
+seq_scan_agent_batches: 1 idx_scan=821
+seq_scan_auth_sessions: 3682 idx_scan=0
+seq_scan_system_alarms: 174 idx_scan=137
+sql_live_migawka_ms: 107.657
+sql_live_migawka_bufory: hit=102122
+sql_live_migawka_plan: 
+sql_alarmy_cykle_15min_ms: 0.143
+sql_alarmy_cykle_15min_bufory: hit=66
+sql_alarmy_cykle_15min_plan: 
+sql_energia_pochodzenie_dzien_ms: 3.423
+sql_energia_pochodzenie_dzien_bufory: hit=863
+sql_energia_pochodzenie_dzien_plan: Bitmap Heap Scan on measurements_y2026m11
+sql_energia_pochodzenie_rok_ms: 11.500
+sql_energia_pochodzenie_rok_bufory: hit=3889
+sql_energia_pochodzenie_rok_plan: Bitmap Heap Scan on measurements_y2026m11
+sql_energia_m5_rok_ms: 0.663
+sql_energia_m5_rok_bufory: hit=24
+sql_energia_m5_rok_plan: 
+sql_historia_licz_doba_ms: 14.865
+sql_historia_licz_doba_bufory: hit=4652
+sql_historia_licz_doba_plan: Seq Scan on measurements_y2026m11
