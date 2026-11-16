@@ -32,6 +32,7 @@ Projekt zaczyna się od dokumentacji oraz kontrolowanego MVP; nie zakłada jeszc
 ## Dokumenty
 
 - [`ROADMAP.md`](ROADMAP.md) — etapy, kryteria ukończenia i priorytety.
+- [`docs/DO_ZROBIENIA.md`](docs/DO_ZROBIENIA.md) — bieżąca lista zadań z analizy wersji 0.17.0.
 - [`docs/DECISIONS.md`](docs/DECISIONS.md) — decyzje zatwierdzone i otwarte.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — architektura.
 - [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) — encje, pomiary i reguły obliczeń.
